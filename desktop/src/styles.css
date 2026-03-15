@@ -149,6 +149,12 @@ html[data-platform="linux"] .tb-toggle-right {
     margin-right: 140px;
 }
 
+/* 次级窗口透明标题栏：仅作为 window-controls 宿主，不遮挡内容 */
+.titlebar-minimal {
+    background: transparent;
+    border-bottom: none;
+}
+
 /* ── Windows/Linux 自绘窗口控制按钮 ── */
 .window-controls {
     position: absolute;

@@ -40,6 +40,16 @@
         }
         /* 隐藏返回按钮（窗口有自己的关闭按钮） */
         .settings-back-btn { display: none; }
+        /* Windows/Linux：透明标题栏覆盖层，只为承载 window controls 注入点 */
+        .titlebar-minimal {
+            background: transparent;
+            border-bottom: none;
+        }
+        /* Windows/Linux：无红绿灯，不需要大 padding-top */
+        html[data-platform="win32"] .settings-header,
+        html[data-platform="linux"] .settings-header {
+            padding-top: 10px;
+        }
         /* 加载蒙版 */
         .settings-loading-mask {
             position: fixed;
@@ -58,6 +68,8 @@
     </style>
 </head>
 <body>
+    <!-- Windows/Linux 自绘窗口控制按钮注入点（platform.js initPlatform 查找 .titlebar 并注入） -->
+    <div class="titlebar titlebar-minimal"></div>
     <div id="react-root"></div>
 
     <script src="lib/markdown-it.min.js"></script>
