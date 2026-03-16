@@ -11,8 +11,21 @@
 const { app, BrowserWindow, WebContentsView, globalShortcut, ipcMain, dialog, session, shell, nativeTheme, Tray, Menu, nativeImage, systemPreferences, Notification } = require("electron");
 const os = require("os");
 const path = require("path");
-const { fork } = require("child_process");
+const { fork, execFileSync } = require("child_process");
 const fs = require("fs");
+
+// macOS/Linux: Electron 从 Dock/Finder 启动时 PATH 只有系统默认值，
+// Homebrew、npm global 等路径全部丢失。用登录 shell 解析完整 PATH。
+if (process.platform !== "win32") {
+  try {
+    const loginShell = process.env.SHELL || "/bin/zsh";
+    const resolved = execFileSync(loginShell, ["-l", "-c", "printenv PATH"], {
+      timeout: 5000,
+      encoding: "utf8",
+    }).trim();
+    if (resolved) process.env.PATH = resolved;
+  } catch {}
+}
 
 const hanakoHome = process.env.HANA_HOME
   ? path.resolve(process.env.HANA_HOME.replace(/^~/, os.homedir()))
