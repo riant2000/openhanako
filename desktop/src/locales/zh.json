@@ -667,6 +667,11 @@
     "provider": {
       "title": "选择 AI 供应商",
       "subtitle": "我需要一个 AI 模型供应商来工作。\n选择你常用的供应商并填入 API Key。",
+      "custom": "自定义...",
+      "customName": "名称",
+      "customNamePlaceholder": "如 my-provider",
+      "customUrl": "API 地址",
+      "customUrlPlaceholder": "如 https://api.example.com/v1",
       "keyLabel": "API Key",
       "keyPlaceholder": "粘贴你的 API Key",
       "test": "测试连接",

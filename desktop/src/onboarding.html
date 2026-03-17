@@ -201,6 +201,34 @@
             font-weight: 500;
         }
 
+        /* ── Custom provider ── */
+        .custom-provider-row {
+            width: 100%;
+            margin-bottom: 4px;
+        }
+        .custom-provider-fields {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+        .custom-field {
+            flex: 1;
+            min-width: 0;
+        }
+        .custom-field .ob-field-label {
+            font-size: 0.75rem;
+            margin-bottom: 2px;
+            display: block;
+        }
+        .custom-field .ob-input {
+            width: 100%;
+        }
+        .custom-field select.ob-input {
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
         /* ── API key row ── */
         .ob-key-row {
             display: flex;
@@ -439,6 +467,24 @@
             <h1 class="onboarding-title" id="providerTitle"></h1>
             <p class="onboarding-subtitle" id="providerSubtitle"></p>
             <div class="provider-grid" id="providerGrid"></div>
+            <div id="customProviderRow" class="custom-provider-row" style="display:none">
+                <div class="custom-provider-fields">
+                    <div class="custom-field">
+                        <span class="ob-field-label" id="customNameLabel"></span>
+                        <input class="ob-input" type="text" id="customNameInput" autocomplete="off">
+                    </div>
+                    <div class="custom-field">
+                        <span class="ob-field-label" id="customUrlLabel"></span>
+                        <input class="ob-input" type="text" id="customUrlInput" autocomplete="off">
+                    </div>
+                    <div class="custom-field">
+                        <select class="ob-input" id="customApiSelect">
+                            <option value="openai-completions">OpenAI Compatible</option>
+                            <option value="anthropic-messages">Anthropic Messages</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
             <span class="ob-field-label" id="providerKeyLabel">API Key</span>
             <div class="ob-key-row">
                 <input class="ob-input" type="password" id="providerKeyInput" autocomplete="off">

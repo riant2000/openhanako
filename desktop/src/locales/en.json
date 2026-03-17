@@ -667,6 +667,11 @@
     "provider": {
       "title": "Choose an AI Provider",
       "subtitle": "I need an AI model provider to work.\nPick your provider and enter your API Key.",
+      "custom": "Custom...",
+      "customName": "Name",
+      "customNamePlaceholder": "e.g. my-provider",
+      "customUrl": "API URL",
+      "customUrlPlaceholder": "e.g. https://api.example.com/v1",
       "keyLabel": "API Key",
       "keyPlaceholder": "Paste your API Key",
       "test": "Test Connection",

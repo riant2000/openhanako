@@ -53,6 +53,7 @@ const PROVIDER_PRESETS = [
   { value: "groq",        label: "Groq",              url: "https://api.groq.com/openai/v1", api: "openai-completions" },
   { value: "mistral",     label: "Mistral",           url: "https://api.mistral.ai/v1", api: "openai-completions" },
   { value: "minimax",     label: "MiniMax",           url: "https://api.minimaxi.com/anthropic", api: "anthropic-messages" },
+  { value: "_custom",     label: "",                  url: "",  api: "openai-completions", custom: true },
 ];
 
 // ── Server 通信 ──
@@ -147,6 +148,10 @@ function applyI18n() {
   sp("providerSubtitle", "onboarding.provider.subtitle");
   s("providerKeyLabel", "onboarding.provider.keyLabel");
   $("#providerKeyInput").placeholder = t("onboarding.provider.keyPlaceholder");
+  s("customNameLabel", "onboarding.provider.customName");
+  $("#customNameInput").placeholder = t("onboarding.provider.customNamePlaceholder");
+  s("customUrlLabel", "onboarding.provider.customUrl");
+  $("#customUrlInput").placeholder = t("onboarding.provider.customUrlPlaceholder");
   s("providerTestBtn", "onboarding.provider.test");
   s("providerBackBtn", "onboarding.provider.back");
   s("providerNextBtn", "onboarding.provider.next");
@@ -227,6 +232,7 @@ function renderLocalePicker() {
       // 切换语言包并重新渲染所有文本
       await i18n.load(loc.value);
       applyI18n();
+      renderProviderGrid();
       renderThemeGrid();
     });
 
@@ -243,16 +249,33 @@ function renderProviderGrid() {
   for (const preset of PROVIDER_PRESETS) {
     const card = document.createElement("div");
     card.className = "provider-card";
-    card.textContent = preset.label;
+    card.textContent = preset.custom ? t("onboarding.provider.custom") : preset.label;
     card.dataset.value = preset.value;
 
     card.addEventListener("click", () => {
       grid.querySelectorAll(".provider-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
-      state.providerName = preset.value;
-      state.providerUrl = preset.url;
-      state.providerApi = preset.api;
-      state.isLocalProvider = !!preset.local;
+
+      const customRow = $("#customProviderRow");
+      if (preset.custom) {
+        // 自定义模式：显示额外输入框
+        customRow.style.display = "";
+        state.providerName = "";
+        state.providerUrl = "";
+        state.providerApi = "openai-completions";
+        state.isLocalProvider = false;
+        // 从输入框读取已有值
+        const nameVal = $("#customNameInput").value.trim();
+        const urlVal = $("#customUrlInput").value.trim();
+        if (nameVal) state.providerName = nameVal;
+        if (urlVal) state.providerUrl = urlVal;
+      } else {
+        customRow.style.display = "none";
+        state.providerName = preset.value;
+        state.providerUrl = preset.url;
+        state.providerApi = preset.api;
+        state.isLocalProvider = !!preset.local;
+      }
       state.connectionTested = false;
       $("#providerTestStatus").textContent = "";
       // 本地 provider 隐藏 key 输入
@@ -272,15 +295,15 @@ function renderProviderGrid() {
 
 function updateProviderBtns() {
   if (PREVIEW) {
-    // 预览模式：所有按钮可用
     $("#providerTestBtn").disabled = false;
     $("#providerNextBtn").disabled = false;
     return;
   }
   const hasKey = !!state.apiKey || !!state.isLocalProvider;
   const hasProvider = !!state.providerName;
-  $("#providerTestBtn").disabled = !(hasProvider && hasKey);
-  $("#providerNextBtn").disabled = !(hasProvider && hasKey && state.connectionTested);
+  const hasUrl = !!state.providerUrl;
+  $("#providerTestBtn").disabled = !(hasProvider && hasUrl && hasKey);
+  $("#providerNextBtn").disabled = !(hasProvider && hasUrl && hasKey && state.connectionTested);
 }
 
 async function testConnection() {
@@ -626,6 +649,22 @@ function bindEvents() {
     $("#providerTestStatus").textContent = "";
     updateProviderBtns();
   });
+
+  // 自定义 Provider 输入
+  const customNameInput = $("#customNameInput");
+  const customUrlInput = $("#customUrlInput");
+  const customApiSelect = $("#customApiSelect");
+  const onCustomInput = () => {
+    state.providerName = customNameInput.value.trim().toLowerCase().replace(/\s+/g, "-");
+    state.providerUrl = customUrlInput.value.trim();
+    state.providerApi = customApiSelect.value;
+    state.connectionTested = false;
+    $("#providerTestStatus").textContent = "";
+    updateProviderBtns();
+  };
+  customNameInput.addEventListener("input", onCustomInput);
+  customUrlInput.addEventListener("input", onCustomInput);
+  customApiSelect.addEventListener("change", onCustomInput);
 
   $("#toggleKey").addEventListener("click", () => {
     keyInput.type = keyInput.type === "password" ? "text" : "password";
