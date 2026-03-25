@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../store';
 import { hanaFetch } from '../../api';
 import {
-  t, lookupModelMeta, formatContext, autoSaveGlobalModels,
+  t, lookupModelMeta, formatContext, autoSaveGlobalModels, favKey,
 } from '../../helpers';
 import { loadSettingsConfig } from '../../actions';
 import { SelectWidget } from '../../widgets/SelectWidget';
@@ -10,17 +10,20 @@ import { ModelWidget } from '../../widgets/ModelWidget';
 import { KeyInput } from '../../widgets/KeyInput';
 import styles from '../../Settings.module.css';
 
-function ToolModelTestBtn({ modelId }: { modelId: string }) {
+function ToolModelTestBtn({ modelRef }: { modelRef: string | { id: string; provider?: string } }) {
   const [status, setStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
 
+  const id = typeof modelRef === 'object' ? modelRef?.id : modelRef;
+  const provider = typeof modelRef === 'object' ? modelRef?.provider : undefined;
+
   const test = async () => {
-    if (!modelId) return;
+    if (!id) return;
     setStatus('testing');
     try {
       const res = await hanaFetch('/api/models/health', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId }),
+        body: JSON.stringify({ modelId: id, provider }),
       });
       const data = await res.json();
       setStatus(data.ok ? 'ok' : 'fail');
@@ -30,7 +33,7 @@ function ToolModelTestBtn({ modelId }: { modelId: string }) {
     setTimeout(() => setStatus('idle'), 3000);
   };
 
-  if (!modelId) return null;
+  if (!id) return null;
 
   return (
     <button className={`${styles['pv-tool-test-btn']} ${styles[status] || ''}`} onClick={test} disabled={status === 'testing'}>
@@ -93,6 +96,19 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
     }
   };
 
+  // 工具模型配置可能是 {id, provider} 对象或裸字符串，统一转为 favKey 格式供 ModelWidget 使用
+  const toFavKeyValue = (raw: unknown): string => {
+    if (!raw) return '';
+    if (typeof raw === 'object' && (raw as any).id) {
+      const r = raw as { id: string; provider?: string };
+      return r.provider ? favKey(r.provider, r.id) : r.id;
+    }
+    return String(raw);
+  };
+
+  const utilityVal = toFavKeyValue(globalModelsConfig?.models?.utility);
+  const utilityLargeVal = toFavKeyValue(globalModelsConfig?.models?.utility_large);
+
   return (
     <>
       <div className={styles['settings-row']}>
@@ -102,12 +118,12 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             <ModelWidget
               providers={providers}
               favorites={pendingFavorites}
-              value={globalModelsConfig?.models?.utility || ''}
+              value={utilityVal}
               onSelect={(id) => autoSaveGlobalModels({ models: { utility: id } })}
               lookupModelMeta={lookupModelMeta}
               formatContext={formatContext}
             />
-            <ToolModelTestBtn modelId={globalModelsConfig?.models?.utility || ''} />
+            <ToolModelTestBtn modelRef={globalModelsConfig?.models?.utility || ''} />
           </div>
           <span className={styles['settings-field-hint']}>{t('settings.api.utilityModelHint')}</span>
         </div>
@@ -117,12 +133,12 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             <ModelWidget
               providers={providers}
               favorites={pendingFavorites}
-              value={globalModelsConfig?.models?.utility_large || ''}
+              value={utilityLargeVal}
               onSelect={(id) => autoSaveGlobalModels({ models: { utility_large: id } })}
               lookupModelMeta={lookupModelMeta}
               formatContext={formatContext}
             />
-            <ToolModelTestBtn modelId={globalModelsConfig?.models?.utility_large || ''} />
+            <ToolModelTestBtn modelRef={globalModelsConfig?.models?.utility_large || ''} />
           </div>
           <span className={styles['settings-field-hint']}>{t('settings.api.utilityLargeModelHint')}</span>
         </div>

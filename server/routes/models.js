@@ -80,10 +80,13 @@ export function createModelsRoute(engine) {
   route.post("/models/health", async (c) => {
     try {
       const body = await safeJson(c);
-      const { modelId } = body;
-      if (!modelId) return c.json({ error: "modelId required" }, 400);
+      const raw = body.modelId;
+      if (!raw) return c.json({ error: "modelId required" }, 400);
 
-      const { provider } = body;
+      // modelId 可能是字符串或 {id, provider} 对象
+      const { id: parsedId, provider: parsedProvider } = parseModelRef(raw);
+      const modelId = parsedId;
+      const provider = body.provider || parsedProvider;
       const model = findModel(engine.availableModels, modelId, provider);
       if (!model) return c.json({ error: `model "${modelId}" not found` }, 404);
 
