@@ -21,12 +21,12 @@ export function ModelSelector({ models, disabled }: { models: Array<{ id: string
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const switchModel = useCallback(async (modelId: string) => {
+  const switchModel = useCallback(async (modelId: string, provider?: string) => {
     try {
       await hanaFetch('/api/models/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId }),
+        body: JSON.stringify({ modelId, provider }),
       });
       const res = await hanaFetch('/api/models/favorites');
       const data = await res.json();
@@ -76,7 +76,7 @@ export function ModelSelector({ models, disabled }: { models: Array<{ id: string
                   <button
                     key={m.id}
                     className={`${styles['model-option']}${m.isCurrent ? ` ${styles.active}` : ''}`}
-                    onClick={() => switchModel(m.id)}
+                    onClick={() => switchModel(m.id, m.provider)}
                   >
                     {m.name}
                   </button>

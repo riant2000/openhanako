@@ -4,10 +4,10 @@ export type ThinkingLevel = 'off' | 'auto' | 'high' | 'xhigh';
 
 export interface ModelSlice {
   models: Model[];
-  currentModel: string | null;
+  currentModel: { id: string; provider: string } | null;
   thinkingLevel: ThinkingLevel;
   setModels: (models: Model[]) => void;
-  setCurrentModel: (model: string | null) => void;
+  setCurrentModel: (model: { id: string; provider: string } | null) => void;
   setThinkingLevel: (level: ThinkingLevel) => void;
 }
 

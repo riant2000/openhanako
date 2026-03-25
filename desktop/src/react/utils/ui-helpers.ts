@@ -29,9 +29,10 @@ export async function loadModels(): Promise<void> {
   try {
     const res = await hanaFetch('/api/models/favorites');
     const data = await res.json();
+    const currentModelObj = (data.models || []).find((m: any) => m.isCurrent);
     useStore.setState({
       models: data.models || [],
-      currentModel: data.current,
+      currentModel: currentModelObj ? { id: currentModelObj.id, provider: currentModelObj.provider } : null,
     });
   } catch { /* silent */ }
 }

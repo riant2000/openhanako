@@ -45,6 +45,7 @@ export interface SessionStream {
 export interface Model {
   id: string;
   name: string;
+  provider: string;
   isCurrent?: boolean;
   reasoning?: boolean;
   xhigh?: boolean;
