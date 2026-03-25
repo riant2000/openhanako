@@ -135,6 +135,7 @@ export class HanaEngine {
       getPrefs: () => this._prefs,
       getSkills: () => this._skills,
       getSession: () => this._sessionCoord.session,
+      getSessionCoordinator: () => this._sessionCoord,
       getHub: () => this._hub,
       emitEvent: (e, sp) => this._emitEvent(e, sp),
       emitDevLog: (t, l) => this.emitDevLog(t, l),

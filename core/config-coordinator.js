@@ -41,6 +41,7 @@ export class ConfigCoordinator {
    * @param {() => import('./preferences-manager.js').PreferencesManager} deps.getPrefs
    * @param {() => import('./skill-manager.js').SkillManager} deps.getSkills
    * @param {() => object|null} deps.getSession - 当前 session
+   * @param {() => import('./session-coordinator.js').SessionCoordinator|null} deps.getSessionCoordinator
    * @param {() => object|null} deps.getHub
    * @param {(event, sp) => void} deps.emitEvent
    * @param {(text, level?) => void} deps.emitDevLog
@@ -211,6 +212,9 @@ export class ConfigCoordinator {
     if (session) {
       await session.setModel(model);
     }
+    // 同步更新当前 session 的快照
+    const sessionCoord = this._d.getSessionCoordinator();
+    sessionCoord?.updateCurrentSessionModelId(modelId);
   }
 
   setThinkingLevel(level) {
@@ -287,6 +291,9 @@ export class ConfigCoordinator {
             models.resolveThinkingLevel(this.getThinkingLevel())
           );
         }
+        // 同步 SessionEntry 快照
+        const sessionCoord = this._d.getSessionCoordinator();
+        sessionCoord?.updateCurrentSessionModelId(partial.models.chat);
       }
     }
 
