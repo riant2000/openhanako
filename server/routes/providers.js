@@ -122,23 +122,26 @@ export function createProvidersRoute(engine) {
     }
 
     // 追加 OAuth-only provider（有 auth.json 但没在 providers.yaml 里）
-    // 只暴露 ProviderRegistry 中注册的 OAuth provider
-    for (const [id, info] of oauthLoginMap) {
-      if (result[id]) continue;
-      if (!provRegistry.isOAuth(id)) continue;
-      const sdkIds = sdkByProvider.get(id) || [];
-      const customModels = oauthCustom[id] || [];
-      result[id] = {
+    // 遍历已注册的 OAuth plugin，用 authJsonKey 查 oauthLoginMap
+    for (const oauthId of provRegistry.getOAuthProviderIds()) {
+      if (result[oauthId]) continue;
+      const authKey = provRegistry.getAuthJsonKey(oauthId);
+      const loginInfo = oauthLoginMap.get(authKey);
+      if (!loginInfo) continue;
+      const sdkIds = sdkByProvider.get(authKey) || sdkByProvider.get(oauthId) || [];
+      const customModels = oauthCustom[authKey] || oauthCustom[oauthId] || [];
+      result[oauthId] = {
         type: "oauth",
-        display_name: info.name || id,
+        display_name: loginInfo.name || oauthId,
         base_url: "",
         api: "",
         api_key: "",
         models: sdkIds,
         custom_models: customModels,
-        has_credentials: !!info.loggedIn,
-        logged_in: !!info.loggedIn,
+        has_credentials: !!loginInfo.loggedIn,
+        logged_in: !!loginInfo.loggedIn,
         supports_oauth: true,
+        is_coding_plan: false,
         can_delete: false,
       };
     }
@@ -161,7 +164,7 @@ export function createProvidersRoute(engine) {
           has_credentials: false,
           logged_in: undefined,
           supports_oauth: false,
-          is_coding_plan: isCodingPlan(id),
+          is_coding_plan: id.endsWith("-coding"),
           can_delete: false,
         };
       }
