@@ -1175,6 +1175,7 @@
     "settingsInvalidValue": "「{value}」不是有效的选项。可选：{options}",
     "settingsInvalidToggle": "toggle 类型仅接受 \"true\" 或 \"false\"。",
     "settingsNotReady": "设置系统未就绪",
+    "settingsNoAgent": "当前没有活跃的 Agent，无法修改此设置",
     "settingsApplied": "已将「{label}」修改为 {value}",
     "settingsApplyFailed": "设置修改失败: {msg}",
     "settingsCancelled": "用户取消了「{label}」的修改",

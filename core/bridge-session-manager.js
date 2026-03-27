@@ -240,10 +240,9 @@ export class BridgeSessionManager {
 
       try {
         // 非 vision 模型：静默剥离图片，只发文字
-        // 用户 overrides 优先于 known-models 词典值
-        const _visionOv = agent.config?.models?.overrides?.[session.model?.id]?.vision;
-        const _effectiveVision = _visionOv !== undefined ? _visionOv : session.model?.vision;
-        if (opts.images?.length && _effectiveVision === false) {
+        // 注意：bridge session 可能不属于 focus agent，必须传入该 session 对应 agent 的 overrides
+        const _resolved = this._deps.resolveModelOverrides?.(session.model, agent.config?.models?.overrides);
+        if (opts.images?.length && _resolved?.vision === false) {
           opts.images = undefined;
         }
         const promptOpts = opts.images?.length ? { images: opts.images } : undefined;

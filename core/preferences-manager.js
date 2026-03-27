@@ -17,21 +17,27 @@ export class PreferencesManager {
     this._userDir = userDir;
     this._agentsDir = agentsDir;
     this._path = path.join(userDir, "preferences.json");
+    this._cache = this._readFromDisk();
   }
 
-  /** 读取全局 preferences */
+  /** 读取全局 preferences（从内存缓存） */
   getPreferences() {
-    try {
-      return JSON.parse(fs.readFileSync(this._path, "utf-8"));
-    } catch { return {}; }
+    return structuredClone(this._cache);
   }
 
-  /** 写入全局 preferences（tmp+rename 原子写，防 crash 截断） */
+  /** 写入全局 preferences（更新缓存 + 原子写磁盘） */
   savePreferences(prefs) {
+    this._cache = structuredClone(prefs);
     fs.mkdirSync(this._userDir, { recursive: true });
     const tmp = this._path + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify(prefs, null, 2) + "\n", "utf-8");
     fs.renameSync(tmp, this._path);
+  }
+
+  /** @private 从磁盘读取（仅构造时调用一次） */
+  _readFromDisk() {
+    try { return JSON.parse(fs.readFileSync(this._path, "utf-8")); }
+    catch { return {}; }
   }
 
   /** 读取沙盒模式偏好 */
@@ -42,7 +48,7 @@ export class PreferencesManager {
   /** 保存沙盒模式偏好 */
   setSandbox(enabled) {
     const prefs = this.getPreferences();
-    prefs.sandbox = enabled;
+    prefs.sandbox = typeof enabled === "string" ? enabled === "true" : !!enabled;
     this.savePreferences(prefs);
   }
 

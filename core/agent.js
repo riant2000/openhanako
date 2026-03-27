@@ -259,8 +259,8 @@ export class Agent {
     this._updateSettingsTool = createUpdateSettingsTool({
       getEngine: () => this._engine,
       getConfirmStore: () => this._engine?.confirmStore,
-      getSessionPath: () => this._engine?._sessionCoord?.currentSessionPath,
-      emitEvent: (event) => this._engine?._emitEvent(event, this._engine?._sessionCoord?.currentSessionPath),
+      getSessionPath: () => this._engine?.currentSessionPath,
+      emitEvent: (event) => this._engine?.emitSessionEvent(event),
     });
 
     // 9. 频道工具 + 私信工具（需要 channelsDir 和 agentsDir）

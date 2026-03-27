@@ -1161,6 +1161,7 @@
     "settingsInvalidValue": "\"{value}\"은(는) 유효한 옵션이 아니에요. 사용 가능: {options}",
     "settingsInvalidToggle": "toggle 유형은 \"true\" 또는 \"false\"만 허용돼요.",
     "settingsNotReady": "설정 시스템이 준비되지 않았어요",
+    "settingsNoAgent": "활성 에이전트가 없습니다. 이 설정을 변경할 수 없습니다",
     "settingsApplied": "\"{label}\"을(를) {value}(으)로 변경했어요",
     "settingsApplyFailed": "설정 변경 실패: {msg}",
     "settingsCancelled": "사용자가 \"{label}\" 변경을 취소했어요",

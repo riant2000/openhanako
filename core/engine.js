@@ -125,6 +125,7 @@ export class HanaEngine {
       getActivityStore: (id) => this.getActivityStore(id),
       getAgentById: (id) => this._agentMgr.getAgent(id),
       listAgents: () => this.listAgents(),
+      getConfirmStore: () => this._confirmStore,
     });
 
     // ── Config Coordinator ──
@@ -153,6 +154,7 @@ export class HanaEngine {
       getPreferences: () => this._readPreferences(),
       buildTools: (cwd, customTools, opts) => this.buildTools(cwd, customTools, opts),
       getHomeCwd: () => this.homeCwd,
+      resolveModelOverrides: (model, overrides) => this.resolveModelOverrides(model, overrides),
     });
 
     // Pi SDK resources（init 时填充）
@@ -178,6 +180,19 @@ export class HanaEngine {
   getAgent(agentId) { return this._agentMgr.getAgent(agentId); }
   get currentAgentId() { return this._agentMgr.activeAgentId; }
   get confirmStore() { return this._confirmStore; }
+
+  emitSessionEvent(event) {
+    this._emitEvent(event, this.currentSessionPath);
+  }
+
+  setConfirmStore(store) {
+    this._confirmStore = store;
+    if (store) {
+      store.onResolved = (confirmId, action) => {
+        this._emitEvent({ type: "confirmation_resolved", confirmId, action }, null);
+      };
+    }
+  }
 
   // 向后兼容 getter
   get agentDir() { return this.agent?.agentDir || path.join(this.agentsDir, this.currentAgentId); }
@@ -266,6 +281,27 @@ export class HanaEngine {
 
   /** 刷新可用模型列表（含 OAuth 自定义模型注入） */
   async refreshModels() { return this._models.refreshAvailable(); }
+
+  /**
+   * 返回应用了用户 override 的模型对象（浅拷贝）。
+   * override 字段映射集中在此处：ov.context→contextWindow, ov.maxOutput→maxTokens。
+   * 不处理 displayName（模型显示名有独立的解析链 resolveModelName）。
+   * @param {object} model - Pi SDK 模型对象
+   * @param {object} [overrides] - 可选，指定 override map。不传则用当前 focus agent 的 config。
+   *   bridge session 需要传入对应 agent 的 overrides，因为 bridge session 可能不属于 focus agent。
+   */
+  resolveModelOverrides(model, overrides) {
+    if (!model) return null;
+    const ov = (overrides || this.config?.models?.overrides)?.[model.id];
+    if (!ov) return model;
+    return {
+      ...model,
+      vision: ov.vision !== undefined ? ov.vision : (model.vision || false),
+      reasoning: ov.reasoning !== undefined ? ov.reasoning : (model.reasoning || false),
+      contextWindow: ov.context || model.contextWindow || null,
+      maxTokens: ov.maxOutput || model.maxTokens || null,
+    };
+  }
 
   getHomeFolder() { return this._configCoord.getHomeFolder(); }
   setHomeFolder(f) { return this._configCoord.setHomeFolder(f); }

@@ -424,6 +424,9 @@ export class SessionCoordinator {
       }
       entry.unsub();
       this._sessions.delete(sessionPath);
+
+      // 清理该 session 的 pending confirmation
+      this._d.getConfirmStore?.()?.abortBySession(sessionPath);
     }
     if (sessionPath === this.currentSessionPath) {
       this._session = null;

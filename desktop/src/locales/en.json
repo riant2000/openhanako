@@ -1175,6 +1175,7 @@
     "settingsInvalidValue": "\"{value}\" is not a valid option. Available: {options}",
     "settingsInvalidToggle": "Toggle settings only accept \"true\" or \"false\".",
     "settingsNotReady": "Settings system not ready",
+    "settingsNoAgent": "No active agent, cannot modify this setting",
     "settingsApplied": "Changed \"{label}\" to {value}",
     "settingsApplyFailed": "Settings change failed: {msg}",
     "settingsCancelled": "User cancelled change of \"{label}\"",

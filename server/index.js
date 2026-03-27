@@ -159,10 +159,7 @@ app.onError((err, c) => {
 
 // ── 阻塞式确认存储 ──
 const confirmStore = new ConfirmStore();
-confirmStore.onResolved = (confirmId, action) => {
-  engine._emitEvent({ type: "confirmation_resolved", confirmId, action }, null);
-};
-engine._confirmStore = confirmStore;
+engine.setConfirmStore(confirmStore);
 
 // ── 外部平台接入管理器 ──
 const bridgeManager = new BridgeManager({ engine, hub });
