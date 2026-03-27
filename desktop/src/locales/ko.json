@@ -1392,7 +1392,7 @@
       "description": "예약 작업을 만들고 관리해요. 예약 작업은 백그라운드에서 자동 실행되고, 지정 시간에 독립 session을 열어서 prompt를 실행해요.\n동작:\n- list: 전체 작업 보기\n- add(type, schedule, prompt, label?, model?): 작업 만들기\n  - type \"at\": 일회성, schedule은 ISO 시간 문자열\n  - type \"every\": 간격, schedule은 밀리초 (예: 3600000 = 1시간)\n  - type \"cron\": cron 표현식 (예: \"0 7 * * *\" = 매일 아침 7시)\n  - model: 선택, 작업 실행에 사용할 모델 지정 (미지정 시 대화 모델 사용)\n- remove(id): 작업 삭제\n- toggle(id): 작업 활성화/비활성화",
       "actionDesc": "동작 유형",
       "typeDesc": "스케줄 유형 (add에 필수)",
-      "scheduleDesc": "스케줄 파라미터: ISO 시간(at), 밀리초(every), cron 표현식(cron)",
+      "scheduleDesc": "스케줄: ISO 시간(at), 분(every, 예: 60=매시간), cron 표현식(cron)",
       "promptDesc": "지정 시간에 실행할 prompt (add에 필수)",
       "labelDesc": "작업 표시 라벨 (선택)",
       "modelDesc": "실행 모델 지정 (선택, 미지정 시 대화 모델 사용)",

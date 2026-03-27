@@ -1392,7 +1392,7 @@
       "description": "スケジュールタスクを作成・管理します。スケジュールタスクはバックグラウンドで自動実行され、指定時刻に独立した session を起動して prompt を実行します。\n操作：\n- list：全タスクを表示\n- add(type, schedule, prompt, label?, model?)：タスクを作成\n  - type \"at\"：一回限り、schedule は ISO 時間文字列\n  - type \"every\"：間隔、schedule はミリ秒数（例：3600000 = 1 時間）\n  - type \"cron\"：cron 式（例：\"0 7 * * *\" = 毎朝 7 時）\n  - model：オプション、タスク実行に使うモデルを指定（未指定の場合はチャットモデルを使用）\n- remove(id)：タスクを削除\n- toggle(id)：タスクの有効/無効を切り替え",
       "actionDesc": "操作タイプ",
       "typeDesc": "スケジュールタイプ（add の場合必須）",
-      "scheduleDesc": "スケジュールパラメータ：ISO 時間(at)、ミリ秒数(every)、cron 式(cron)",
+      "scheduleDesc": "スケジュール: ISO時刻(at)、分数(every、例:60=毎時)、cron式(cron)",
       "promptDesc": "指定時刻に実行する prompt（add の場合必須）",
       "labelDesc": "タスクの表示ラベル（オプション）",
       "modelDesc": "実行モデルを指定（オプション、未指定の場合はチャットモデルを使用）",
