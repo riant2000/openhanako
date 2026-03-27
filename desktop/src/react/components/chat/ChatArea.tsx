@@ -9,7 +9,6 @@ import { memo, useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../stores';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
-import { CompactionNotice } from './CompactionNotice';
 import type { ChatListItem } from '../../stores/chat-types';
 import styles from './Chat.module.css';
 
@@ -69,6 +68,7 @@ const SCROLL_THRESHOLD = 300;
 
 const Panel = memo(function Panel({ path, active }: { path: string; active: boolean }) {
   const items = useStore(s => s.chatSessions[path]?.items || []);
+  const isSessionStreaming = useStore(s => s.streamingSessions.includes(path));
   const ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const isAtBottom = useRef(true);
@@ -149,6 +149,11 @@ const Panel = memo(function Panel({ path, active }: { path: string; active: bool
             prevItem={i > 0 ? items[i - 1] : undefined}
           />
         ))}
+        {isSessionStreaming && (
+          <div className={styles.typingIndicator}>
+            <span /><span /><span />
+          </div>
+        )}
         <div className={styles.sessionFooter} />
       </div>
     </div>
@@ -185,9 +190,7 @@ const ItemView = memo(function ItemView({ item, prevItem }: {
   item: ChatListItem;
   prevItem?: ChatListItem;
 }) {
-  if (item.type === 'compaction') {
-    return <CompactionNotice yuan={item.yuan} />;
-  }
+  if (item.type === 'compaction') return null;
   const msg = item.data;
   const prevRole = prevItem?.type === 'message' ? prevItem.data.role : null;
   const showAvatar = msg.role !== prevRole;

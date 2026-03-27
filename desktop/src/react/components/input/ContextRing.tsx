@@ -18,7 +18,8 @@ export function ContextRing() {
   const storeContextTokens = useStore(s => s.contextTokens);
   const storeContextWindow = useStore(s => s.contextWindow);
   const storeContextPercent = useStore(s => s.contextPercent);
-  const storeCompacting = useStore(s => s.compacting);
+  const currentSessionPath = useStore(s => s.currentSessionPath);
+  const storeCompacting = useStore(s => currentSessionPath ? s.compactingSessions.includes(currentSessionPath) : false);
 
   useEffect(() => {
     if (storeContextTokens != null) {

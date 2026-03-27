@@ -56,7 +56,7 @@ export function connectWebSocket(port?: string, token?: string): void {
     _wsRetryDelay = 1000;
     _wsRetryCount = 0;
     setStatus('status.connected', true);
-    useStore.setState({ wsState: 'connected', wsReconnectAttempt: 0 });
+    useStore.setState({ wsState: 'connected', wsReconnectAttempt: 0, compactingSessions: [] });
 
     const s = useStore.getState();
     if (s.currentSessionPath && s.isStreaming) {

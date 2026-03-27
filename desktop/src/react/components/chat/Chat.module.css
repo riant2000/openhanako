@@ -520,66 +520,6 @@
 
 .xingCardLoading .xingCardCopy { display: none; }
 
-/* ── Compaction 压缩提示 ── */
-
-.compactionNotice {
-    --compaction-accent: var(--accent);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: var(--space-md) auto;
-    padding: 0.55rem 1rem;
-    width: fit-content;
-    max-width: 80%;
-    font-size: 0.8rem;
-    font-family: var(--font-serif);
-    color: var(--compaction-accent);
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--compaction-accent) 18%, transparent);
-    border-radius: var(--radius-md);
-    opacity: 1;
-    transition: opacity 0.3s ease;
-    animation: compactionBreathe 2.5s ease-in-out infinite;
-}
-
-.compactionNoticeFadeOut {
-    opacity: 0;
-}
-
-.compactionNotice[data-yuan="hanako"] { --compaction-accent: var(--accent); }
-.compactionNotice[data-yuan="butter"]  { --compaction-accent: #5BA88C; }
-.compactionNotice[data-yuan="ming"]    { --compaction-accent: #8BA4B4; }
-
-.compactionNoticeIcon {
-    flex-shrink: 0;
-    opacity: 0.8;
-}
-
-.compactionNoticeText {
-    letter-spacing: 0.02em;
-}
-
-.compactionNoticeDots {
-    display: inline-flex;
-    gap: 2px;
-    margin-left: 2px;
-}
-
-.compactionNoticeDots span {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: dotPulse 1.2s infinite;
-}
-
-.compactionNoticeDots span:nth-child(2) { animation-delay: 0.2s; }
-.compactionNoticeDots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes compactionBreathe {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-}
 
 /* ── 工具调用折叠组 ── */
 
@@ -975,6 +915,28 @@
     height: 12rem;
     flex-shrink: 0;
 }
+
+/* ── Typing indicator (streaming 等待) ── */
+
+.typingIndicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.6rem 0;
+    padding-left: calc(var(--space-sm) + 2px);
+    animation: msgIn 0.3s var(--ease-out);
+}
+
+.typingIndicator span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: dotPulse 1.2s infinite;
+}
+
+.typingIndicator span:nth-child(2) { animation-delay: 0.2s; }
+.typingIndicator span:nth-child(3) { animation-delay: 0.4s; }
 
 /* ── Scroll to bottom FAB ── */
 

@@ -120,21 +120,26 @@ export function handleServerMessage(msg: any): void {
     }
     // compaction_end 后更新 token
     if (msg.type === 'compaction_end') {
-      const patch: Record<string, any> = { compacting: false };
-      if (msg.tokens != null && msg.contextWindow != null) {
-        patch.contextTokens = msg.tokens;
-        patch.contextWindow = msg.contextWindow;
-        patch.contextPercent = msg.percent;
-      } else {
-        // SDK returns null right after compaction (no post-compaction response yet)
-        // Reset to null so the ring shows empty/estimating instead of stale pre-compaction values
-        patch.contextTokens = null;
-        patch.contextPercent = null;
+      const sp = msg.sessionPath;
+      if (sp) useStore.getState().removeCompactingSession(sp);
+      // 只有当前 session 的 compaction 才更新 context token 显示
+      if (sp === useStore.getState().currentSessionPath) {
+        if (msg.tokens != null && msg.contextWindow != null) {
+          useStore.setState({
+            contextTokens: msg.tokens,
+            contextWindow: msg.contextWindow,
+            contextPercent: msg.percent,
+          });
+        } else {
+          // SDK returns null right after compaction (no post-compaction response yet)
+          // Reset to null so the ring shows empty/estimating instead of stale pre-compaction values
+          useStore.setState({ contextTokens: null, contextPercent: null });
+        }
       }
-      useStore.setState(patch);
     }
     if (msg.type === 'compaction_start') {
-      useStore.setState({ compacting: true });
+      const sp = msg.sessionPath;
+      if (sp) useStore.getState().addCompactingSession(sp);
     }
     // artifact 需要通知 artifacts shim 更新预览
     if (msg.type === 'artifact' && state.currentTab === 'chat') {

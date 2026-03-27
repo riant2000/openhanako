@@ -352,15 +352,9 @@ class StreamBufferManager {
         break;
 
       case 'compaction_start':
-        useStore.getState().appendItem(sessionPath, {
-          type: 'compaction',
-          id: `compaction-${Date.now()}`,
-          yuan: useStore.getState().agentYuan || 'hanako',
-        });
         break;
 
       case 'compaction_end':
-        useStore.getState().removeLastCompaction(sessionPath);
         break;
 
       case 'turn_end':

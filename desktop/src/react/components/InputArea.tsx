@@ -44,8 +44,9 @@ function InputAreaInner() {
   const isStreaming = useStore(s => s.isStreaming);
   const connected = useStore(s => s.connected);
   const pendingNewSession = useStore(s => s.pendingNewSession);
-  const todosBySession = useStore(s => s.todosBySession);
   const currentSessionPath = useStore(s => s.currentSessionPath);
+  const compacting = useStore(s => currentSessionPath ? s.compactingSessions.includes(currentSessionPath) : false);
+  const todosBySession = useStore(s => s.todosBySession);
   const sessionTodos = (todosBySession && currentSessionPath && todosBySession[currentSessionPath]) || [];
   const attachedFiles = useStore(s => s.attachedFiles);
   const docContextAttached = useStore(s => s.docContextAttached);
@@ -387,11 +388,17 @@ function InputAreaInner() {
     <>
       {slashBusy && (
         <div className={styles['slash-busy-bar']}>
-          <span className={styles['slash-busy-dot']} />
+          <span className={styles['slash-busy-dots']}><span /><span /><span /></span>
           <span>{slashCommands.find(c => c.name === slashBusy)?.busyLabel || t('common.executing')}</span>
         </div>
       )}
-      {!slashBusy && slashResult && (
+      {!slashBusy && compacting && (
+        <div className={styles['slash-busy-bar']}>
+          <span className={styles['slash-busy-dots']}><span /><span /><span /></span>
+          <span>{t('chat.compacting')}</span>
+        </div>
+      )}
+      {!slashBusy && !compacting && slashResult && (
         <div className={`${styles['slash-busy-bar']}${slashResult.type === 'error' ? ` ${styles['slash-result-error']}` : ''}`}><span>{slashResult.text}</span></div>
       )}
       {(attachedFiles.length > 0 || quotedSelection || sessionTodos.length > 0) && (
