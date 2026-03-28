@@ -1,6 +1,6 @@
 {
   "name": "hanako",
-  "version": "0.73.5",
+  "version": "0.74.0",
   "type": "module",
   "description": "Hanako - a personal AI agent with memory and soul",
   "license": "Apache-2.0",
@@ -115,7 +115,10 @@
     ],
     "afterSign": "./scripts/notarize.cjs",
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.productivity",
       "icon": "desktop/src/icon.icns",
       "artifactName": "${productName}-${version}-macOS-${arch}.${ext}",
