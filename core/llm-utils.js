@@ -347,3 +347,44 @@ Examples:
   }
   return `agent-${Date.now().toString(36)}`;
 }
+
+/**
+ * 为 agent 生成能力描述摘要
+ * @param {object} utilConfig - resolveUtilityConfig() 返回值
+ * @param {string} personality - Agent.personality 全文
+ * @param {string} locale - agent 的 config.locale（"zh" / "en" 等）
+ * @returns {Promise<string|null>}
+ */
+export async function generateDescription(utilConfig, personality, locale) {
+  try {
+    const { utility: model, api_key, base_url, api } = utilConfig;
+    if (!api_key || !base_url || !api) return null;
+
+    const isZh = String(locale || "").startsWith("zh");
+    const systemContent = isZh
+      ? "根据以下 AI agent 的人格设定，写一段 100 字以内的能力描述。要求：涵盖人格特征、专长领域、沟通风格、适合的任务类型。纯文本，不要用 markdown 格式。直接输出描述，不要解释。"
+      : "Based on the following AI agent persona, write a capability description in under 100 characters. Cover: personality traits, expertise, communication style, suitable tasks. Plain text, no markdown. Output the description directly, no explanation.";
+
+    const raw = await callLlm({
+      model, api, api_key, base_url,
+      messages: [
+        { role: "system", content: systemContent },
+        { role: "user", content: personality.slice(0, 3000) },
+      ],
+      temperature: 0.3,
+      max_tokens: 200,
+    });
+    if (!raw) return null;
+
+    const text = raw.trim();
+    if (text.length <= 100) return text;
+    const cutIdx = Math.max(
+      text.lastIndexOf("。", 100),
+      text.lastIndexOf(".", 100),
+    );
+    return cutIdx > 20 ? text.slice(0, cutIdx + 1) : text.slice(0, 100);
+  } catch (err) {
+    console.error("[llm-utils] generateDescription failed:", err.message);
+    return null;
+  }
+}
