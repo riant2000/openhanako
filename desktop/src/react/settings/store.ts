@@ -74,6 +74,10 @@ export interface SettingsState {
   // skills
   skillsList: SkillInfo[];
 
+  // plugins
+  pluginAllowFullAccess: boolean;
+  pluginUserDir: string;
+
   // toast
   toastMessage: string;
   toastType: 'success' | 'error' | '';
@@ -123,6 +127,10 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
 
   // skills
   skillsList: [],
+
+  // plugins
+  pluginAllowFullAccess: false,
+  pluginUserDir: '',
 
   // toast
   toastMessage: '',

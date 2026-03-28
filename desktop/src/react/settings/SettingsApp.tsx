@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSettingsStore } from './store';
 import { hanaFetch } from './api';
 import { t } from './helpers';
-import { loadAgents, loadAvatars, loadSettingsConfig } from './actions';
+import { loadAgents, loadAvatars, loadSettingsConfig, loadPluginSettings } from './actions';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { WindowControls } from '../components/WindowControls';
 import { SettingsNav } from './SettingsNav';
@@ -145,8 +145,8 @@ async function initSettings() {
     // avatars
     await loadAvatars();
 
-    // config
-    await loadSettingsConfig();
+    // config + plugin settings
+    await Promise.all([loadSettingsConfig(), loadPluginSettings()]);
 
     store.set({ ready: true });
   } catch (err) {

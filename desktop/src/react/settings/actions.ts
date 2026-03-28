@@ -93,6 +93,20 @@ export async function loadSettingsConfig() {
   }
 }
 
+export async function loadPluginSettings() {
+  const store = useSettingsStore.getState();
+  try {
+    const res = await hanaFetch('/api/plugins/settings');
+    const data = await res.json();
+    store.set({
+      pluginAllowFullAccess: data.allow_full_access ?? false,
+      pluginUserDir: data.plugins_dir || '',
+    });
+  } catch (err) {
+    console.error('[plugins] load settings failed:', err);
+  }
+}
+
 export async function browseAgent(agentId: string) {
   useSettingsStore.setState({ settingsAgentId: agentId });
   await loadSettingsConfig();

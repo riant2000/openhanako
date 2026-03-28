@@ -18,11 +18,6 @@ interface PluginInfo {
   error?: string | null;
 }
 
-interface PluginSettings {
-  allow_full_access: boolean;
-  plugins_dir?: string;
-}
-
 /* ── Status badge ── */
 
 function StatusBadge({ status }: { status: PluginInfo['status'] }) {
@@ -74,10 +69,9 @@ function ContributionBadges({ contributions }: { contributions?: string[] }) {
 /* ── Main tab ── */
 
 export function PluginsTab() {
-  const { showToast } = useSettingsStore();
+  const { showToast, pluginAllowFullAccess, pluginUserDir, set } = useSettingsStore();
 
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
-  const [settings, setSettings] = useState<PluginSettings>({ allow_full_access: false });
   const [loading, setLoading] = useState(true);
   const [dragOver, setDragOver] = useState(false);
 
@@ -94,32 +88,19 @@ export function PluginsTab() {
     }
   }, []);
 
-  const loadSettings = useCallback(async () => {
-    try {
-      const res = await hanaFetch('/api/plugins/settings');
-      const data = await res.json();
-      setSettings({
-        allow_full_access: data.allow_full_access ?? false,
-        plugins_dir: data.plugins_dir || undefined,
-      });
-    } catch (err) {
-      console.error('[plugins] load settings failed:', err);
-    }
-  }, []);
-
   const reload = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadPlugins(), loadSettings()]);
+    await loadPlugins();
     setLoading(false);
-  }, [loadPlugins, loadSettings]);
+  }, [loadPlugins]);
 
   useEffect(() => { reload(); }, [reload]);
 
   /* ── full-access toggle ── */
 
   const toggleFullAccess = async () => {
-    const next = !settings.allow_full_access;
-    setSettings(prev => ({ ...prev, allow_full_access: next }));
+    const next = !pluginAllowFullAccess;
+    set({ pluginAllowFullAccess: next });
     try {
       const res = await hanaFetch('/api/plugins/settings', {
         method: 'PUT',
@@ -130,7 +111,7 @@ export function PluginsTab() {
       if (Array.isArray(data)) setPlugins(data);
       showToast(t('settings.autoSaved'), 'success');
     } catch (err: unknown) {
-      setSettings(prev => ({ ...prev, allow_full_access: !next }));
+      set({ pluginAllowFullAccess: !next });
       showToast(t('settings.saveFailed') + ': ' + (err instanceof Error ? err.message : String(err)), 'error');
     }
   };
@@ -218,10 +199,11 @@ export function PluginsTab() {
     <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="plugins">
       <section className={styles['settings-section']}>
         {/* Header + reload */}
-        <div className={styles['settings-section-header']}>
+        <div style={{ position: 'relative' }}>
           <h2 className={styles['settings-section-title']}>{t('settings.plugins.title')}</h2>
           <button
             className={styles['settings-icon-btn']}
+            style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)' }}
             title={t('settings.plugins.reload')}
             onClick={reload}
             disabled={loading}
@@ -263,7 +245,7 @@ export function PluginsTab() {
               <span className={styles['tool-caps-desc']}>{t('settings.plugins.fullAccessDesc')}</span>
             </div>
             <button
-              className={`hana-toggle${settings.allow_full_access ? ' on' : ''}`}
+              className={`hana-toggle${pluginAllowFullAccess ? ' on' : ''}`}
               onClick={toggleFullAccess}
             />
           </div>
@@ -338,9 +320,9 @@ export function PluginsTab() {
         )}
 
         {/* Bottom hint: plugin directory path */}
-        {settings.plugins_dir && (
+        {pluginUserDir && (
           <p className={styles['settings-desc']} style={{ marginTop: '12px', fontSize: '11px', opacity: 0.6 }}>
-            {t('settings.plugins.pluginsDir', { path: settings.plugins_dir })}
+            {t('settings.plugins.pluginsDir', { path: pluginUserDir })}
           </p>
         )}
       </section>
