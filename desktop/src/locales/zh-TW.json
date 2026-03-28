@@ -1124,6 +1124,8 @@
     "agentNotFoundAvailable": "找不到 agent \"{id}\"。可用：{ids}",
     "dmSent": "已傳送私訊給 {name}",
     "cannotCallSelf": "不能呼叫自己",
+    "noOtherAgents": "沒有其他可用的 agent。",
+    "askAgentNoTask": "請提供任務內容。",
     "agentNoReply": "（{name} 沒有回覆）",
     "agentCallFailed": "呼叫 {name} 失敗: {msg}",
     "cronNoJobs": "沒有定時任務",
@@ -1380,8 +1382,8 @@
     },
     "askAgent": {
       "label": "跨 Agent 呼叫",
-      "description": "派任務給另一個 agent，立即拿到結果。對方會當場處理並回覆，你可以直接把結果告訴使用者。\n適用場景：讓對方 review 程式碼、翻譯一段文字、從對方的專業視角分析問題等需要即時回饋的任務。\n對方以自己的人格和模型回覆，有唯讀工具（讀檔案、搜尋、web fetch），不能寫檔案或呼叫其他 agent。",
-      "agentDesc": "目標 agent 的 ID",
+      "description": "派任務給另一個 agent，立即取得結果。對方會當場處理並回覆，你可以直接把結果告訴使用者。\n適用場景：讓對方 review 程式碼、翻譯一段文字、從對方的專業視角分析問題等需要即時回饋的任務。\n對方以自己的人格和模型回覆，有唯讀工具（讀檔案、搜尋、web fetch），不能寫檔案或呼叫其他 agent。\n提示：不確定該找哪個 agent 時，傳 agent=\"?\" 可以查看所有可用 agent 的能力說明和模型。",
+      "agentDesc": "目標 agent 的 ID。傳 \"?\" 可查看所有可用 agent。",
       "taskDesc": "任務描述（對方看到的完整 prompt）"
     },
     "dm": {

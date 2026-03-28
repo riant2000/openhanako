@@ -1138,6 +1138,8 @@
     "agentNotFoundAvailable": "找不到 agent \"{id}\"。可用：{ids}",
     "dmSent": "已发送私信给 {name}",
     "cannotCallSelf": "不能调用自己",
+    "noOtherAgents": "没有其他可用的 agent。",
+    "askAgentNoTask": "请提供任务内容。",
     "agentNoReply": "（{name} 没有回复）",
     "agentCallFailed": "调用 {name} 失败: {msg}",
     "cronNoJobs": "没有定时任务",
@@ -1395,8 +1397,8 @@
     },
     "askAgent": {
       "label": "跨 Agent 调用",
-      "description": "派任务给另一个 agent，立即拿到结果。对方会当场处理并回复，你可以直接把结果告诉用户。\n适用场景：让对方 review 代码、翻译一段文字、从对方的专业视角分析问题等需要即时反馈的任务。\n对方以自己的人格和模型回复，有只读工具（读文件、搜索、web fetch），不能写文件或调用其他 agent。",
-      "agentDesc": "目标 agent 的 ID",
+      "description": "派任务给另一个 agent，立即拿到结果。对方会当场处理并回复，你可以直接把结果告诉用户。\n适用场景：让对方 review 代码、翻译一段文字、从对方的专业视角分析问题等需要即时反馈的任务。\n对方以自己的人格和模型回复，有只读工具（读文件、搜索、web fetch），不能写文件或调用其他 agent。\n提示：不确定该找哪个 agent 时，传 agent=\"?\" 可以查看所有可用 agent 的能力说明和模型。",
+      "agentDesc": "目标 agent 的 ID。传 \"?\" 可查看所有可用 agent。",
       "taskDesc": "任务描述（对方看到的完整 prompt）"
     },
     "dm": {

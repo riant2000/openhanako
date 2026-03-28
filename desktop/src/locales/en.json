@@ -1138,6 +1138,8 @@
     "agentNotFoundAvailable": "Agent \"{id}\" not found. Available: {ids}",
     "dmSent": "DM sent to {name}",
     "cannotCallSelf": "Cannot call yourself",
+    "noOtherAgents": "No other agents available.",
+    "askAgentNoTask": "Please provide a task for the agent.",
     "agentNoReply": "({name} did not reply)",
     "agentCallFailed": "Calling {name} failed: {msg}",
     "cronNoJobs": "No scheduled tasks",
@@ -1395,8 +1397,8 @@
     },
     "askAgent": {
       "label": "Cross-Agent Call",
-      "description": "Assign a task to another agent and get an immediate result. The other agent processes it on the spot and responds, and you can relay the result to the user.\nGood for: having the other agent review code, translate text, analyze a problem from their expertise, or any task requiring instant feedback.\nThe other agent responds with its own persona and model, has read-only tools (read files, search, web fetch), and cannot write files or call other agents.",
-      "agentDesc": "Target agent's ID",
+      "description": "Assign a task to another agent and get an immediate result. The other agent processes it on the spot and responds, and you can relay the result to the user.\nGood for: having the other agent review code, translate text, analyze a problem from their expertise, or any task requiring instant feedback.\nThe other agent responds with its own persona and model, has read-only tools (read files, search, web fetch), and cannot write files or call other agents.\nTip: If you're unsure which agent to call, pass agent=\"?\" to list all available agents with their capabilities and models.",
+      "agentDesc": "Target agent's ID. Use \"?\" to list all available agents.",
       "taskDesc": "Task description (the full prompt the other agent sees)"
     },
     "dm": {

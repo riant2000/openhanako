@@ -1114,6 +1114,8 @@
     "agentNotFoundAvailable": "agent \"{id}\" が見つかりません。利用可能：{ids}",
     "dmSent": "{name} にDMを送信しました",
     "cannotCallSelf": "自分自身は呼び出せません",
+    "noOtherAgents": "他に利用可能な agent がありません。",
+    "askAgentNoTask": "タスク内容を入力してください。",
     "agentNoReply": "（{name} は返信しませんでした）",
     "agentCallFailed": "{name} の呼び出しに失敗しました: {msg}",
     "cronNoJobs": "スケジュールタスクはありません",
@@ -1369,10 +1371,10 @@
       "languageDesc": "プログラミング言語（type=code の場合のみ有効）、例：javascript, python, css"
     },
     "askAgent": {
-      "label": "クロス Agent 呼び出し",
-      "description": "別の agent にタスクを割り当てて、即座に結果を取得します。相手はその場で処理して返答し、結果をそのままユーザーに伝えることができます。\n適している場面：コードレビュー、翻訳、相手の専門的な視点からの分析など、即時フィードバックが必要なタスク。\n相手は独自のペルソナとモデルで返答し、読み取り専用ツール（ファイル読み取り、検索、web fetch）を持っていますが、ファイルの書き込みや他の agent の呼び出しはできません。",
-      "agentDesc": "対象 agent の ID",
-      "taskDesc": "タスクの説明（相手が見る完全な prompt）"
+      "label": "Agent 間呼び出し",
+      "description": "別の agent にタスクを割り当て、即座に結果を取得します。相手はその場で処理して返答し、その結果をユーザーに伝えることができます。\n適している場面：相手にコードレビュー、翻訳、専門的な視点からの分析など、即座のフィードバックが必要なタスク。\n相手は独自のペルソナとモデルで返答し、読み取り専用ツール（ファイル読み取り、検索、web fetch）を持ち、ファイル書き込みや他の agent の呼び出しはできません。\nヒント：どの agent を呼ぶか迷った場合、agent=\"?\" で全 agent の能力とモデルを確認できます。",
+      "agentDesc": "対象 agent の ID。\"?\" で全 agent を一覧表示。",
+      "taskDesc": "タスクの説明（相手に見える完全なプロンプト）"
     },
     "dm": {
       "label": "ダイレクトメッセージ",
