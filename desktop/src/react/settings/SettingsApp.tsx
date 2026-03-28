@@ -38,7 +38,7 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   skills: SkillsTab,
   bridge: BridgeTab,
   providers: ProvidersTab,
-  // plugins: PluginsTab,  // 暂时隐藏，等社区插件开放后启用
+  plugins: PluginsTab,
   about: AboutTab,
 };
 
