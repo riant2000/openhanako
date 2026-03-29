@@ -6,10 +6,33 @@ const FORMAT_TO_MIME = {
   webp: "image/webp",
 };
 
+// 分辨率档位 + 长宽比 → 具体像素值查表
+const SIZE_TABLE = {
+  "2K": {
+    "1:1": "2048x2048", "4:3": "2304x1728", "3:4": "1728x2304",
+    "16:9": "2848x1600", "9:16": "1600x2848", "3:2": "2496x1664",
+    "2:3": "1664x2496", "21:9": "3136x1344",
+  },
+  "4K": {
+    "1:1": "4096x4096", "4:3": "3456x2592", "3:4": "2592x3456",
+    "16:9": "4096x2304", "9:16": "2304x4096", "3:2": "3744x2496",
+    "2:3": "2496x3744", "21:9": "4704x2016",
+  },
+};
+
+function resolveSize(size, aspectRatio, providerDefaults) {
+  const effectiveRatio = aspectRatio || providerDefaults?.aspect_ratio;
+  const effectiveSize = size || providerDefaults?.size || "2K";
+
+  if (effectiveRatio) {
+    // 查表：分辨率档位 + 比例 → 像素值
+    const tier = SIZE_TABLE[effectiveSize.toUpperCase()] || SIZE_TABLE["2K"];
+    return tier[effectiveRatio] || effectiveSize;
+  }
+  return effectiveSize;
+}
+
 export const volcengineAdapter = {
-  /**
-   * @param {{ prompt: string, modelId: string, apiKey: string, baseUrl: string, size?: string, format?: string, quality?: string, providerDefaults?: object }} opts
-   */
   async generate({ prompt, modelId, apiKey, baseUrl, size, format, quality, aspectRatio, image, providerDefaults }) {
     const outputFormat = format || providerDefaults?.format || "png";
     const body = {
@@ -17,21 +40,8 @@ export const volcengineAdapter = {
       prompt,
       response_format: "b64_json",
       output_format: outputFormat,
+      size: resolveSize(size, aspectRatio, providerDefaults),
     };
-
-    // 火山引擎 size 字段支持两种格式：
-    // 1. 比例字符串（"16:9"）+ quality 传分辨率档位（"2K"/"4K"）
-    // 2. 精确像素（"2848x1600"）
-    // 当有 aspect_ratio 时用方式 1，否则用 size 原值
-    const effectiveRatio = aspectRatio || providerDefaults?.aspect_ratio;
-    if (effectiveRatio) {
-      body.size = effectiveRatio;
-      // 分辨率档位通过 quality 字段传递
-      const resolution = size || providerDefaults?.size;
-      if (resolution) body.quality = resolution;
-    } else if (size || providerDefaults?.size) {
-      body.size = size || providerDefaults.size;
-    }
     if (image) body.image = Array.isArray(image) ? image : [image];
 
     // Apply provider-specific defaults (watermark defaults to false)
