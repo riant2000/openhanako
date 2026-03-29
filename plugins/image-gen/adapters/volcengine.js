@@ -34,7 +34,7 @@ function resolveSize(size, aspectRatio, providerDefaults) {
 
 export const volcengineAdapter = {
   async generate({ prompt, modelId, apiKey, baseUrl, size, format, quality, aspectRatio, image, providerDefaults }) {
-    const outputFormat = format || providerDefaults?.format || "png";
+    const outputFormat = format || providerDefaults?.format || "jpeg";
     const body = {
       model: modelId,
       prompt,
