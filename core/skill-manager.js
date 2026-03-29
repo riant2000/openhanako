@@ -156,11 +156,12 @@ export class SkillManager {
   }
 
   /**
-   * 更新外部路径（纯数据更新 + 重建 watcher，不触发 reload）
+   * 更新外部路径，重新扫描外部 skill，重建 watcher
    * @param {Array<{ dirPath: string, label: string }>} paths
    */
   setExternalPaths(paths) {
     this._externalPaths = paths;
+    this._appendExternalSkills();
     this._closeExternalWatchers();
     if (this._reloadDeps) {
       this._watchExternalPaths();
