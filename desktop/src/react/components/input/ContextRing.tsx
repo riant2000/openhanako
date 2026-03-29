@@ -15,14 +15,13 @@ export function ContextRing() {
 
   // 从 Zustand store 同步 context 数据（keyed store 优先，compat global 兜底）
   const currentSessionPath = useStore(s => s.currentSessionPath);
-  const { storeContextTokens, storeContextWindow, storeContextPercent } = useStore(s => {
-    const entry = s.contextBySession[s.currentSessionPath || ''];
-    return {
-      storeContextTokens: entry?.tokens ?? s.contextTokens,
-      storeContextWindow: entry?.window ?? s.contextWindow,
-      storeContextPercent: entry?.percent ?? s.contextPercent,
-    };
-  });
+  const contextEntry = useStore(s => s.contextBySession[s.currentSessionPath || '']);
+  const globalContextTokens = useStore(s => s.contextTokens);
+  const globalContextWindow = useStore(s => s.contextWindow);
+  const globalContextPercent = useStore(s => s.contextPercent);
+  const storeContextTokens = contextEntry?.tokens ?? globalContextTokens;
+  const storeContextWindow = contextEntry?.window ?? globalContextWindow;
+  const storeContextPercent = contextEntry?.percent ?? globalContextPercent;
   const storeCompacting = useStore(s => currentSessionPath ? s.compactingSessions.includes(currentSessionPath) : false);
 
   useEffect(() => {
