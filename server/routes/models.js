@@ -40,7 +40,7 @@ export function createModelsRoute(engine) {
     }
   });
 
-  // 健康检测：发一个最小请求测试模型连通性
+  // 健康检测：发一个最小 completion 请求，验证模型能真正回话
   route.post("/models/health", async (c) => {
     try {
       const body = await safeJson(c);
@@ -67,9 +67,22 @@ export function createModelsRoute(engine) {
 
       const api = creds.api || model.api || "openai-completions";
 
-      const { probeProvider } = await import("../../lib/llm/provider-client.js");
-      const result = await probeProvider({ baseUrl, api, apiKey, modelId });
-      return c.json({ ...result, provider: model.provider });
+      // Codex Responses API 无法简单探测
+      if (api === "openai-codex-responses") {
+        return c.json({ ok: true, status: 0, provider: model.provider, skipped: t("error.codexNoHealthCheck") });
+      }
+
+      // 发一个真实的 max_tokens=1 completion，验证模型能回话
+      const { callText } = await import("../../core/llm-client.js");
+      await callText({
+        api, model: modelId,
+        apiKey, baseUrl,
+        provider: model.provider,
+        messages: [{ role: "user", content: "hi" }],
+        maxTokens: 1,
+        timeoutMs: 15_000,
+      });
+      return c.json({ ok: true, status: 200, provider: model.provider });
     } catch (err) {
       return c.json({ ok: false, error: err.message });
     }
