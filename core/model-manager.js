@@ -223,10 +223,10 @@ export class ModelManager {
   }
 
   /**
-   * Provider 配置变更后的统一操作序列。
-   * 调用方改了 provider 凭证 / 模型列表后必须调这个，不要自己拼序列。
+   * Provider 配置变更后 reload registry + 重新同步模型。
+   * 由 engine.onProviderChanged() 调用，不要直接用。
    */
-  async onProviderChanged() {
+  async reloadAndSync() {
     this.providerRegistry.reload();
     await this.syncAndRefresh();
   }

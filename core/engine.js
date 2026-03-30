@@ -428,7 +428,14 @@ export class HanaEngine {
   resolveModelWithCredentials(ref) { return this._models.resolveModelWithCredentials(ref); }
   _inferModelProvider(id) { return this._models.inferModelProvider(id); }
   async refreshAvailableModels() { return this._models.refreshAvailable(); }
-  async onProviderChanged() { return this._models.onProviderChanged(); }
+  /**
+   * Provider 配置变更后的统一操作序列。
+   * reload registry → sync models.json → refresh available → normalize utility prefs
+   */
+  async onProviderChanged() {
+    await this._models.reloadAndSync();
+    this._configCoord.normalizeUtilityApiPreferences();
+  }
   getRegistryModelsForProvider(name) { return this._models.getRegistryModelsForProvider(name); }
 
   static SHARED_MODEL_KEYS = SHARED_MODEL_KEYS;
