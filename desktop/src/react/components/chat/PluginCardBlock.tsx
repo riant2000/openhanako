@@ -51,7 +51,6 @@ export function PluginCardBlock({ card }: Props) {
 
   return (
     <div className={s.container}>
-      {card.title && <div className={s.title}>{card.title}</div>}
       <div className={s.iframeWrap}>
         <iframe
           ref={iframeRef}
