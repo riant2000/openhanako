@@ -8,7 +8,8 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { createAgentSession, SessionManager, SettingsManager } from "../lib/pi-sdk/index.js";
+import { createAgentSession, SessionManager } from "../lib/pi-sdk/index.js";
+import { createDefaultSettings } from "./session-defaults.js";
 import { createModuleLogger } from "../lib/debug-log.js";
 import { BrowserManager } from "../lib/browser/browser-manager.js";
 import { t, getLocale } from "../server/i18n.js";
@@ -761,12 +762,6 @@ export class SessionCoordinator {
 
   /** 创建 session 专用 settings（控制 compaction + max_completion_tokens） */
   _createSettings(model) {
-    return SettingsManager.inMemory({
-      compaction: {
-        enabled: true,
-        reserveTokens: 16384,
-        keepRecentTokens: 20_000,
-      },
-    });
+    return createDefaultSettings();
   }
 }

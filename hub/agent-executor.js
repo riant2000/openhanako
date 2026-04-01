@@ -9,9 +9,11 @@
 
 import fs from "fs";
 import path from "path";
-import { createAgentSession, SessionManager, SettingsManager } from "../lib/pi-sdk/index.js";
+import { createAgentSession, SessionManager } from "../lib/pi-sdk/index.js";
 import { debugLog } from "../lib/debug-log.js";
 import { t } from "../server/i18n.js";
+import { createDefaultSettings } from "../core/session-defaults.js";
+import { READ_ONLY_BUILTIN_TOOLS } from "../core/config-coordinator.js";
 
 /**
  * 以指定 agentId 的身份跑一次临时会话。
@@ -61,9 +63,8 @@ export async function runAgentSession(agentId, rounds, { engine, signal, session
   } else {
     const built = ctx.buildTools(cwd, agent.tools, { agentDir, workspace: engine.homeCwd });
     if (readOnly) {
-      const READ_ONLY_BUILTIN = ["read", "grep", "find", "ls"];
       const READ_ONLY_CUSTOM = ["search_memory", "recall_experience", "web_search", "web_fetch"];
-      tools = built.tools.filter(t => READ_ONLY_BUILTIN.includes(t.name));
+      tools = built.tools.filter(t => READ_ONLY_BUILTIN_TOOLS.includes(t.name));
       customTools = (built.customTools || []).filter(t => READ_ONLY_CUSTOM.includes(t.name));
     } else {
       tools = built.tools;
@@ -74,13 +75,7 @@ export async function runAgentSession(agentId, rounds, { engine, signal, session
   const { session } = await createAgentSession({
     cwd,
     sessionManager: tempSessionMgr,
-    settingsManager: SettingsManager.inMemory({
-      compaction: {
-        enabled: true,
-        reserveTokens: 16384,
-        keepRecentTokens: 20_000,
-      },
-    }),
+    settingsManager: createDefaultSettings(),
     authStorage: ctx.authStorage,
     modelRegistry: ctx.modelRegistry,
     model,
