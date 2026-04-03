@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettingsStore } from '../store';
 import { t, VALID_THEMES, autoSaveConfig } from '../helpers';
 import { SelectWidget } from '../widgets/SelectWidget';
@@ -12,6 +12,13 @@ export function InterfaceTab() {
   const { settingsConfig } = useSettingsStore();
   const currentTheme = localStorage.getItem('hana-theme') || 'auto';
   const serifEnabled = localStorage.getItem('hana-font-serif') !== '0';
+
+  const [screenshotColor, setScreenshotColor] = useState(
+    () => localStorage.getItem('hana-screenshot-color') || 'light'
+  );
+  const [screenshotWidth, setScreenshotWidth] = useState(
+    () => localStorage.getItem('hana-screenshot-width') || 'mobile'
+  );
 
   const locale = settingsConfig?.locale || 'zh-CN';
   const localeVal = ['zh-CN', 'zh-TW', 'ja', 'ko', 'en'].includes(locale) ? locale
@@ -112,6 +119,39 @@ export function InterfaceTab() {
           </div>
         </div>
 
+      </section>
+
+      {/* 截图分享 */}
+      <section className={styles['settings-section']}>
+        <h2 className={styles['settings-section-title']}>{t('settings.screenshot.title')}</h2>
+        <div className={styles['settings-row']}>
+          <label className={styles['settings-label']}>{t('settings.screenshot.color')}</label>
+          <div className={styles['settings-pill-group']}>
+            {(['light', 'dark', 'sakura'] as const).map(c => (
+              <button
+                key={c}
+                className={`${styles['settings-pill']} ${screenshotColor === c ? styles['settings-pill-active'] : ''}`}
+                onClick={() => { setScreenshotColor(c); localStorage.setItem('hana-screenshot-color', c); }}
+              >
+                {t(`settings.screenshot.${c}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles['settings-row']}>
+          <label className={styles['settings-label']}>{t('settings.screenshot.width')}</label>
+          <div className={styles['settings-pill-group']}>
+            {(['mobile', 'desktop'] as const).map(w => (
+              <button
+                key={w}
+                className={`${styles['settings-pill']} ${screenshotWidth === w ? styles['settings-pill-active'] : ''}`}
+                onClick={() => { setScreenshotWidth(w); localStorage.setItem('hana-screenshot-width', w); }}
+              >
+                {t(`settings.screenshot.${w}`)}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* 语言和地区 */}

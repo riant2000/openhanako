@@ -5057,3 +5057,39 @@ a.about-link:hover {
 .settings-text-btn:hover {
   text-decoration: underline;
 }
+
+/* 截图分享 pill 按钮 */
+.settings-label {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  min-width: 3em;
+  flex-shrink: 0;
+}
+
+.settings-pill-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.settings-pill {
+  padding: 6px 16px;
+  font-family: var(--font-serif);
+  font-size: 0.85rem;
+  color: var(--text-light);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.settings-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.settings-pill-active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
