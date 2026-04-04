@@ -29,10 +29,16 @@ export async function loadModels(): Promise<void> {
   try {
     const res = await hanaFetch('/api/models');
     const data = await res.json();
-    const currentModelObj = (data.models || []).find((m: any) => m.isCurrent);
+    const { pendingNewSession } = useStore.getState();
+    // session 实际绑定的 model 优先（非 pending 状态时）
+    // pending 状态用 isCurrent（= pendingModel ?? agent 默认）
+    const activeModel = data.activeModel;
+    const displayModel = (!pendingNewSession && activeModel)
+      ? (data.models || []).find((m: any) => m.id === activeModel.id && m.provider === activeModel.provider)
+      : (data.models || []).find((m: any) => m.isCurrent);
     useStore.setState({
       models: data.models || [],
-      currentModel: currentModelObj ? { id: currentModelObj.id, provider: currentModelObj.provider } : null,
+      currentModel: displayModel ? { id: displayModel.id, provider: displayModel.provider } : null,
     });
   } catch { /* silent */ }
 }

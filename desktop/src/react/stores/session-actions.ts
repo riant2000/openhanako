@@ -309,10 +309,8 @@ export async function ensureSession(): Promise<boolean> {
 
     await loadSessions();
 
-    // Agent 切换后刷新模型列表（新 agent 可能有不同的 chat model）
-    if (data.agentId && data.agentId !== s.currentAgentId) {
-      loadModels();
-    }
+    // 刷新模型列表：session 创建后 activeModel 已绑定，需要同步到 UI
+    loadModels();
 
     // updateFolderButton — no-op (React-driven)
 

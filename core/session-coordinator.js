@@ -18,14 +18,8 @@ import { findModel } from "../shared/model-ref.js";
 
 const log = createModuleLogger("session");
 
-/** 巡检/定时任务默认工具白名单 */
-export const PATROL_TOOLS_DEFAULT = [
-  "search_memory", "pin_memory", "unpin_memory",
-  "recall_experience", "record_experience",
-  "web_search", "web_fetch",
-  "todo", "notify",
-  "stage_files",
-];
+/** 巡检/定时任务默认工具白名单（"*" = 与 chat 一致，全部放行） */
+export const PATROL_TOOLS_DEFAULT = "*";
 
 function getSteerPrefix() {
   const isZh = getLocale().startsWith("zh");
@@ -273,12 +267,13 @@ export class SessionCoordinator {
       }
     }
     // 冷启动恢复：从 session-meta.json 解析 model，传给 createSession
+    // session 的 model 是锁定的——有记录就必须精确匹配，找不到就报错，不 fallback
     let savedModel = null;
     if (savedModelRef) {
       const models = this._d.getModels();
       savedModel = findModel(models.availableModels, savedModelRef.id, savedModelRef.provider || undefined);
       if (!savedModel) {
-        log.warn(`cold-start model not found (${savedModelRef.id}), using agent default`);
+        throw new Error(t("error.modelNotFound", { id: `${savedModelRef.provider ? savedModelRef.provider + "/" : ""}${savedModelRef.id}` }));
       }
     }
     const sessionMgr = SessionManager.open(sessionPath, this._d.getAgent().sessionDir);
