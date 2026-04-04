@@ -922,13 +922,18 @@
     },
     "screenshot": {
       "title": "截图分享",
+      "desc": "选择你分享对话的截图样式与排版",
       "color": "配色",
       "width": "宽度",
       "light": "浅色",
       "dark": "深色",
       "sakura": "青空与樱",
       "mobile": "手机看",
-      "desktop": "电脑看"
+      "desktop": "电脑看",
+      "mobileTitle": "手机排版",
+      "mobileDesc": "长图，适合手机分享",
+      "desktopTitle": "电脑排版",
+      "desktopDesc": "更宽，适合电脑保存与分享"
     },
     "bridge": {
       "telegram": "Telegram",

@@ -2271,6 +2271,11 @@ wrapIpcHandler("screenshot-render", (_event, payload) => {
       const htmlContent = buildScreenshotHTML(payload);
       const pngBuffer = await screenshotCapture(htmlContent, themeConf.width);
 
+      // preview 模式：返回 base64 不存文件
+      if (payload.preview) {
+        return { success: true, base64: pngBuffer.toString("base64") };
+      }
+
       const now = new Date();
       const pad = (n) => String(n).padStart(2, "0");
       const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;

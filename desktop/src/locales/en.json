@@ -922,13 +922,18 @@
     },
     "screenshot": {
       "title": "Screenshot Sharing",
+      "desc": "Choose the style and layout for sharing conversation screenshots",
       "color": "Color",
       "width": "Width",
       "light": "Light",
       "dark": "Dark",
       "sakura": "Sakura",
       "mobile": "Mobile",
-      "desktop": "Desktop"
+      "desktop": "Desktop",
+      "mobileTitle": "Mobile Layout",
+      "mobileDesc": "Tall image, ideal for phone sharing",
+      "desktopTitle": "Desktop Layout",
+      "desktopDesc": "Wider, for desktop saving & sharing"
     },
     "bridge": {
       "telegram": "Telegram",
