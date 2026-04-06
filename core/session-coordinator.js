@@ -722,7 +722,16 @@ export class SessionCoordinator {
       const skills = this._d.getSkills();
       const resourceLoader = this._d.getResourceLoader();
       // 快照 prompt，隔离于其他 session 的 prompt 变更
-      const isolatedPrompt = targetAgent.systemPrompt;
+      // withMemory: 临时开启记忆构建 prompt，再恢复（巡检用）
+      let isolatedPrompt;
+      if (opts.withMemory && !targetAgent.memoryEnabled) {
+        const savedState = targetAgent.sessionMemoryEnabled;
+        targetAgent.setMemoryEnabled(true);
+        isolatedPrompt = targetAgent.systemPrompt;
+        targetAgent.setMemoryEnabled(savedState);
+      } else {
+        isolatedPrompt = targetAgent.systemPrompt;
+      }
       const execResourceLoader = (targetAgent === agent)
         ? Object.create(resourceLoader, {
             getSystemPrompt: { value: () => isolatedPrompt },

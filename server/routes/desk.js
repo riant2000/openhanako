@@ -188,6 +188,16 @@ export function createDeskRoute(engine, hub) {
     const store = engine.getActivityStore(foundAgentId);
     store?.remove(id);
 
+    // 补写 session-meta.json，让升格 session 的元数据与普通 session 一致
+    try {
+      const metaPath = path.join(engine.agentsDir, foundAgentId, "session-meta.json");
+      let meta = {};
+      try { meta = JSON.parse(fs.readFileSync(metaPath, "utf-8")); } catch {}
+      const sessKey = path.basename(newPath);
+      meta[sessKey] = { ...meta[sessKey], memoryEnabled: true };
+      fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+    } catch {}
+
     return c.json({ ok: true, sessionPath: newPath, agentId: foundAgentId });
   });
 
