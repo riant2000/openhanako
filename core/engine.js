@@ -551,12 +551,19 @@ export class HanaEngine {
       noThemes: true,
       additionalSkillPaths: [skillsDir],
       extensionFactories: this._extensionFactories = [
-        /** 剥离空 tools 数组 — dashscope / volcengine 不接受 tools: [] */
+        /** 兼容性修正：剥离第三方 anthropic-messages 供应商不支持的字段 */
         (pi) => {
           pi.on("before_provider_request", (event) => {
             const p = event.payload;
-            if (p && Array.isArray(p.tools) && p.tools.length === 0) {
+            if (!p) return p;
+            // 剥离空 tools 数组 — dashscope / volcengine 不接受 tools: []
+            if (Array.isArray(p.tools) && p.tools.length === 0) {
               delete p.tools;
+            }
+            // 剥离 thinking — minimax / kimi-coding 等 anthropic 兼容层不支持
+            if (p.thinking) {
+              const m = findModel(this._models.availableModels, p.model);
+              if (m && m.provider !== "anthropic") delete p.thinking;
             }
             return p;
           });
