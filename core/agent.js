@@ -30,6 +30,7 @@ import { createNotifyTool } from "../lib/tools/notify-tool.js";
 import { createUpdateSettingsTool } from "../lib/tools/update-settings-tool.js";
 import { createSubagentTool } from "../lib/tools/subagent-tool.js";
 import { createCheckDeferredTool } from "../lib/tools/check-deferred-tool.js";
+import { createWaitTool } from "../lib/tools/wait-tool.js";
 import { READ_ONLY_BUILTIN_TOOLS } from "./config-coordinator.js";
 import { formatSkillsForPrompt } from "../lib/pi-sdk/index.js";
 import { runCompatChecks } from "../lib/compat/index.js";
@@ -381,7 +382,6 @@ export class Agent {
       currentAgentId: this.channelsDir && this.agentsDir ? path.basename(this.agentDir) : undefined,
       agentDir: this.agentDir,
       emitEvent: (event, sp) => this._cb?.emitEvent?.(event, sp),
-      promptSession: (sp, text) => this._cb?.promptSession?.(sp, text),
     });
 
     // 12. 组装 system prompt
@@ -478,6 +478,7 @@ export class Agent {
       this._updateSettingsTool,
       this._subagentTool,
       this._checkDeferredTool,
+      createWaitTool(),
     ].filter(Boolean);
   }
 

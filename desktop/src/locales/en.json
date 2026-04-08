@@ -1568,9 +1568,14 @@
       "filePathDesc": "(Compat) Single file absolute path",
       "labelDesc": "(Compat) File name shown to the user"
     },
+    "wait": {
+      "label": "Wait",
+      "description": "Wait for a specified number of seconds. Used to keep the turn active while waiting for background tasks to complete.",
+      "secondsDesc": "Seconds to wait (1-300)"
+    },
     "subagent": {
       "label": "Launch Sub-agent",
-      "description": "Delegate a task to a sub-agent. Optionally specify another agent (pass agent param), or omit to self-clone. Pass agent=\"?\" to list available agents.\n\nYour judgment:\n- If you have other work to do in parallel, continue with it\n- If you need the results before proceeding, tell the user you've dispatched the task and are waiting for the reply, then wait normally\n\nGood for:\n- Research tasks that require extensive searching and reading, summarized into a brief conclusion\n- Independent sub-problems that can run in parallel with your current work\n- Tasks that need simultaneous exploration in multiple directions (you can fire multiple subagent calls at once)\n- Having another agent handle a task from their specialized perspective\nNot for: Operations with side effects like modifying files or executing commands\n\nImportant: The task parameter must contain complete instructions and necessary background, as the sub-agent cannot see the current conversation history.",
+      "description": "Delegate a task to a sub-agent. Optionally specify another agent (pass agent param), or omit to self-clone. Pass agent=\"?\" to list available agents.\n\nBehavior after dispatch:\n1. The sub-agent starts executing in the background immediately\n2. If you have other work to do, continue with it\n3. When you're done with other tasks, use check_pending_tasks to check sub-agent status\n4. If not yet complete, use the wait tool then check again. Suggested progressive wait: 30s → 60s → 180s → 300s\n5. Once complete, process the results\n\nGood for:\n- Research tasks that require extensive searching and reading, summarized into a brief conclusion\n- Independent sub-problems that can run in parallel with your current work\n- Tasks that need simultaneous exploration in multiple directions (you can fire multiple subagent calls at once)\n- Having another agent handle a task from their specialized perspective\n\nImportant: The task parameter must contain complete instructions and necessary background, as the sub-agent cannot see the current conversation history.",
       "taskDesc": "Full instructions for the sub-agent, including necessary background",
       "agentDesc": "Target agent ID. Omit to self-execute, pass \"?\" to list available agents.",
       "modelDesc": "Specify model (optional, defaults to utility model)"

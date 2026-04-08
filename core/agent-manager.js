@@ -539,7 +539,6 @@ export class AgentManager {
       emitSessionEvent:     (event) => getEngine()?.emitSessionEvent?.(event),
       getDeferredResults:   () => getEngine()?.deferredResults ?? null,
       executeIsolated:      (prompt, opts) => getEngine()?.executeIsolated(prompt, opts),
-      promptSession:        (sp, text) => getEngine()?.promptSession(sp, text),
       getCurrentModelId:    () => getEngine()?.currentModel?.id ?? null,
       getSkillsDir:         () => getEngine()?.skillsDir ?? null,
       getLearnSkills:       () => getEngine()?.getLearnSkills?.() ?? {},
