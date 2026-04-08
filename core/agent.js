@@ -379,6 +379,7 @@ export class Agent {
       getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
       listAgents: this._listAgents || null,
       currentAgentId: this.channelsDir && this.agentsDir ? path.basename(this.agentDir) : undefined,
+      agentDir: this.agentDir,
       emitEvent: (event, sp) => this._cb?.emitEvent?.(event, sp),
     });
 

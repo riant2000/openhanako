@@ -23,6 +23,7 @@ function makeBaseDeps(overrides = {}) {
       { id: "other-agent", name: "Other", model: "gpt-4", summary: "专家 agent" },
     ]),
     currentAgentId: "hana",
+    agentDir: "/test/agents/hana",
     emitEvent: vi.fn(),
     ...overrides,
   };
