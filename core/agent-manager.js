@@ -269,7 +269,7 @@ export class AgentManager {
     const currentAgent = this.agent;
     const userName = currentAgent?.userName || "";
     const safeName = name.trim().replace(/"/g, '\\"');
-    const VALID_YUAN = ["hanako", "butter", "ming"];
+    const VALID_YUAN = ["hanako", "butter", "ming", "kong"];
     const yuanType = VALID_YUAN.includes(yuan) ? yuan : "hanako";
     let config = templateConfig.replace(/name: Hanako/, `name: "${safeName}"`);
     config = config.replace(/yuan: hanako/, `yuan: ${yuanType}`);
@@ -277,7 +277,8 @@ export class AgentManager {
       config = config.replace(/user:\s*\n\s+name:\s*""/, `user:\n  name: "${userName}"`);
     }
     // 继承主 agent 的模型配置
-    const primaryChat = currentAgent?.config?.models?.chat || this._d.getModels().defaultModel?.id || "";
+    const chatRef = currentAgent?.config?.models?.chat;
+    const primaryChat = (typeof chatRef === "object" ? chatRef?.id : chatRef) || this._d.getModels().defaultModel?.id || "";
     if (primaryChat) {
       config = config.replace(/chat: ""/, `chat: "${primaryChat}"`);
     }
