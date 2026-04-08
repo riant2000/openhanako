@@ -15,16 +15,47 @@ const TEXT_INPUT_TYPES = new Set([
   'text', 'password', 'email', 'search', 'url', 'tel', 'number', '',
 ]);
 
-function isTextInput(el: EventTarget | null): el is HTMLInputElement | HTMLTextAreaElement {
+function isTextInput(el: EventTarget | null): el is HTMLElement {
   if (!el || !(el instanceof HTMLElement)) return false;
   if (el instanceof HTMLTextAreaElement) return true;
   if (el instanceof HTMLInputElement) return TEXT_INPUT_TYPES.has(el.type);
+  // contentEditable 元素（TipTap 等富文本编辑器）
+  if (el.isContentEditable) return true;
   return false;
 }
 
 interface MenuState {
   position: { x: number; y: number };
-  target: HTMLInputElement | HTMLTextAreaElement;
+  target: HTMLElement;
+}
+
+function getSelection(): string {
+  return window.getSelection()?.toString() || '';
+}
+
+function getContent(el: HTMLElement): string {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return el.value;
+  return el.textContent || '';
+}
+
+function isEditable(el: HTMLElement): boolean {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return !el.readOnly && !el.disabled;
+  return el.isContentEditable;
+}
+
+function selectAll(el: HTMLElement): void {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    el.focus();
+    el.select();
+    return;
+  }
+  // contentEditable
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
 }
 
 export function InputContextMenu() {
@@ -51,13 +82,13 @@ export function InputContextMenu() {
   if (!menu) return null;
 
   const { target } = menu;
-  const hasSelection = target.selectionStart !== target.selectionEnd;
-  const hasContent = target.value.length > 0;
-  const isReadonly = target.readOnly || target.disabled;
+  const hasSelection = getSelection().length > 0;
+  const hasContent = getContent(target).length > 0;
+  const editable = isEditable(target);
 
   const items: ContextMenuItem[] = [];
 
-  if (!isReadonly) {
+  if (editable) {
     items.push({
       label: t('ctx.cut'),
       action: () => {
@@ -75,7 +106,7 @@ export function InputContextMenu() {
     },
   });
 
-  if (!isReadonly) {
+  if (editable) {
     items.push({
       label: t('ctx.paste'),
       action: () => {
@@ -89,10 +120,7 @@ export function InputContextMenu() {
     items.push({ divider: true });
     items.push({
       label: t('ctx.selectAll'),
-      action: () => {
-        target.focus();
-        target.select();
-      },
+      action: () => selectAll(target),
     });
   }
 
