@@ -3,12 +3,12 @@ import { t } from '../helpers';
 import styles from '../Settings.module.css';
 
 // 静态预览图（由 scripts/generate-screenshot-previews.cjs 生成）
-import lightMobile from '../../assets/screenshot-previews/light-mobile.png';
-import lightDesktop from '../../assets/screenshot-previews/light-desktop.png';
-import darkMobile from '../../assets/screenshot-previews/dark-mobile.png';
-import darkDesktop from '../../assets/screenshot-previews/dark-desktop.png';
-import sakuraMobile from '../../assets/screenshot-previews/sakura-mobile.png';
-import sakuraDesktop from '../../assets/screenshot-previews/sakura-desktop.png';
+import lightMobile from '../../../assets/screenshot-previews/light-mobile.png';
+import lightDesktop from '../../../assets/screenshot-previews/light-desktop.png';
+import darkMobile from '../../../assets/screenshot-previews/dark-mobile.png';
+import darkDesktop from '../../../assets/screenshot-previews/dark-desktop.png';
+import sakuraMobile from '../../../assets/screenshot-previews/sakura-mobile.png';
+import sakuraDesktop from '../../../assets/screenshot-previews/sakura-desktop.png';
 
 const PREVIEW_IMAGES: Record<string, string> = {
   'light-mobile': lightMobile,
