@@ -8,6 +8,7 @@ import { MoodBlock } from './MoodBlock';
 import { ThinkingBlock } from './ThinkingBlock';
 import { ToolGroupBlock } from './ToolGroupBlock';
 import { PluginCardBlock } from './PluginCardBlock';
+import { SubagentCard } from './SubagentCard';
 import { SettingsConfirmCard } from './SettingsConfirmCard';
 import { MessageActions } from './MessageActions';
 import { BLOCK_RENDERERS } from './block-renderers';
@@ -391,6 +392,7 @@ const SettingsConfirmBlock = memo(function SettingsConfirmBlock({ block }: { blo
 
 // ── 注册所有物种 B 渲染器 ──
 
+BLOCK_RENDERERS['subagent'] = SubagentCard;
 BLOCK_RENDERERS['file'] = FileBlock;
 BLOCK_RENDERERS['artifact'] = ArtifactBlock;
 BLOCK_RENDERERS['plugin_card'] = PluginCardWrapper;
