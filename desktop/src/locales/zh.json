@@ -399,6 +399,11 @@
       "done": "🧭 子代理已完成",
       "failed": "🧭 子代理执行失败"
     },
+    "wait": {
+      "running": "⏳ {name} 正在等待结果",
+      "done": "⏳ 等待结束",
+      "failed": "⏳ 等待被中断"
+    },
     "check_pending_tasks": {
       "running": "📋 {name} 正在找找没做完的事儿",
       "done": "📋 {name} 找完了",
