@@ -6,6 +6,7 @@ export interface BridgeIncomingMessage {
   text: string;
   isGroup: boolean;
   ts: number;
+  agentId?: string;
 }
 
 export interface BridgeSlice {

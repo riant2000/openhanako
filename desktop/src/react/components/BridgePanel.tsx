@@ -118,11 +118,13 @@ export function BridgePanel() {
     if (bridgeStatusTrigger > 0) loadStatus();
   }, [bridgeStatusTrigger, loadStatus]);
 
-  // 订阅 bridge 消息（代替 window.__hanaBridgeOnMessage）
+  // 订阅 bridge 消息（代替 window.__hanaBridgeOnMessage）— 按 agent 过滤
   const bridgeLatestMessage = useStore(s => s.bridgeLatestMessage);
   useEffect(() => {
     if (!bridgeLatestMessage || !visible) return;
     const msg = bridgeLatestMessage;
+    // 只响应当前选中 agent 的消息（无 agentId 的旧消息始终通过）
+    if (msg.agentId && bridgeAgentId && msg.agentId !== bridgeAgentId) return;
     // Leading + trailing debounce：第一条消息立即刷新，后续 500ms 内攒着，到期再刷一次
     if (!refreshTimerRef.current) {
       // leading：立即刷新
