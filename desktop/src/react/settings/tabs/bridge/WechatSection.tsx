@@ -14,18 +14,20 @@ interface WechatSectionProps {
   showToast: (msg: string, type: 'success' | 'error') => void;
   onSaveConfig: (credentials: Record<string, string> | null, enabled?: boolean) => Promise<void>;
   onReload: () => Promise<void>;
+  agentId: string | null;
 }
 
-export function WechatSection({ status, showToast, onSaveConfig, onReload }: WechatSectionProps) {
+export function WechatSection({ status, showToast, onSaveConfig, onReload, agentId }: WechatSectionProps) {
   const unbind = async () => {
     try {
+      const agentQuery = agentId ? `?agentId=${encodeURIComponent(agentId)}` : '';
       await Promise.all([
-        hanaFetch('/api/bridge/config', {
+        hanaFetch(`/api/bridge/config${agentQuery}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ platform: 'wechat', credentials: { botToken: '' }, enabled: false }),
         }),
-        hanaFetch('/api/bridge/owner', {
+        hanaFetch(`/api/bridge/owner${agentQuery}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ platform: 'wechat', userId: null }),
@@ -59,7 +61,7 @@ export function WechatSection({ status, showToast, onSaveConfig, onReload }: Wec
               {t('settings.bridge.wechatLoggedIn')}
             </span>
             <div className={bridgeStyles['wechat-btn-row']}>
-              <button className="bridge-test-btn" onClick={() => window.dispatchEvent(new Event('hana-show-wechat-qrcode'))}>
+              <button className="bridge-test-btn" onClick={() => window.dispatchEvent(new CustomEvent('hana-show-wechat-qrcode', { detail: { agentId } }))}>
                 {t('settings.bridge.wechatRescan')}
               </button>
               <button className="bridge-test-btn" onClick={unbind}>
@@ -69,7 +71,7 @@ export function WechatSection({ status, showToast, onSaveConfig, onReload }: Wec
           </div>
         ) : (
           <div className={bridgeStyles['wechat-scan-row']}>
-            <button className="bridge-test-btn" onClick={() => window.dispatchEvent(new Event('hana-show-wechat-qrcode'))}>
+            <button className="bridge-test-btn" onClick={() => window.dispatchEvent(new CustomEvent('hana-show-wechat-qrcode', { detail: { agentId } }))}>
               {t('settings.bridge.wechatScan')}
             </button>
           </div>

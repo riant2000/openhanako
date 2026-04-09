@@ -133,6 +133,7 @@ export function BridgeTab() {
         showToast={b.showToast}
         onSaveConfig={(creds, enabled) => b.saveBridgeConfig('wechat', creds, enabled)}
         onReload={b.loadStatus}
+        agentId={b.selectedAgentId}
       />
 
       {/* WhatsApp */}
@@ -159,7 +160,8 @@ export function BridgeTab() {
             on={readOnly}
             onChange={async (on) => {
               try {
-                await hanaFetch('/api/bridge/settings', {
+                const agentQuery = b.selectedAgentId ? `?agentId=${encodeURIComponent(b.selectedAgentId)}` : '';
+                await hanaFetch(`/api/bridge/settings${agentQuery}`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ readOnly: on }),

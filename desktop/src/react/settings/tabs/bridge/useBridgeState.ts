@@ -120,10 +120,11 @@ export function useBridgeState() {
     // Snapshot agentId at call time to avoid stale closure
     const agentId = selectedAgentId;
     try {
-      await hanaFetch('/api/bridge/config', {
+      const agentQuery = agentId ? `?agentId=${encodeURIComponent(agentId)}` : '';
+      await hanaFetch(`/api/bridge/config${agentQuery}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: plat, credentials, enabled, agentId }),
+        body: JSON.stringify({ platform: plat, credentials, enabled }),
       });
       showToast(t('settings.saved'), 'success');
       await loadStatus();
@@ -157,10 +158,11 @@ export function useBridgeState() {
   const setOwner = async (plat: string, userId: string) => {
     const agentId = selectedAgentId;
     try {
-      await hanaFetch('/api/bridge/owner', {
+      const agentQuery = agentId ? `?agentId=${encodeURIComponent(agentId)}` : '';
+      await hanaFetch(`/api/bridge/owner${agentQuery}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: plat, userId: userId || null, agentId }),
+        body: JSON.stringify({ platform: plat, userId: userId || null }),
       });
       showToast(t('settings.bridge.ownerSaved'), 'success');
     } catch {

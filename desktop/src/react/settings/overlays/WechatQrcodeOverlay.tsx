@@ -14,6 +14,7 @@ export function WechatQrcodeOverlay() {
   const [status, setStatus] = useState<QrStatus>('loading');
   const [error, setError] = useState('');
   const [refreshCount, setRefreshCount] = useState(0);
+  const agentIdRef = useRef<string | null>(null);
   const stoppedRef = useRef(true);
 
   const stopPolling = useCallback(() => { stoppedRef.current = true; }, []);
@@ -26,6 +27,7 @@ export function WechatQrcodeOverlay() {
     setStatus('loading');
     setError('');
     setRefreshCount(0);
+    agentIdRef.current = null;
   }, [stopPolling]);
 
   const fetchQrcode = useCallback(async () => {
@@ -71,7 +73,9 @@ export function WechatQrcodeOverlay() {
           } else if (data.status === 'confirmed' && data.botToken) {
             stoppedRef.current = true;
             setStatus('confirmed');
-            await hanaFetch('/api/bridge/config', {
+            // Read agentId from ref — always current, not stale closure
+            const agentQuery = agentIdRef.current ? `?agentId=${encodeURIComponent(agentIdRef.current)}` : '';
+            await hanaFetch(`/api/bridge/config${agentQuery}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -82,7 +86,7 @@ export function WechatQrcodeOverlay() {
             });
             // 微信只绑定一个账号，扫码用户即 owner
             if (data.userId) {
-              await hanaFetch('/api/bridge/owner', {
+              await hanaFetch(`/api/bridge/owner${agentQuery}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ platform: 'wechat', userId: data.userId }),
@@ -117,7 +121,9 @@ export function WechatQrcodeOverlay() {
 
   // 监听显示事件
   useEffect(() => {
-    const show = () => {
+    const show = (e: Event) => {
+      const detail = (e as CustomEvent<{ agentId?: string | null }>).detail;
+      agentIdRef.current = detail?.agentId ?? null;
       setVisible(true);
       setRefreshCount(0);
       fetchQrcode();
