@@ -133,15 +133,15 @@ export function createBridgeRoute(engine, bridgeManager) {
     return c.json({ ok: true });
   });
 
-  /** 更新 bridge 全局设置（readOnly 等） */
+  /** 更新 bridge 设置（readOnly 等）— per-agent */
   route.post("/bridge/settings", async (c) => {
     const body = await safeJson(c);
     const { readOnly } = body;
-    const prefs = engine.getPreferences();
-    if (!prefs.bridge) prefs.bridge = {};
-    if (typeof readOnly === "boolean") prefs.bridge.readOnly = readOnly;
-    engine.savePreferences(prefs);
-    debugLog()?.log("api", `POST /api/bridge/settings readOnly=${prefs.bridge.readOnly}`);
+    const agent = resolveAgent(engine, c);
+    if (typeof readOnly === "boolean") {
+      agent.updateConfig({ bridge: { readOnly } });
+    }
+    debugLog()?.log("api", `POST /api/bridge/settings agent=${agent.id} readOnly=${readOnly}`);
     return c.json({ ok: true });
   });
 
