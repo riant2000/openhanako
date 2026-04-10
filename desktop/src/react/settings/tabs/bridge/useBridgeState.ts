@@ -1,7 +1,7 @@
 /**
  * Bridge state management hook — loads status, saves config, tests platforms.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../store';
 import { hanaFetch } from '../../api';
 import { t } from '../../helpers';
@@ -44,6 +44,8 @@ export function useBridgeState() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(
     store.currentAgentId
   );
+  const selectedAgentIdRef = useRef(selectedAgentId);
+  selectedAgentIdRef.current = selectedAgentId;
 
   // Sync initial value when store becomes ready (only if null)
   useEffect(() => {
@@ -132,8 +134,8 @@ export function useBridgeState() {
         body: JSON.stringify({ platform: plat, credentials, enabled }),
       });
       showToast(t('settings.saved'), 'success');
-      // Only reload if user hasn't switched agent during the save
-      if (selectedAgentId === agentId) await loadStatus();
+      // Only reload if user hasn't switched agent during the save (read latest from ref)
+      if (selectedAgentIdRef.current === agentId) await loadStatus();
     } catch (err: unknown) {
       showToast(t('settings.saveFailed') + ': ' + (err instanceof Error ? err.message : String(err)), 'error');
     }

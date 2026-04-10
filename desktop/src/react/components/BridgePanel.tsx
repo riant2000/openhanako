@@ -175,12 +175,15 @@ export function BridgePanel() {
   }, [loadPlatformData]);
 
   const openSession = useCallback(async (sessionKey: string, displayName: string) => {
+    const snapshotId = bridgeAgentId;
     setCurrentKey(sessionKey);
     setCurrentName(displayName);
     try {
-      const agentQuery = bridgeAgentId ? `?agentId=${encodeURIComponent(bridgeAgentId)}` : '';
+      const agentQuery = snapshotId ? `?agentId=${encodeURIComponent(snapshotId)}` : '';
       const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(sessionKey)}/messages${agentQuery}`);
+      if (bridgeAgentIdRef.current !== snapshotId) return; // stale
       const data = await res.json();
+      if (bridgeAgentIdRef.current !== snapshotId) return; // stale
       setMessages(data.messages || []);
       setChatOpen(true);
       setTimeout(() => {
@@ -188,15 +191,17 @@ export function BridgePanel() {
       }, 0);
     } catch (err) {
       console.error('[bridge] open session failed:', err);
-      setChatOpen(false);
+      if (bridgeAgentIdRef.current === snapshotId) setChatOpen(false);
     }
   }, [bridgeAgentId]);
 
   const resetSession = useCallback(async () => {
     if (!currentKey) return;
+    const snapshotId = bridgeAgentId;
     try {
-      const agentQuery = bridgeAgentId ? `?agentId=${encodeURIComponent(bridgeAgentId)}` : '';
+      const agentQuery = snapshotId ? `?agentId=${encodeURIComponent(snapshotId)}` : '';
       await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(currentKey)}/reset${agentQuery}`, { method: 'POST' });
+      if (bridgeAgentIdRef.current !== snapshotId) return; // stale
       openSession(currentKey, currentName);
     } catch (err) {
       console.error('[bridge] reset session failed:', err);
