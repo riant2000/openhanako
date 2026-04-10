@@ -1,44 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../store';
 import { t, autoSaveConfig } from '../helpers';
+import { hanaFetch } from '../api';
 import { Toggle } from '../widgets/Toggle';
+import { AgentSelect } from './bridge/AgentSelect';
 import styles from '../Settings.module.css';
 
 const platform = window.platform;
 
 export function WorkTab() {
-  const { settingsConfig, showToast } = useSettingsStore();
+  const { settingsConfig, showToast, agents, currentAgentId } = useSettingsStore();
+
+  // ── Global state (from settingsConfig, saved via autoSaveConfig) ──
+  const [heartbeatMaster, setHeartbeatMaster] = useState(true);
+  const [cronAutoApprove, setCronAutoApprove] = useState(true);
+
+  // ── Agent selector ──
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(currentAgentId);
+  const selectedAgentIdRef = useRef(selectedAgentId);
+  selectedAgentIdRef.current = selectedAgentId;
+
+  // Sync initial value when store becomes ready
+  useEffect(() => {
+    if (selectedAgentId) return;
+    if (currentAgentId) setSelectedAgentId(currentAgentId);
+  }, [currentAgentId]);
+
+  // ── Per-agent state (fetched from /api/agents/:id/config) ──
   const [homeFolder, setHomeFolder] = useState('');
   const [hbEnabled, setHbEnabled] = useState(true);
   const [hbInterval, setHbInterval] = useState(17);
-  const [cronAutoApprove, setCronAutoApprove] = useState(true);
 
+  // ── Load global fields from settingsConfig ──
   useEffect(() => {
     if (settingsConfig) {
-      setHomeFolder(settingsConfig.desk?.home_folder || '');
-      setHbEnabled(settingsConfig.desk?.heartbeat_enabled !== false);
-      setHbInterval(settingsConfig.desk?.heartbeat_interval ?? 17);
+      setHeartbeatMaster(settingsConfig.desk?.heartbeat_master !== false);
       setCronAutoApprove(settingsConfig.desk?.cron_auto_approve !== false);
     }
   }, [settingsConfig]);
 
-  const pickHomeFolder = async () => {
-    const folder = await platform?.selectFolder?.();
-    if (!folder) return;
-    setHomeFolder(folder);
-    useSettingsStore.setState({ homeFolder: folder });
-    await autoSaveConfig({ desk: { home_folder: folder } });
-  };
+  // ── Load per-agent fields when selectedAgentId changes ──
+  useEffect(() => {
+    if (!selectedAgentId) return;
+    const ac = new AbortController();
+    hanaFetch(`/api/agents/${selectedAgentId}/config`, { signal: ac.signal })
+      .then(r => r.json())
+      .then(data => {
+        if (ac.signal.aborted) return;
+        setHomeFolder(data.desk?.home_folder || '');
+        setHbEnabled(data.desk?.heartbeat_enabled !== false);
+        setHbInterval(data.desk?.heartbeat_interval ?? 17);
+      })
+      .catch(err => {
+        if (err?.name !== 'AbortError') console.warn('[work] fetch agent config failed:', err);
+      });
+    return () => ac.abort();
+  }, [selectedAgentId]);
 
-  const clearHomeFolder = async () => {
-    setHomeFolder('');
-    useSettingsStore.setState({ homeFolder: null });
-    await autoSaveConfig({ desk: { home_folder: '' } });
-  };
-
-  const toggleHeartbeat = async (on: boolean) => {
-    setHbEnabled(on);
-    await autoSaveConfig({ desk: { heartbeat_enabled: on } });
+  // ── Global actions ──
+  const toggleHeartbeatMaster = async (on: boolean) => {
+    setHeartbeatMaster(on);
+    await autoSaveConfig({ desk: { heartbeat_master: on } });
   };
 
   const toggleCronAutoApprove = async (on: boolean) => {
@@ -46,14 +68,85 @@ export function WorkTab() {
     await autoSaveConfig({ desk: { cron_auto_approve: on } });
   };
 
-  const saveWork = async () => {
+  // ── Per-agent actions ──
+  const saveAgentConfig = async (patch: Record<string, any>) => {
+    const agentId = selectedAgentIdRef.current;
+    if (!agentId) return;
+    try {
+      const res = await hanaFetch(`/api/agents/${agentId}/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (selectedAgentIdRef.current === agentId) {
+        showToast(t('settings.autoSaved'), 'success');
+      }
+    } catch (err: any) {
+      showToast(t('settings.saveFailed') + ': ' + err.message, 'error');
+    }
+  };
+
+  const togglePerAgentHeartbeat = async (on: boolean) => {
+    setHbEnabled(on);
+    await saveAgentConfig({ desk: { heartbeat_enabled: on } });
+  };
+
+  const pickHomeFolder = async () => {
+    const folder = await platform?.selectFolder?.();
+    if (!folder) return;
+    setHomeFolder(folder);
+    await saveAgentConfig({ desk: { home_folder: folder } });
+  };
+
+  const clearHomeFolder = async () => {
+    setHomeFolder('');
+    await saveAgentConfig({ desk: { home_folder: '' } });
+  };
+
+  const saveInterval = async () => {
     const interval = Math.max(1, Math.min(120, hbInterval));
-    await autoSaveConfig({ desk: { heartbeat_interval: interval } });
+    await saveAgentConfig({ desk: { heartbeat_interval: interval } });
   };
 
   return (
     <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="work">
-      {/* 主文件夹 */}
+      {/* ── Global section ── */}
+      <section className={styles['settings-section']}>
+        <h2 className={styles['settings-section-title']}>{t('settings.work.title')}</h2>
+        <div className={styles['tool-caps-group']}>
+          <div className={styles['tool-caps-item']}>
+            <div className={styles['tool-caps-label']}>
+              <span className={styles['tool-caps-name']}>{t('settings.work.heartbeatMaster')}</span>
+              <span className={styles['tool-caps-desc']}>{t('settings.work.heartbeatMasterDesc')}</span>
+            </div>
+            <Toggle on={heartbeatMaster} onChange={toggleHeartbeatMaster} />
+          </div>
+          <div className={styles['tool-caps-item']}>
+            <div className={styles['tool-caps-label']}>
+              <span className={styles['tool-caps-name']}>{t('settings.work.cronAutoApprove')}</span>
+              <span className={styles['tool-caps-desc']}>{t('settings.work.cronAutoApproveDesc')}</span>
+            </div>
+            <Toggle on={cronAutoApprove} onChange={toggleCronAutoApprove} />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Agent selector row ── */}
+      <section className={styles['settings-section']}>
+        <div className={styles['work-agent-row']}>
+          <div className={styles['bridge-agent-select']}>
+            <AgentSelect value={selectedAgentId} onChange={setSelectedAgentId} />
+          </div>
+          <div className={styles['work-agent-hb']}>
+            <span className={styles['work-agent-hb-label']}>{t('settings.work.heartbeatEnabled')}</span>
+            <Toggle on={hbEnabled} onChange={togglePerAgentHeartbeat} />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Per-agent section ── */}
       <section className={styles['settings-section']}>
         <h2 className={styles['settings-section-title']}>{t('settings.work.homeFolder')}</h2>
         <p className={`${styles['settings-desc']} ${styles['settings-desc-compact']}`}>
@@ -86,22 +179,8 @@ export function WorkTab() {
             </button>
           )}
         </div>
-      </section>
 
-      {/* 巡检 */}
-      <section className={styles['settings-section']}>
-        <h2 className={styles['settings-section-title']}>{t('settings.work.title')}</h2>
-        <div className={styles['tool-caps-group']}>
-          <div className={styles['tool-caps-item']}>
-            <div className={styles['tool-caps-label']}>
-              <span className={styles['tool-caps-name']}>{t('settings.work.heartbeatEnabled')}</span>
-              <span className={styles['tool-caps-desc']}>{t('settings.work.heartbeatDesc')}</span>
-            </div>
-            <Toggle
-              on={hbEnabled}
-              onChange={toggleHeartbeat}
-            />
-          </div>
+        <div className={styles['tool-caps-group']} style={{ marginTop: 16 }}>
           <div className={`${styles['tool-caps-item']}${hbEnabled ? '' : ' settings-disabled'}`}>
             <div className={styles['tool-caps-label']}>
               <span className={styles['tool-caps-name']}>{t('settings.work.heartbeatInterval')}</span>
@@ -119,21 +198,11 @@ export function WorkTab() {
               <span className={styles['settings-input-unit']}>{t('settings.work.heartbeatUnit')}</span>
             </div>
           </div>
-          <div className={styles['tool-caps-item']}>
-            <div className={styles['tool-caps-label']}>
-              <span className={styles['tool-caps-name']}>{t('settings.work.cronAutoApprove')}</span>
-              <span className={styles['tool-caps-desc']}>{t('settings.work.cronAutoApproveDesc')}</span>
-            </div>
-            <Toggle
-              on={cronAutoApprove}
-              onChange={toggleCronAutoApprove}
-            />
-          </div>
         </div>
       </section>
 
       <div className={styles['settings-section-footer']}>
-        <button className={styles['settings-save-btn-sm']} onClick={saveWork}>
+        <button className={styles['settings-save-btn-sm']} onClick={saveInterval}>
           {t('settings.save')}
         </button>
       </div>

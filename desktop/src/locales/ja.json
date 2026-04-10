@@ -803,6 +803,8 @@
     },
     "work": {
       "title": "巡回",
+      "heartbeatMaster": "巡回マスタースイッチ",
+      "heartbeatMasterDesc": "オフにするとすべてのエージェントの巡回が一時停止します",
       "heartbeatEnabled": "巡回モード",
       "heartbeatOn": "オン",
       "heartbeatOff": "オフ",

@@ -803,6 +803,8 @@
     },
     "work": {
       "title": "巡檢",
+      "heartbeatMaster": "巡檢總開關",
+      "heartbeatMasterDesc": "關閉後所有助手的巡檢均暫停",
       "heartbeatEnabled": "巡檢模式",
       "heartbeatOn": "已開啟",
       "heartbeatOff": "已關閉",

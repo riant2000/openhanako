@@ -828,6 +828,8 @@
     },
     "work": {
       "title": "Patrol",
+      "heartbeatMaster": "Heartbeat Master Switch",
+      "heartbeatMasterDesc": "When off, all agent heartbeats are paused",
       "heartbeatEnabled": "Patrol mode",
       "heartbeatOn": "On",
       "heartbeatOff": "Off",

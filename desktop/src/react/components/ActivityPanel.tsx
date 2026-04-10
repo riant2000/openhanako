@@ -60,7 +60,7 @@ export function ActivityPanel() {
       .then(data => setActivities(data.activities || []))
       .catch(err => console.warn('[activity] fetch activities failed:', err));
     fetchConfig()
-      .then(data => setHbEnabled(data.desk?.heartbeat_enabled !== false))
+      .then(data => setHbEnabled(data.desk?.heartbeat_master !== false))
       .catch(err => console.warn('[activity] fetch config failed:', err));
     setDetail(null);
   }, [setActivities]);
@@ -75,7 +75,7 @@ export function ActivityPanel() {
       await hanaFetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ desk: { heartbeat_enabled: next } }),
+        body: JSON.stringify({ desk: { heartbeat_master: next } }),
       });
       invalidateConfigCache();
     } catch {

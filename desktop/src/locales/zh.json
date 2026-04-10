@@ -833,6 +833,8 @@
     },
     "work": {
       "title": "巡检",
+      "heartbeatMaster": "巡检总开关",
+      "heartbeatMasterDesc": "关闭后所有助手的巡检均暂停",
       "heartbeatEnabled": "巡检模式",
       "heartbeatOn": "已开启",
       "heartbeatOff": "已关闭",

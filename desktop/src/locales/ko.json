@@ -803,6 +803,8 @@
     },
     "work": {
       "title": "순찰",
+      "heartbeatMaster": "순찰 마스터 스위치",
+      "heartbeatMasterDesc": "끄면 모든 에이전트의 순찰이 일시 중지됩니다",
       "heartbeatEnabled": "순찰 모드",
       "heartbeatOn": "켜짐",
       "heartbeatOff": "꺼짐",
