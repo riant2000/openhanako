@@ -54,18 +54,31 @@ describe("splitByScope", () => {
     expect(agent.capabilities).toBeUndefined();
   });
 
-  it("extracts desk.home_folder without affecting other desk fields (heartbeat_interval)", () => {
+  it("desk.home_folder is agent-scoped, heartbeat_interval also agent-scoped", () => {
     const partial = {
       desk: { home_folder: "/home/user", heartbeat_interval: 30 },
     };
     const { global: g, agent } = splitByScope(partial);
 
-    expect(g).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: "desk.home_folder", value: "/home/user" }),
+    // home_folder is now agent scope — NOT extracted as global
+    expect(g).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "desk.home_folder" }),
     ]));
-    expect(agent.desk).toBeDefined();
+    expect(agent.desk.home_folder).toBe("/home/user");
     expect(agent.desk.heartbeat_interval).toBe(30);
-    expect(agent.desk.home_folder).toBeUndefined();
+  });
+
+  it("extracts desk.heartbeat_master as global", () => {
+    const partial = {
+      desk: { heartbeat_master: false, heartbeat_interval: 20 },
+    };
+    const { global: g, agent } = splitByScope(partial);
+
+    expect(g).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "desk.heartbeat_master", value: false }),
+    ]));
+    expect(agent.desk.heartbeat_interval).toBe(20);
+    expect(agent.desk.heartbeat_master).toBeUndefined();
   });
 
   it("returns empty global array when no global fields present", () => {
@@ -116,7 +129,7 @@ describe("injectGlobalFields", () => {
       getUpdateChannel: () => "beta",
       getThinkingLevel: () => "high",
       getLearnSkills: () => true,
-      getHomeFolder: () => "/home/user",
+      getHeartbeatMaster: () => true,
     };
     const config = {};
     injectGlobalFields(config, engine);
@@ -127,7 +140,7 @@ describe("injectGlobalFields", () => {
     expect(config.update_channel).toBe("beta");
     expect(config.thinking_level).toBe("high");
     expect(config.capabilities?.learn_skills).toBe(true);
-    expect(config.desk?.home_folder).toBe("/home/user");
+    expect(config.desk?.heartbeat_master).toBe(true);
   });
 
   it("skips getters that don't exist on engine (doesn't throw)", () => {
@@ -145,7 +158,7 @@ describe("injectGlobalFields", () => {
   it("creates nested parent (capabilities, desk) if not present", () => {
     const engine = {
       getLearnSkills: () => false,
-      getHomeFolder: () => "/docs",
+      getHeartbeatMaster: () => false,
     };
     const config = {};
     injectGlobalFields(config, engine);
@@ -153,7 +166,7 @@ describe("injectGlobalFields", () => {
     expect(config.capabilities).toBeDefined();
     expect(config.capabilities.learn_skills).toBe(false);
     expect(config.desk).toBeDefined();
-    expect(config.desk.home_folder).toBe("/docs");
+    expect(config.desk.heartbeat_master).toBe(false);
   });
 });
 
