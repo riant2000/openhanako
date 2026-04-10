@@ -35,9 +35,10 @@ import {
 } from './input/slash-commands';
 import { attachFilesFromPaths } from '../MainContent';
 import styles from './input/InputArea.module.css';
-import type { TodoItem } from '../types';
+import type { TodoItem, Artifact } from '../types';
 
 const EMPTY_TODOS: TodoItem[] = [];
+const EMPTY_ARTIFACTS: Artifact[] = [];
 
 export type { SlashItem };
 
@@ -61,7 +62,7 @@ function InputAreaInner() {
   const attachedFiles = useStore(s => s.attachedFiles);
   const docContextAttached = useStore(s => s.docContextAttached);
   const quotedSelection = useStore(s => s.quotedSelection);
-  const artifacts = useStore(s => s.artifacts);
+  const artifacts = useStore(s => s.currentSessionPath ? (s.artifactsBySession[s.currentSessionPath] ?? EMPTY_ARTIFACTS) : EMPTY_ARTIFACTS);
   const activeTabId = useStore(s => s.activeTabId);
   const previewOpen = useStore(s => s.previewOpen);
   const models = useStore(s => s.models);

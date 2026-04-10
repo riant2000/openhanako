@@ -66,6 +66,7 @@ export const createArtifactSlice = (
 });
 
 // ── Selectors ──
-export const selectArtifacts = (s: ArtifactSlice) => s.artifacts;
+export const selectArtifacts = (s: ArtifactSlice & { currentSessionPath: string | null }) =>
+  s.currentSessionPath ? (s.artifactsBySession[s.currentSessionPath] ?? s.artifacts) : s.artifacts;
 export const selectActiveTabId = (s: ArtifactSlice) => s.activeTabId;
 export const selectEditorDetached = (s: ArtifactSlice) => s.editorDetached;

@@ -20,6 +20,19 @@ export function openPreview(artifact: Artifact): void {
   if (idx >= 0) arts[idx] = artifact;
   else arts.push(artifact);
   s.setArtifacts(arts);
+
+  // 同步写入 keyed store
+  const sp = s.currentSessionPath;
+  if (sp) {
+    useStore.setState(prev => {
+      const sessionArts = [...(prev.artifactsBySession[sp] || [])];
+      const sIdx = sessionArts.findIndex(a => a.id === artifact.id);
+      if (sIdx >= 0) sessionArts[sIdx] = artifact;
+      else sessionArts.push(artifact);
+      return { artifactsBySession: { ...prev.artifactsBySession, [sp]: sessionArts } };
+    });
+  }
+
   s.openTab(artifact.id);
   s.setPreviewOpen(true);
   updateLayout();
@@ -86,7 +99,8 @@ export function restoreTabState(sessionPath: string): void {
 export function initEditorEvents(): void {
   window.platform?.onEditorDockFile?.((data: any) => {
     const s = useStore.getState();
-    const existing = s.artifacts.find(a => a.filePath === data.filePath);
+    const sessionArts = (s.currentSessionPath && s.artifactsBySession[s.currentSessionPath]) || s.artifacts;
+    const existing = sessionArts.find(a => a.filePath === data.filePath);
     if (existing) {
       openPreview(existing);
     } else {

@@ -124,4 +124,16 @@ function upsertArtifact(artifact: Artifact): void {
   if (idx >= 0) arts[idx] = artifact;
   else arts.push(artifact);
   s.setArtifacts(arts);
+
+  // 同步写入 keyed store
+  const sp = s.currentSessionPath;
+  if (sp) {
+    useStore.setState(prev => {
+      const sessionArts = [...(prev.artifactsBySession[sp] || [])];
+      const sIdx = sessionArts.findIndex(a => a.id === artifact.id);
+      if (sIdx >= 0) sessionArts[sIdx] = artifact;
+      else sessionArts.push(artifact);
+      return { artifactsBySession: { ...prev.artifactsBySession, [sp]: sessionArts } };
+    });
+  }
 }

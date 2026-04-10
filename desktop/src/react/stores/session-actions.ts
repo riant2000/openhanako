@@ -145,6 +145,13 @@ export async function switchSession(path: string): Promise<void> {
     const currentPath = s.currentSessionPath;
     if (currentPath) saveTabState(currentPath);
 
+    // 保存当前 session 的 artifacts 到 keyed store
+    if (currentPath && state.artifacts.length) {
+      useStore.setState(prev => ({
+        artifactsBySession: { ...prev.artifactsBySession, [currentPath]: prev.artifacts },
+      }));
+    }
+
     // 保存当前 session 的附件到 keyed store
     const currentAttachments = state.attachedFiles;
     if (currentPath && currentAttachments.length) {
@@ -153,7 +160,8 @@ export async function switchSession(path: string): Promise<void> {
       }));
     }
 
-    // 批量更新 store
+    // 批量更新 store（从 keyed store 恢复目标 session 的 artifacts）
+    const targetArtifacts = useStore.getState().artifactsBySession[path] || [];
     useStore.setState({
       currentSessionPath: path,
       pendingNewSession: false,
@@ -162,6 +170,7 @@ export async function switchSession(path: string): Promise<void> {
       welcomeVisible: false,
       memoryEnabled: data.memoryEnabled !== false,
       streamingSessions,
+      artifacts: targetArtifacts,
       attachedFiles: state.attachedFilesBySession[path] || [],
       deskContextAttached: false,
       docContextAttached: false,
