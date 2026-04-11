@@ -184,6 +184,18 @@ export async function switchSession(path: string): Promise<void> {
     // 刷新模型列表（当前 session 的模型可能不同）
     loadModels();
 
+    // Hydrate per-session model snapshot from switch response
+    if (data.currentModelId) {
+      useStore.getState().updateSessionModel(path, {
+        id: data.currentModelId,
+        name: data.currentModelName || data.currentModelId,
+        provider: data.currentModelProvider || '',
+        vision: data.currentModelVision ?? undefined,
+        reasoning: data.currentModelReasoning ?? undefined,
+        contextWindow: data.currentModelContextWindow ?? undefined,
+      });
+    }
+
     // 如果 store 中没有该 session 的消息数据，加载之
     const hasData = !!useStore.getState().chatSessions?.[path];
     if (!hasData) {

@@ -70,8 +70,11 @@ function InputAreaInner() {
   const thinkingLevel = useStore(s => s.thinkingLevel);
   const setThinkingLevel = useStore(s => s.setThinkingLevel);
 
-  const currentModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
+  const globalModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
+  const sessionModel = useStore(s => s.currentSessionPath ? s.chatSessions[s.currentSessionPath]?.model : undefined);
+  const currentModelInfo = sessionModel || globalModelInfo;
   const supportsVision = currentModelInfo?.vision !== false;
+  const modelSwitching = useStore(s => s.modelSwitching);
   const sessionHasMessages = useStore(s => !!(s.currentSessionPath && s.chatSessions[s.currentSessionPath]?.items?.length));
 
   // Local state
@@ -273,7 +276,7 @@ function InputAreaInner() {
   // Can send?
   const hasContent = inputText.trim().length > 0 || attachedFiles.length > 0 || docContextAttached || !!quotedSelection
     || (editor?.getJSON().content?.some(n => n.type === 'skillBadge') ?? false);
-  const canSend = hasContent && connected && !isStreaming;
+  const canSend = hasContent && connected && !isStreaming && !modelSwitching;
 
   // ── Paste image ──
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -590,9 +593,9 @@ function InputAreaInner() {
           </div>
           <div className={styles['input-controls']}>
             {currentModelInfo?.reasoning !== false && (
-              <ThinkingLevelButton level={thinkingLevel} onChange={setThinkingLevel} modelXhigh={currentModelInfo?.xhigh ?? false} />
+              <ThinkingLevelButton level={thinkingLevel} onChange={setThinkingLevel} modelXhigh={(sessionModel ? models.find(m => m.id === sessionModel.id && m.provider === sessionModel.provider)?.xhigh : globalModelInfo?.xhigh) ?? false} />
             )}
-            <ModelSelector models={models} disabled={sessionHasMessages} />
+            <ModelSelector models={models} sessionModel={sessionModel} />
             <SendButton isStreaming={isStreaming} hasInput={!!inputText.trim()}
               disabled={isStreaming ? false : !canSend} onSend={handleSend} onSteer={handleSteer} onStop={handleStop} />
           </div>
