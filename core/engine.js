@@ -52,6 +52,7 @@ import { createSandboxedTools } from "../lib/sandbox/index.js";
 import { t } from "../server/i18n.js";
 import { CheckpointStore } from "../lib/checkpoint-store.js";
 import { wrapWithCheckpoint } from "../lib/checkpoint-wrapper.js";
+import { SubagentTaskRegistry } from "../lib/subagent-task-registry.js";
 
 export class HanaEngine {
   /**
@@ -125,6 +126,7 @@ export class HanaEngine {
       listAgents: () => this.listAgents(),
       getConfirmStore: () => this._confirmStore,
       getDeferredResultStore: () => this._deferredResultStore,
+      getSubagentRegistry: () => this._subagentRegistry,
     });
 
     // ── Config Coordinator ──
@@ -156,6 +158,9 @@ export class HanaEngine {
       buildTools: (cwd, customTools, opts) => this.buildTools(cwd, customTools, opts),
       getHomeCwd: (agentId) => this.getHomeCwd(agentId),
     });
+
+    // Subagent 任务注册表（外部 abort 用）
+    this._subagentRegistry = new SubagentTaskRegistry();
 
     // Checkpoint 备份存储
     this._checkpointStore = new CheckpointStore(
@@ -214,6 +219,10 @@ export class HanaEngine {
 
   get deferredResults() {
     return this._deferredResultStore || null;
+  }
+
+  get subagentRegistry() {
+    return this._subagentRegistry;
   }
 
   // 向后兼容 getter

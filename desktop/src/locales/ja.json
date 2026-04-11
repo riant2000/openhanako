@@ -1276,6 +1276,7 @@
     "subagentMaxConcurrent": "現在 {max} 個のサブエージェントが実行中です。完了をお待ちください。",
     "subagentFailed": "サブエージェントの実行に失敗しました: {msg}",
     "subagentTimeout": "サブエージェントがタイムアウトしました（{minutes}分）",
+    "subagentAborted": "サブエージェントが中止されました",
     "subagentNoOutput": "(サブエージェントは出力を生成しませんでした)",
     "subagentDispatched": "サブタスクを送信しました (task-id: {taskId})。完了後、結果は自動的に届きます。",
     "installSkillDisabled": "自己学習スキル機能が有効になっていません。設定で「Agent のスキル作成/インストールを許可」を有効にしてください。",
