@@ -295,6 +295,10 @@ After dispatching subagent or other background tasks:
       const entry = this._sessions.get(sp);
       if (entry) entry.lastTouchedAt = Date.now();
     }
+    // 非 vision 模型：静默剥离图片（vision 未知则放行，让 API 决定）
+    if (opts?.images?.length && this._session.model?.vision === false) {
+      opts = { ...opts, images: undefined };
+    }
     const promptOpts = opts?.images?.length ? { images: opts.images } : undefined;
     await this._session.prompt(text, promptOpts);
     if (sp) {
@@ -328,6 +332,10 @@ After dispatching subagent or other background tasks:
     if (!entry) throw new Error(t("error.sessionNotInCache", { path: sessionPath }));
     entry.lastTouchedAt = Date.now();
     if (sessionPath === this.currentSessionPath) this._sessionStarted = true;
+    // 非 vision 模型：静默剥离图片（vision 未知则放行，让 API 决定）
+    if (opts?.images?.length && entry.session.model?.vision === false) {
+      opts = { ...opts, images: undefined };
+    }
     const promptOpts = opts?.images?.length ? { images: opts.images } : undefined;
     await entry.session.prompt(text, promptOpts);
     const agent = this._d.getAgentById(entry.agentId) || this._d.getAgent();

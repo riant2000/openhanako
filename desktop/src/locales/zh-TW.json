@@ -1212,6 +1212,7 @@
     "skillNotExists": "技能不存在",
     "channelReadNeedChannel": "錯誤：read 需要 channel 參數",
     "channelNotExists": "頻道 \"{channel}\" 不存在",
+    "agentNotChannelMember": "你不是頻道 \"{channel}\" 的成員，無法發送訊息",
     "channelNoMessages": "(頻道暫無訊息)",
     "channelPostNeedParams": "錯誤：post 需要 channel 和 content 參數",
     "channelPosted": "已傳送到 #{channel}",

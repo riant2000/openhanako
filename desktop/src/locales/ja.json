@@ -1212,6 +1212,7 @@
     "skillNotExists": "スキルが存在しません",
     "channelReadNeedChannel": "エラー：read には channel パラメータが必要です",
     "channelNotExists": "チャンネル \"{channel}\" は存在しません",
+    "agentNotChannelMember": "チャンネル \"{channel}\" のメンバーではないため、メッセージを送信できません",
     "channelNoMessages": "(チャンネルにメッセージはありません)",
     "channelPostNeedParams": "エラー：post には channel と content パラメータが必要です",
     "channelPosted": "#{channel} に送信しました",

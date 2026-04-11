@@ -922,9 +922,6 @@
 .input-box :global(.tiptap) {
     outline: none;
     min-height: 1.6em;
-    max-height: 120px;
-    overflow-y: auto;
-    scrollbar-width: none;
     font-family: inherit;
     font-size: 0.95rem;
     line-height: 1.6;

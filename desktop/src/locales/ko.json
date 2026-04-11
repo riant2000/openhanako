@@ -1212,6 +1212,7 @@
     "skillNotExists": "스킬이 존재하지 않아요",
     "channelReadNeedChannel": "오류: read에는 channel 파라미터가 필요해요",
     "channelNotExists": "채널 \"{channel}\"이(가) 존재하지 않아요",
+    "agentNotChannelMember": "채널 \"{channel}\"의 멤버가 아니라서 메시지를 보낼 수 없어요",
     "channelNoMessages": "(채널에 메시지가 없어요)",
     "channelPostNeedParams": "오류: post에는 channel과 content 파라미터가 필요해요",
     "channelPosted": "#{channel}에 전송했어요",

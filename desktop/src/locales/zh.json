@@ -1260,6 +1260,7 @@
     "skillNotExists": "技能不存在",
     "channelReadNeedChannel": "错误：read 需要 channel 参数",
     "channelNotExists": "频道 \"{channel}\" 不存在",
+    "agentNotChannelMember": "你不是频道 \"{channel}\" 的成员，无法发送消息",
     "channelNoMessages": "(频道暂无消息)",
     "channelPostNeedParams": "错误：post 需要 channel 和 content 参数",
     "channelPosted": "已发送到 #{channel}",

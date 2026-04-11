@@ -61,8 +61,9 @@ export function AgentCardStack({ agents, selectedId, currentAgentId, onSelect, o
   const n = total;
   const stepTight = n > 1 ? Math.min(2.5, 10 / (n - 1)) : 0;
   const spreadStep = 72;
-  const spreadOffset = -(n - 1) * spreadStep / 2;
-  const spreadWidth = Math.max(260, (n - 1) * spreadStep + 82);
+  const PAD = 10;
+  const spreadOffset = PAD;
+  const spreadWidth = Math.max(260, (n - 1) * spreadStep + 82 + PAD);
   const ts = Date.now();
 
   // 关闭右键菜单
@@ -82,9 +83,9 @@ export function AgentCardStack({ agents, selectedId, currentAgentId, onSelect, o
     const handlers: Array<[HTMLElement, (e: PointerEvent) => void]> = [];
 
     const cards = [...container.children] as HTMLElement[];
-    // 只给 agent 卡片（非 add 按钮）绑定拖拽
-    cards.forEach((card, dragIdx) => {
-      if (card.dataset.addBtn) return;
+    // 只给 agent 卡片（非 add 按钮、非 spacer）绑定拖拽
+    const agentCards = cards.filter(c => !c.dataset.addBtn && !c.dataset.spacer);
+    agentCards.forEach((card, dragIdx) => {
 
       const handler = (e: PointerEvent) => {
         if (e.button !== 0) return;
@@ -98,7 +99,7 @@ export function AgentCardStack({ agents, selectedId, currentAgentId, onSelect, o
         let moved = false;
         let dropIdx = dragIdx;
 
-        const allCards = [...container.children] as HTMLElement[];
+        const allCards = ([...container.children] as HTMLElement[]).filter(c => !c.dataset.spacer);
         const positions = allCards.map(c => parseFloat(c.style.getPropertyValue('--tx-spread')) || 0);
         const origTx = positions[dragIdx];
 
@@ -195,6 +196,8 @@ export function AgentCardStack({ agents, selectedId, currentAgentId, onSelect, o
       style={{ '--cards-spread-width': spreadWidth } as React.CSSProperties}
     >
       <div className={styles['agent-cards']} ref={cardsRef}>
+        {/* spacer: 撑出实际滚动宽度，绝对定位的卡片不贡献 scrollWidth */}
+        <div data-spacer="1" style={{ width: spreadWidth, height: 1, pointerEvents: 'none', flexShrink: 0 }} />
         {agents.map((agent, i) => {
           const rotTight = i * stepTight;
           const txSpread = spreadOffset + i * spreadStep;

@@ -240,6 +240,7 @@
 .agent-cards:hover {
     width: max(240px, calc(var(--cards-spread-width, 240) * 1px));
     transition-delay: 0s;
+    justify-content: flex-start;
     /* overflow scroll for 9+ cards */
     max-width: min(100%, 600px);
     overflow-x: auto;
@@ -254,6 +255,7 @@
 .agent-cards.dragging-active {
     width: max(240px, calc(var(--cards-spread-width, 240) * 1px));
     max-width: min(100%, 600px);
+    justify-content: flex-start;
     overflow-x: hidden;
 }
 

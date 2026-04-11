@@ -25,6 +25,8 @@ export interface InputSlice {
   attachedFiles: AttachedFile[];
   /** 按 session path 存储的附件（权威源） */
   attachedFilesBySession: Record<string, AttachedFile[]>;
+  /** 按 session path 存储的草稿文本（内存级，关窗口清空） */
+  drafts: Record<string, string>;
   deskContextAttached: boolean;
   docContextAttached: boolean;
   inputFocusTrigger: number;
@@ -33,6 +35,8 @@ export interface InputSlice {
   removeAttachedFile: (index: number) => void;
   setAttachedFiles: (files: AttachedFile[]) => void;
   clearAttachedFiles: () => void;
+  setDraft: (sessionPath: string, text: string) => void;
+  clearDraft: (sessionPath: string) => void;
   setDeskContextAttached: (attached: boolean) => void;
   toggleDeskContext: () => void;
   setDocContextAttached: (attached: boolean) => void;
@@ -47,6 +51,7 @@ export const createInputSlice = (
 ): InputSlice => ({
   attachedFiles: [],
   attachedFilesBySession: {},
+  drafts: {},
   deskContextAttached: false,
   docContextAttached: false,
   inputFocusTrigger: 0,
@@ -57,6 +62,13 @@ export const createInputSlice = (
     set((s) => ({ attachedFiles: s.attachedFiles.filter((_, i) => i !== index) })),
   setAttachedFiles: (files) => set({ attachedFiles: files }),
   clearAttachedFiles: () => set({ attachedFiles: [] }),
+  setDraft: (sessionPath, text) =>
+    set((s) => ({ drafts: { ...s.drafts, [sessionPath]: text } })),
+  clearDraft: (sessionPath) =>
+    set((s) => {
+      const { [sessionPath]: _, ...rest } = s.drafts;
+      return { drafts: rest };
+    }),
   setDeskContextAttached: (attached) => set({ deskContextAttached: attached }),
   toggleDeskContext: () =>
     set((s) => ({ deskContextAttached: !s.deskContextAttached })),

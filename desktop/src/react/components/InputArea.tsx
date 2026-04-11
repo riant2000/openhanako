@@ -139,6 +139,8 @@ function InputAreaInner() {
   const clearAttachedFiles = useStore(s => s.clearAttachedFiles);
   const toggleDocContext = useStore(s => s.toggleDocContext);
   const setDocContextAttached = useStore(s => s.setDocContextAttached);
+  const setDraft = useStore(s => s.setDraft);
+  const clearDraft = useStore(s => s.clearDraft);
 
   // Doc context
   const currentDoc = useMemo(() => {
@@ -212,7 +214,7 @@ function InputAreaInner() {
     return slashCommands.filter(c => c.name.startsWith(query));
   }, [inputText, slashCommands]);
 
-  // Sync editor text to React state (drives hasInput / canSend) + slash menu detection
+  // Sync editor text to React state (drives hasInput / canSend) + slash menu detection + draft save
   useEffect(() => {
     if (!editor) return;
     const handler = () => {
@@ -224,10 +226,37 @@ function InputAreaInner() {
       } else {
         setSlashMenuOpen(false);
       }
+      // 保存草稿到 store
+      if (currentSessionPath) {
+        setDraft(currentSessionPath, text);
+      }
+      // 内容超出可见区域时，自动滚动到光标位置
+      requestAnimationFrame(() => editor.commands.scrollIntoView());
     };
     editor.on('update', handler);
     return () => { editor.off('update', handler); };
-  }, [editor]);
+  }, [editor, currentSessionPath, setDraft]);
+
+  // 切换 session 时恢复草稿
+  useEffect(() => {
+    if (!editor || !currentSessionPath) return;
+    const draft = useStore.getState().drafts[currentSessionPath] || '';
+    const current = editor.getText();
+    if (draft !== current) {
+      if (!draft) {
+        editor.commands.setContent('', { emitUpdate: false });
+      } else {
+        const doc = {
+          type: 'doc' as const,
+          content: draft.split('\n').map(line => ({
+            type: 'paragraph' as const,
+            content: line ? [{ type: 'text' as const, text: line }] : [],
+          })),
+        };
+        editor.commands.setContent(doc, { emitUpdate: false });
+      }
+    }
+  }, [editor, currentSessionPath]);
 
   // 点击外部关闭斜杠菜单
   useEffect(() => {
@@ -414,6 +443,7 @@ function InputAreaInner() {
       }
 
       editor.commands.clearContent();
+      if (currentSessionPath) clearDraft(currentSessionPath);
       clearAttachedFiles();
       const qs2 = useStore.getState().quotedSelection;
       if (qs2) useStore.getState().clearQuotedSelection();
@@ -430,7 +460,7 @@ function InputAreaInner() {
     } finally {
       setSending(false);
     }
-  }, [editor, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, setDocContextAttached, slashMenuOpen, filteredCommands, slashSelected, handleSlashSelect]);
+  }, [editor, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, clearDraft, currentSessionPath, setDocContextAttached, slashMenuOpen, filteredCommands, slashSelected, handleSlashSelect]);
 
   // ── Steer ──
   const handleSteer = useCallback(async () => {
@@ -448,8 +478,10 @@ function InputAreaInner() {
       });
     }
     editor.commands.clearContent();
-    ws.send(JSON.stringify({ type: 'steer', text, sessionPath: useStore.getState().currentSessionPath }));
-  }, [editor, isStreaming]);
+    const sp = useStore.getState().currentSessionPath;
+    if (sp) clearDraft(sp);
+    ws.send(JSON.stringify({ type: 'steer', text, sessionPath: sp }));
+  }, [editor, isStreaming, clearDraft]);
 
   // ── Stop ──
   const handleStop = useCallback(() => {
