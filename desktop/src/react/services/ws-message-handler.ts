@@ -134,6 +134,9 @@ export function handleServerMessage(msg: any): void {
       } else {
         const todos = migrateLegacyTodos(msg.details as { todos?: unknown[] } | null);
         useStore.getState().setSessionTodosForPath(sp, todos);
+        // bump 版本：若 loadMessages 正在 fetch 旧快照，回来时会发现
+        // 版本号变了，主动跳过 hydrate 写入，避免覆盖本次 live 状态。
+        useStore.getState().bumpTodosLiveVersion(sp);
       }
     }
     // compaction_end 后更新 token

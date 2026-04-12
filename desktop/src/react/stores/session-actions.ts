@@ -28,13 +28,26 @@ let _switchVersion = 0;
 export async function loadMessages(forPath?: string): Promise<void> {
   const targetPath = forPath || useStore.getState().currentSessionPath;
   if (!targetPath) return;
+  // 捕获 hydrate 前的 live 版本：若 fetch 期间有 tool_end 更新 todos，
+  // 后面就跳过 hydrate 写入，避免旧快照覆盖刚收到的实时状态。
+  const liveVersionBefore =
+    useStore.getState().todosLiveVersionBySession[targetPath] ?? 0;
   try {
     const res = await hanaFetch(`/api/sessions/messages?path=${encodeURIComponent(targetPath)}`);
     const data = await res.json();
     // per-session todos（防御性兼容层：即使后端漏转或缓存残留，这里兜底再转一次）
     const rawTodos = data.todos || [];
     const migratedTodos = migrateLegacyTodos({ todos: rawTodos });
-    useStore.getState().setSessionTodosForPath(targetPath, migratedTodos);
+    const liveVersionNow =
+      useStore.getState().todosLiveVersionBySession[targetPath] ?? 0;
+    if (liveVersionNow === liveVersionBefore) {
+      useStore.getState().setSessionTodosForPath(targetPath, migratedTodos);
+    } else {
+      console.log(
+        '[loadMessages] 跳过 todos hydrate: mid-flight 收到 live 更新',
+        targetPath,
+      );
+    }
     const items = buildItemsFromHistory(data);
     if (items.length > 0) {
       useStore.getState().initSession(targetPath, items, data.hasMore ?? false);
