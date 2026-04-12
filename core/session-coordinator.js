@@ -218,8 +218,10 @@ After dispatching subagent or other background tasks:
       for (const [key, entry] of candidates) {
         // 记忆收尾（fire-and-forget，淘汰场景不阻塞）
         const agent = this._d.getAgentById(entry.agentId) || this._d.getAgent();
-        agent?._memoryTicker?.notifySessionEnd(key).catch(() => {});
-        entry.unsub();
+        agent?._memoryTicker?.notifySessionEnd(key).catch((err) =>
+          log.warn(`LRU 淘汰 ${path.basename(key)}: notifySessionEnd failed: ${err.message}`),
+        );
+        await this._teardownSessionEntry(entry, key, "lru");
         this._d.getDeferredResultStore?.()?.clearBySession(key);
         this._sessions.delete(key);
         if (this._sessions.size <= MAX_CACHED_SESSIONS) break;
@@ -702,11 +704,14 @@ After dispatching subagent or other background tasks:
     const entry = this._sessions.get(sessionPath);
     if (entry) {
       const agent = this._d.getAgentById(entry.agentId) || this._d.getAgent();
-      agent?._memoryTicker?.notifySessionEnd(sessionPath).catch(() => {});
+      agent?._memoryTicker?.notifySessionEnd(sessionPath).catch((err) =>
+        log.warn(`closeSession ${path.basename(sessionPath)}: notifySessionEnd failed: ${err.message}`),
+      );
       if (entry.session.isStreaming) {
-        try { await entry.session.abort(); } catch {}
+        try { await entry.session.abort(); }
+        catch (err) { log.warn(`closeSession ${path.basename(sessionPath)}: abort failed: ${err.message}`); }
       }
-      entry.unsub();
+      await this._teardownSessionEntry(entry, sessionPath, "close");
       this._sessions.delete(sessionPath);
 
       // 清理该 session 的 pending confirmation
@@ -719,12 +724,13 @@ After dispatching subagent or other background tasks:
   }
 
   async closeAllSessions() {
-    // abort all streaming sessions + unsub（记忆收尾由 disposeAll 带超时处理）
-    for (const [, entry] of this._sessions) {
+    // abort all streaming sessions + teardown（记忆收尾由 disposeAll 带超时处理）
+    for (const [sessionPath, entry] of this._sessions) {
       if (entry.session.isStreaming) {
-        try { await entry.session.abort(); } catch {}
+        try { await entry.session.abort(); }
+        catch (err) { log.warn(`closeAllSessions ${path.basename(sessionPath)}: abort failed: ${err.message}`); }
       }
-      entry.unsub();
+      await this._teardownSessionEntry(entry, sessionPath, "close_all");
     }
     this._sessions.clear();
     this._session = null;
@@ -1068,12 +1074,24 @@ After dispatching subagent or other background tasks:
         }
       });
 
+      // isolated 专用 teardown: 临时 session 不在 _sessions Map 中,
+      // 但仍需 emit shutdown + dispose 以避免扩展资源泄漏。幂等:
+      // AgentSession.dispose() 基于 _unsubscribeAgent 做重复调用保护。
+      const teardownIsolatedSession = async (label) => {
+        try { await emitSessionShutdown(session); }
+        catch (err) { log.warn(`executeIsolated[${label}]: emitSessionShutdown failed: ${err.message}`); }
+        try { unsub?.(); }
+        catch (err) { log.warn(`executeIsolated[${label}]: unsub failed: ${err.message}`); }
+        try { session?.dispose?.(); }
+        catch (err) { log.warn(`executeIsolated[${label}]: session.dispose failed: ${err.message}`); }
+      };
+
       const abortHandler = () => session.abort();
       opts.signal?.addEventListener("abort", abortHandler, { once: true });
 
       if (opts.signal?.aborted) {
         opts.signal.removeEventListener("abort", abortHandler);
-        unsub?.();
+        await teardownIsolatedSession("early_abort");
         cleanupTempSession();
         return { sessionPath: null, replyText: "", error: "aborted" };
       }
@@ -1082,7 +1100,7 @@ After dispatching subagent or other background tasks:
         await session.prompt(prompt);
       } finally {
         opts.signal?.removeEventListener("abort", abortHandler);
-        unsub?.();
+        await teardownIsolatedSession("finally");
       }
 
       const sessionPath = session.sessionManager?.getSessionFile?.() || null;
