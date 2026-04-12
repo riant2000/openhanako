@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
 import { invalidateConfigCache } from '../../hooks/use-config';
@@ -124,13 +124,12 @@ export function MeTab() {
           />
           <span className={styles['settings-field-hint']}>{t('settings.me.userProfileHint')}</span>
         </div>
+        <div className={styles['settings-field']} style={{ display: 'flex', justifyContent: 'center' }}>
+          <button className={styles['settings-save-btn-sm']} onClick={save}>
+            {t('settings.save')}
+          </button>
+        </div>
       </section>
-
-      <div className={styles['settings-section-footer']}>
-        <button className={styles['settings-save-btn-sm']} onClick={save}>
-          {t('settings.save')}
-        </button>
-      </div>
     </div>
   );
 }

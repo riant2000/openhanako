@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
 import { t, autoSaveConfig } from '../helpers';
@@ -233,6 +233,11 @@ export function AgentTab() {
           />
           <span className={styles['settings-field-hint']}>{t('settings.agent.ishikiHint')}</span>
         </div>
+        <div className={styles['settings-field']} style={{ display: 'flex', justifyContent: 'center' }}>
+          <button className={styles['settings-save-btn-sm']} onClick={saveAgent}>
+            {t('settings.save')}
+          </button>
+        </div>
       </section>
 
       <MemorySection
@@ -270,11 +275,6 @@ export function AgentTab() {
         )}
       </section>
 
-      <div className={styles['settings-section-footer']}>
-        <button className={styles['settings-save-btn-sm']} onClick={saveAgent}>
-          {t('settings.save')}
-        </button>
-      </div>
     </div>
   );
 }
