@@ -3,6 +3,10 @@
  *
  * 后端真实来源：project-hana/lib/tools/todo-compat.js
  * 这两个文件必须保持同步。任何改动都要改两处。
+ *
+ * 前端只镜像纯函数（migrateLegacyTodos / extractLatestTodos）。
+ * branch-aware 的 loadLatestTodosFromSessionFile 是后端专用（Pi SDK 依赖），
+ * 前端不需要。
  */
 
 import { TODO_TOOL_NAMES } from "./todo-constants";
@@ -44,39 +48,55 @@ function migrateLegacyItem(old: LegacyTodoItem): TodoItem {
   };
 }
 
-function sanitizeUnknownItem(item: unknown): TodoItem {
-  const anyItem = (item || {}) as Record<string, unknown>;
-  const content = typeof anyItem.content === "string" ? anyItem.content
-    : typeof anyItem.text === "string" ? (anyItem.text as string)
-    : "";
-  const activeForm = typeof anyItem.activeForm === "string" ? anyItem.activeForm : content;
-  const statusRaw = anyItem.status;
-  const status: TodoStatus = (typeof statusRaw === "string" && VALID_STATUSES.has(statusRaw as TodoStatus))
-    ? (statusRaw as TodoStatus)
-    : "pending";
-  return { content, activeForm, status };
-}
-
+/**
+ * 损坏 item 直接丢弃（记录 error），不回填空串，避免渲染出空白行。
+ */
 export function migrateLegacyTodos(details: UnknownDetails | null | undefined): TodoItem[] {
   if (!details || typeof details !== "object") return [];
   const todos = (details as { todos?: unknown }).todos;
   if (!Array.isArray(todos)) return [];
-  return todos.map((item) => {
-    if (isLegacyTodoItem(item)) return migrateLegacyItem(item);
-    if (isNewTodoItem(item)) return item;
-    console.error("[todo-compat] corrupt todo item detected, sanitizing to pending:", item);
-    return sanitizeUnknownItem(item);
-  });
+  const result: TodoItem[] = [];
+  for (const item of todos) {
+    if (isLegacyTodoItem(item)) {
+      result.push(migrateLegacyItem(item));
+      continue;
+    }
+    if (isNewTodoItem(item)) {
+      result.push(item);
+      continue;
+    }
+    console.error("[todo-compat] 丢弃损坏的 todo item:", item);
+  }
+  return result;
 }
 
 type MessageLike = { role?: string; toolName?: string; details?: unknown };
 
+function isValidTodoSnapshot(details: unknown): details is { todos: unknown[] } {
+  return (
+    !!details &&
+    typeof details === "object" &&
+    Array.isArray((details as { todos?: unknown }).todos)
+  );
+}
+
+/**
+ * 从后往前扫最后一个合法 todo 快照。坏快照（details.todos 缺失或非数组）
+ * 跳过继续向前，这样显式清空（[]）和坏数据能区分开。
+ */
 export function extractLatestTodos(sourceMessages: MessageLike[] | null | undefined): TodoItem[] | null {
   if (!Array.isArray(sourceMessages)) return null;
   for (let i = sourceMessages.length - 1; i >= 0; i--) {
     const m = sourceMessages[i];
     if (!m || m.role !== "toolResult") continue;
     if (!m.toolName || !TODO_TOOL_NAMES.includes(m.toolName as typeof TODO_TOOL_NAMES[number])) continue;
+    if (!isValidTodoSnapshot(m.details)) {
+      console.error("[todo-compat] 跳过坏 todo 快照，继续向前扫描:", {
+        toolName: m.toolName,
+        details: m.details,
+      });
+      continue;
+    }
     return migrateLegacyTodos(m.details as UnknownDetails);
   }
   return null;
