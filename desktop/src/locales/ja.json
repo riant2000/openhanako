@@ -1444,8 +1444,8 @@
     },
     "browser": {
       "label": "ブラウザ",
-      "description": "ブラウザを操作してウェブページを閲覧します。ナビゲーション、クリック、入力、スクロール、スクリーンショットが可能です。\n操作：\n- start：ブラウザを起動（初回使用前に必ず呼び出すこと）\n- stop：ブラウザを閉じる\n- navigate(url)：指定 URL に移動\n- snapshot：現在のページの要素ツリーを取得（推奨：テキスト形式、低コスト）\n- screenshot：現在のページのスクリーンショットを撮影（視覚情報が必要な場合のみ使用）\n- click(ref)：snapshot が返した [ref] 番号の要素をクリック\n- type(text, ref?)：要素にテキストを入力、オプションで ref をクリックしてフォーカス\n- scroll(direction, amount?)：ページをスクロール、direction は up/down\n- select(ref, value)：ドロップダウンの選択肢を選択\n- key(key)：キーを押す、例：Enter、Escape、Tab、Control+a\n- wait(timeout?, state?)：ページの読み込みを待機\n- evaluate(expression)：ページ上で JavaScript を実行\n- show：ブラウザウィンドウを前面に表示\n\n重要：snapshot が返す [ref] 番号はページ変更後に無効になります。navigate/click の後に新しい snapshot が自動的に返されます。",
-      "actionDesc": "操作タイプ",
+      "description": "ヘッドレスブラウザを操作します（ナビゲート、クリック、入力、スクロール、スクリーンショット、JS 実行）。action パラメータで操作を選択し、各 action に必要なパラメータは action フィールドの説明を参照してください。注意：snapshot が返す [ref] 番号は navigate/click/type の後に無効になります。これらの操作は新しい snapshot を自動的に返すので、常に最新の snapshot の ref を使用してください。",
+      "actionDesc": "実行する操作。各 action の必須パラメータ：navigate→url；click→ref；type→text（任意 ref、pressEnter）；scroll→direction（任意 amount）；select→ref+value；key→key；wait→（任意 timeout、state）；evaluate→expression。start、stop、snapshot、screenshot、show は追加パラメータ不要。",
       "urlDesc": "URL（navigate の場合必須）",
       "refDesc": "要素の ref 番号（click/type/select で使用）",
       "textDesc": "入力テキスト（type の場合必須）",
