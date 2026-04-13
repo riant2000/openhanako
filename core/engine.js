@@ -51,6 +51,7 @@ import { debugLog } from "../lib/debug-log.js";
 import { createSandboxedTools } from "../lib/sandbox/index.js";
 import { t } from "../server/i18n.js";
 import { CheckpointStore } from "../lib/checkpoint-store.js";
+import { assertAllToolsCategorized } from "../shared/tool-categories.js";
 import { wrapWithCheckpoint } from "../lib/checkpoint-wrapper.js";
 import { TaskRegistry } from "../lib/task-registry.js";
 
@@ -833,6 +834,18 @@ export class HanaEngine {
         }),
       };
     }
+
+    // Startup assertion: every built-in tool must be categorized in
+    // shared/tool-categories.js. Covers all 3 tool-assembly call sites
+    // (createSession / executeIsolated / bridge-session-manager) because
+    // they all route through this function.
+    assertAllToolsCategorized([
+      ...result.tools.map((t) => t.name).filter(Boolean),
+      ...ct
+        .filter((t) => t && !t._pluginId)
+        .map((t) => t.name)
+        .filter(Boolean),
+    ]);
 
     return result;
   }
