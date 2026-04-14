@@ -31,7 +31,8 @@ import { SkillBadge } from './input/extensions/skill-badge';
 import { serializeEditor } from '../utils/editor-serializer';
 import { useSkillSlashItems } from '../hooks/use-slash-items';
 import {
-  XING_PROMPT, executeDiary, executeCompact, buildSlashCommands,
+  XING_PROMPT, executeDiary, executeCompact, buildSlashCommands, getSlashMatches,
+  resolveSlashSubmitSelection,
   type SlashItem,
 } from './input/slash-commands';
 import { attachFilesFromPaths } from '../MainContent';
@@ -88,6 +89,7 @@ function InputAreaInner() {
   const isComposing = useRef(false);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const slashBtnRef = useRef<HTMLButtonElement>(null);
+  const slashDismissedTextRef = useRef<string | null>(null);
   const [inputText, setInputText] = useState('');
 
   // ── 全局 inline notice（截图等非斜杠命令的轻提示）──
@@ -218,9 +220,19 @@ function InputAreaInner() {
 
   const filteredCommands = useMemo(() => {
     if (!inputText.startsWith('/')) return slashCommands;
-    const query = inputText.slice(1).toLowerCase();
-    return slashCommands.filter(c => c.name.startsWith(query));
+    return getSlashMatches(inputText, slashCommands);
   }, [inputText, slashCommands]);
+
+  const dismissSlashMenu = useCallback(() => {
+    const text = editor?.getText().trim() ?? inputText.trim();
+    slashDismissedTextRef.current = text.startsWith('/') ? text : null;
+    setSlashMenuOpen(false);
+  }, [editor, inputText]);
+
+  const openSlashMenu = useCallback(() => {
+    slashDismissedTextRef.current = null;
+    setSlashMenuOpen(true);
+  }, []);
 
   // Sync editor text to React state (drives hasInput / canSend) + slash menu detection + draft save
   useEffect(() => {
@@ -228,7 +240,11 @@ function InputAreaInner() {
     const handler = () => {
       const text = editor.getText();
       setInputText(text);
-      if (text.startsWith('/') && text.length <= 20) {
+      if (slashDismissedTextRef.current && slashDismissedTextRef.current !== text.trim()) {
+        slashDismissedTextRef.current = null;
+      }
+      const slashMatches = getSlashMatches(text, slashCommands);
+      if (slashMatches.length > 0 && slashDismissedTextRef.current !== text.trim()) {
         setSlashMenuOpen(true);
         setSlashSelected(0);
       } else {
@@ -243,7 +259,7 @@ function InputAreaInner() {
     };
     editor.on('update', handler);
     return () => { editor.off('update', handler); };
-  }, [editor, currentSessionPath, setDraft]);
+  }, [editor, currentSessionPath, setDraft, slashCommands]);
 
   // 切换 session 时恢复草稿
   useEffect(() => {
@@ -272,11 +288,11 @@ function InputAreaInner() {
     const handler = (e: MouseEvent) => {
       if (slashMenuRef.current?.contains(e.target as Node)) return;
       if (slashBtnRef.current?.contains(e.target as Node)) return;
-      setSlashMenuOpen(false);
+      dismissSlashMenu();
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [slashMenuOpen]);
+  }, [dismissSlashMenu, slashMenuOpen]);
 
   // Can send?
   const hasContent = inputText.trim().length > 0 || attachedFiles.length > 0 || docContextAttached || !!quotedSelection
@@ -330,6 +346,7 @@ function InputAreaInner() {
 
   // ── Handle slash selection (builtin vs skill) ──
   const handleSlashSelect = useCallback((item: SlashItem) => {
+    slashDismissedTextRef.current = null;
     if (item.type === 'builtin') {
       item.execute();
       return;
@@ -351,10 +368,16 @@ function InputAreaInner() {
     const { text: rawText, skills } = serializeEditor(editorJson);
     const text = rawText.trim();
 
-    // 斜杠命令拦截（仅当无 skill badge 时）
-    if (text.startsWith('/') && skills.length === 0 && slashMenuOpen && filteredCommands.length > 0) {
-      const cmd = filteredCommands[slashSelected] || filteredCommands[0];
-      if (cmd) { handleSlashSelect(cmd); return; }
+    const slashSelection = resolveSlashSubmitSelection({
+      text,
+      skills,
+      commands: slashCommands,
+      selectedIndex: slashSelected,
+      dismissedText: slashDismissedTextRef.current,
+    });
+    if (slashSelection) {
+      handleSlashSelect(slashSelection);
+      return;
     }
 
     const hasFiles = attachedFiles.length > 0;
@@ -469,7 +492,7 @@ function InputAreaInner() {
     } finally {
       setSending(false);
     }
-  }, [editor, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, clearDraft, currentSessionPath, setDocContextAttached, slashMenuOpen, filteredCommands, slashSelected, handleSlashSelect]);
+  }, [editor, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, clearDraft, currentSessionPath, setDocContextAttached, slashCommands, slashSelected, handleSlashSelect]);
 
   // ── Steer ──
   const handleSteer = useCallback(async () => {
@@ -510,13 +533,13 @@ function InputAreaInner() {
         if (cmd) editor?.commands.setContent('/' + cmd.name);
         return;
       }
-      if (e.key === 'Escape') { e.preventDefault(); setSlashMenuOpen(false); return; }
+      if (e.key === 'Escape') { e.preventDefault(); dismissSlashMenu(); return; }
     }
     if (e.key === 'Enter' && !e.shiftKey && !isComposing.current) {
       e.preventDefault();
       if (isStreaming && (editor?.getText().trim())) handleSteer(); else handleSend();
     }
-  }, [handleSend, handleSteer, isStreaming, editor, slashMenuOpen, filteredCommands, slashSelected]);
+  }, [dismissSlashMenu, handleSend, handleSteer, isStreaming, editor, slashMenuOpen, filteredCommands, slashSelected]);
 
   return (
     <>
@@ -587,7 +610,10 @@ function InputAreaInner() {
               ref={slashBtnRef}
               className={styles['attach-btn']}
               title={t('input.commandMenu')}
-              onClick={() => setSlashMenuOpen(v => !v)}
+              onClick={() => {
+                if (slashMenuOpen) dismissSlashMenu();
+                else openSlashMenu();
+              }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L14 10L22 12L14 14L12 22L10 14L2 12L10 10Z" />

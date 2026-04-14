@@ -38,6 +38,35 @@ export interface SlashItem {
   execute: () => Promise<void> | void;
 }
 
+export const MAX_SLASH_TRIGGER_LENGTH = 20;
+
+export function getSlashMatches(text: string, commands: SlashItem[]): SlashItem[] {
+  const normalized = text.trim();
+  if (!normalized.startsWith('/') || normalized.length > MAX_SLASH_TRIGGER_LENGTH) return [];
+  const query = normalized.slice(1).toLowerCase();
+  return commands.filter(command => command.name.startsWith(query));
+}
+
+export function resolveSlashSubmitSelection({
+  text,
+  skills,
+  commands,
+  selectedIndex,
+  dismissedText,
+}: {
+  text: string;
+  skills: string[];
+  commands: SlashItem[];
+  selectedIndex: number;
+  dismissedText: string | null;
+}): SlashItem | null {
+  if (skills.length > 0) return null;
+  const matches = getSlashMatches(text, commands);
+  if (matches.length === 0) return null;
+  if (dismissedText === text.trim()) return null;
+  return matches[selectedIndex] || matches[0] || null;
+}
+
 // ── Command Executors ──
 
 export function executeDiary(
