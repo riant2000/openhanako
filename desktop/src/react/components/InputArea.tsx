@@ -546,6 +546,12 @@ function InputAreaInner() {
     }
   }, [dismissSlashMenu, handleSend, handleSteer, isStreaming, editor, slashMenuOpen, filteredCommands, slashSelected]);
 
+  const handleSlashResultClick = useCallback(() => {
+    if (!slashResult?.deskDir) return;
+    toggleJianSidebar(true);
+    loadDeskFiles('', slashResult.deskDir);
+  }, [slashResult?.deskDir]);
+
   return (
     <>
       <InputStatusBars
@@ -555,10 +561,7 @@ function InputAreaInner() {
         compactingLabel={t('chat.compacting')}
         inlineError={inlineError}
         slashResult={slashResult}
-        onResultClick={slashResult?.deskDir ? () => {
-          toggleJianSidebar(true);
-          loadDeskFiles('', slashResult.deskDir);
-        } : undefined}
+        onResultClick={slashResult?.deskDir ? handleSlashResultClick : undefined}
       />
       <InputContextRow
         attachedFiles={attachedFiles}

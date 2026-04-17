@@ -6,17 +6,9 @@ import { ThinkingLevelButton } from './ThinkingLevelButton';
 import { ModelSelector } from './ModelSelector';
 import { SendButton } from './SendButton';
 import type { ThinkingLevel } from '../../stores/model-slice';
+import type { Model } from '../../types';
+import type { SessionModel } from '../../stores/chat-types';
 import styles from './InputArea.module.css';
-
-interface ModelInfo {
-  id: string;
-  name: string;
-  provider?: string;
-  isCurrent?: boolean;
-  vision?: boolean;
-  reasoning?: boolean;
-  xhigh?: boolean;
-}
 
 interface Props {
   t: (key: string) => string;
@@ -34,8 +26,8 @@ interface Props {
   thinkingLevel: ThinkingLevel;
   onThinkingChange: (level: ThinkingLevel) => void;
   modelXhigh: boolean;
-  models: ModelInfo[];
-  sessionModel: any;
+  models: Model[];
+  sessionModel?: SessionModel;
   isStreaming: boolean;
   hasInput: boolean;
   canSend: boolean;

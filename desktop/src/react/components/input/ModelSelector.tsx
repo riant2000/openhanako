@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useStore } from '../../stores';
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { useI18n } from '../../hooks/use-i18n';
+import type { Model } from '../../types';
+import type { SessionModel } from '../../stores/chat-types';
 import styles from './InputArea.module.css';
 
 export function ModelSelector({ models, sessionModel }: {
-  models: Array<{ id: string; name: string; provider?: string; isCurrent?: boolean; vision?: boolean; reasoning?: boolean; xhigh?: boolean }>;
-  sessionModel?: { id: string; name: string; provider: string };
+  models: Model[];
+  sessionModel?: SessionModel;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
