@@ -9,10 +9,14 @@ import { useEffect, useMemo, useRef } from 'react';
 import { renderMarkdown } from '../../utils/markdown';
 import { parseCSV, injectCopyButtons } from '../../utils/format';
 import { fileIconSvg } from '../../utils/icons';
+import { openFilePreview } from '../../utils/file-preview';
+import { DESK_OWNER } from '../../stores/artifact-slice';
 import type { Artifact } from '../../types';
 
 interface ArtifactRendererProps {
   artifact: Artifact;
+  /** 该 artifact 所属的 owner（session path 或 DESK_OWNER），用于 fallback 路由 */
+  owner: string;
 }
 
 // ── MarkdownPreview ──
@@ -118,7 +122,7 @@ function FileInfoPreview({ artifact }: { artifact: Artifact }) {
 
 // ── ArtifactRenderer ──
 
-export function ArtifactRenderer({ artifact }: ArtifactRendererProps) {
+export function ArtifactRenderer({ artifact, owner }: ArtifactRendererProps) {
   switch (artifact.type) {
     case 'html':
       return (
@@ -143,23 +147,40 @@ export function ArtifactRenderer({ artifact }: ArtifactRendererProps) {
     case 'csv':
       return <CsvPreview content={artifact.content} />;
 
-    case 'svg':
+    // image / svg：旧类型 artifact 的 fallback。新路径不再产生此类 artifact，
+    // 持久化或旧 session 恢复时可能命中。点击后按 owner 路由到统一的 MediaViewer。
+    case 'image':
+    case 'svg': {
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.warn('[ArtifactRenderer] 旧类型 image/svg artifact，走 fallback，请通过文件重新打开以使用新 MediaViewer');
+      }
+      const onOpen = () => {
+        if (!artifact.filePath || !artifact.ext) return;
+        const context = owner === DESK_OWNER
+          ? { origin: 'desk' as const }
+          : { origin: 'session' as const, sessionPath: owner };
+        openFilePreview(artifact.filePath, artifact.title, artifact.ext, context);
+      };
       return (
-        <img
-          className="preview-image"
-          src={`data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(artifact.content)))}`}
-          alt={artifact.title}
-        />
-      );
-
-    case 'image': {
-      const ext = artifact.ext === 'jpg' ? 'jpeg' : (artifact.ext || 'png');
-      return (
-        <img
-          className="preview-image"
-          src={`data:image/${ext};base64,${artifact.content}`}
-          alt={artifact.title}
-        />
+        <div
+          onClick={onOpen}
+          role="button"
+          tabIndex={0}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 200,
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          <span>此图片预览已升级，点此在新查看器打开</span>
+        </div>
       );
     }
 
