@@ -14,6 +14,7 @@ export function MediaViewer() {
   const [chromeVisible, setChromeVisible] = useState(true);
   const idleTimerRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
+  const [zoomCmd, setZoomCmd] = useState({ in: 0, out: 0, reset: 0 });
 
   // 尺寸追踪
   useEffect(() => {
@@ -71,6 +72,19 @@ export function MediaViewer() {
         case 'Escape': e.preventDefault(); closeMediaViewer(); break;
         case 'ArrowLeft': e.preventDefault(); goPrev(); break;
         case 'ArrowRight': e.preventDefault(); goNext(); break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          setZoomCmd((c) => ({ ...c, in: c.in + 1 }));
+          break;
+        case '-':
+          e.preventDefault();
+          setZoomCmd((c) => ({ ...c, out: c.out + 1 }));
+          break;
+        case '0':
+          e.preventDefault();
+          setZoomCmd((c) => ({ ...c, reset: c.reset + 1 }));
+          break;
       }
     };
     window.addEventListener('keydown', onKey);
@@ -154,6 +168,7 @@ export function MediaViewer() {
             file={current}
             viewport={viewport}
             neighbors={{ prev, next }}
+            zoomCmd={zoomCmd}
             key={current.id}
           />
         )}

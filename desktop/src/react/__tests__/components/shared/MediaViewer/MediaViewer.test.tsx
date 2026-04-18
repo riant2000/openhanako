@@ -99,4 +99,29 @@ describe('MediaViewer interaction', () => {
     expect(getByTestId('media-viewer-index').textContent).toContain('2 / 3');
     expect(getByTestId('media-viewer-name').textContent).toContain('b.png');
   });
+
+  it('+ 键触发 zoomIn 命令', () => {
+    useStore.getState().setMediaViewer({ files: [f('a')], currentId: 'a', origin: 'desk' });
+    const { container } = render(<MediaViewer />);
+    fireEvent.keyDown(window, { key: '=' });
+    // 通过 data-zoom-seq 属性断言命令已派发
+    const stage = container.querySelector('[data-testid="image-stage"]') as HTMLElement;
+    expect(stage.dataset.zoomInSeq).toBe('1');
+  });
+
+  it('- 键触发 zoomOut 命令', () => {
+    useStore.getState().setMediaViewer({ files: [f('a')], currentId: 'a', origin: 'desk' });
+    const { container } = render(<MediaViewer />);
+    fireEvent.keyDown(window, { key: '-' });
+    const stage = container.querySelector('[data-testid="image-stage"]') as HTMLElement;
+    expect(stage.dataset.zoomOutSeq).toBe('1');
+  });
+
+  it('0 键触发 reset 命令', () => {
+    useStore.getState().setMediaViewer({ files: [f('a')], currentId: 'a', origin: 'desk' });
+    const { container } = render(<MediaViewer />);
+    fireEvent.keyDown(window, { key: '0' });
+    const stage = container.querySelector('[data-testid="image-stage"]') as HTMLElement;
+    expect(stage.dataset.resetSeq).toBe('1');
+  });
 });

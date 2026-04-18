@@ -10,11 +10,12 @@ interface Props {
   file: FileRef;
   viewport: { width: number; height: number };
   neighbors?: { prev?: FileRef; next?: FileRef };
+  zoomCmd?: { in: number; out: number; reset: number };
   onReady?: () => void;
   onError?: (e: unknown) => void;
 }
 
-export function ImageStage({ file, viewport, neighbors, onReady, onError }: Props) {
+export function ImageStage({ file, viewport, neighbors, zoomCmd, onReady, onError }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const imgElRef = useRef<HTMLImageElement | null>(null);
@@ -52,12 +53,26 @@ export function ImageStage({ file, viewport, neighbors, onReady, onError }: Prop
 
   const { cssTransform, onWheel, onPointerDown, onPointerMove, onPointerUp, onDoubleClick, fitScale, transform } = transformApi;
 
+  // 外壳的缩放命令（单调计数器）变化时触发对应动作
+  const prevCmdRef = useRef({ in: 0, out: 0, reset: 0 });
+  useEffect(() => {
+    if (!zoomCmd) return;
+    if (zoomCmd.in > prevCmdRef.current.in) transformApi.zoomIn();
+    if (zoomCmd.out > prevCmdRef.current.out) transformApi.zoomOut();
+    if (zoomCmd.reset > prevCmdRef.current.reset) transformApi.reset();
+    prevCmdRef.current = zoomCmd;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomCmd?.in, zoomCmd?.out, zoomCmd?.reset]);
+
   const cursorStyle = transform.scale > fitScale + 0.01 ? 'grab' : 'default';
 
   return (
     <div
       className={styles.stage}
       data-testid="image-stage"
+      data-zoom-in-seq={zoomCmd?.in ?? 0}
+      data-zoom-out-seq={zoomCmd?.out ?? 0}
+      data-reset-seq={zoomCmd?.reset ?? 0}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
