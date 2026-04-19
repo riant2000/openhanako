@@ -1,9 +1,10 @@
 import type { FileKind, FileSource } from '../types/file-ref';
 
 export const EXT_TO_KIND: Record<string, FileKind> = {
-  // image
+  // image（包含老格式 ico / tiff / heic，统一归入 image；SVG 因走 XML 渲染单独一类）
   png: 'image', jpg: 'image', jpeg: 'image', gif: 'image',
-  webp: 'image', bmp: 'image', avif: 'image',
+  webp: 'image', bmp: 'image', avif: 'image', ico: 'image',
+  tiff: 'image', tif: 'image', heic: 'image', heif: 'image',
   svg: 'svg',
   // video
   mp4: 'video', webm: 'video', mov: 'video', m4v: 'video', mkv: 'video',
@@ -31,6 +32,26 @@ const MEDIA_KINDS: ReadonlySet<FileKind> = new Set(['image', 'svg', 'video']);
 
 export function isMediaKind(kind: FileKind): boolean {
   return MEDIA_KINDS.has(kind);
+}
+
+/**
+ * 图片或 SVG —— 用于渲染侧 "这个扩展名是否要展示成 img" 的判断。
+ * 中心表 EXT_TO_KIND 是唯一源，禁止组件自己维护 IMAGE_EXTS 私有表。
+ */
+export function isImageOrSvgExt(ext: string | undefined): boolean {
+  if (!ext) return false;
+  const kind = inferKindByExt(ext);
+  return kind === 'image' || kind === 'svg';
+}
+
+/**
+ * 从文件名取扩展名（小写、不带点）。扩展名缺失返回 undefined。
+ */
+export function extOfName(name: string): string | undefined {
+  if (!name) return undefined;
+  const dot = name.lastIndexOf('.');
+  if (dot < 0 || dot === name.length - 1) return undefined;
+  return name.slice(dot + 1).toLowerCase();
 }
 
 /**

@@ -11,6 +11,7 @@ import type { ChatMessage, UserAttachment, DeskContext, ContentBlock } from '../
 import { useStore } from '../../stores';
 import { selectIsStreamingSession, selectSelectedIdsBySession } from '../../stores/session-selectors';
 import { openFilePreview } from '../../utils/file-preview';
+import { isImageOrSvgExt, extOfName } from '../../utils/file-kind';
 import styles from './Chat.module.css';
 import badgeStyles from '../input/SkillBadgeView.module.css';
 
@@ -152,8 +153,9 @@ const UserAttachmentsView = memo(function UserAttachmentsView({ attachments, des
   sessionPath: string;
   messageId: string;
 }) {
+  // 扩展名识别统一走中心表 EXT_TO_KIND；禁止维护私有 IMAGE_EXTS 表。
   const isImage = useCallback((att: UserAttachment) => {
-    return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(att.name);
+    return isImageOrSvgExt(extOfName(att.name));
   }, []);
 
   const t = window.t ?? ((p: string) => p);

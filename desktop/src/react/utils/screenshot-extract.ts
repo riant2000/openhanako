@@ -1,6 +1,7 @@
 // desktop/src/react/utils/screenshot-extract.ts
 
 import type { ChatMessage, ContentBlock } from '../stores/chat-types';
+import { isImageOrSvgExt } from './file-kind';
 
 export interface ScreenshotBlock {
   type: 'html' | 'markdown' | 'image';
@@ -29,14 +30,13 @@ export function buildThemeName(color: string, width: string): string {
   return width === 'desktop' ? `${base}-desktop` : base;
 }
 
-const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']);
-
+// 扩展名识别统一走 file-kind 中心表；禁止维护私有 IMAGE_EXTS 表。
 function extractBlocks(blocks: ContentBlock[]): ScreenshotBlock[] {
   const result: ScreenshotBlock[] = [];
   for (const block of blocks) {
     if (block.type === 'text') {
       result.push({ type: 'html', content: block.html });
-    } else if (block.type === 'file' && IMAGE_EXTS.has(block.ext)) {
+    } else if (block.type === 'file' && isImageOrSvgExt(block.ext)) {
       result.push({ type: 'image', content: block.filePath });
     }
   }

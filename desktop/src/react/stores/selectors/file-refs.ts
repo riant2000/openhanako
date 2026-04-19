@@ -11,9 +11,13 @@ type StateShape = {
 };
 
 function joinPath(base: string, sub: string, name: string): string {
-  // 保持 OS 原生习惯：仅用正斜杠拼接（preload 层自行适配 Windows 反斜杠）
-  const parts = [base, sub, name].filter(Boolean);
-  return parts.join('/').replace(/\/+/g, '/');
+  // 保持 OS 原生习惯：仅用正斜杠拼接（preload 层自行适配 Windows 反斜杠）。
+  // UNC 路径（Windows 网络盘，如 //server/share/...）的前导 `//` 必须保留，
+  // 否则 pathToFileUrl 的 UNC 分支（要求 `//` 前缀）匹配不上，网络盘图片预览会坏。
+  const joined = [base, sub, name].filter(Boolean).join('/');
+  return joined.startsWith('//')
+    ? '//' + joined.slice(2).replace(/\/+/g, '/')
+    : joined.replace(/\/+/g, '/');
 }
 
 function extOf(name: string): string | undefined {
@@ -62,6 +66,21 @@ type SessionStateShape = StateShape & {
 
 const cachedSession = new Map<string, { items: ChatListItem[]; result: FileRef[] }>();
 const EMPTY_SESSION_RESULT: readonly FileRef[] = Object.freeze([]);
+
+/**
+ * 清理 session → FileRef[] 缓存。必须由 session 生命周期持有方（chat-slice）
+ * 在 clearSession / LRU eviction 时主动调用，否则 cachedSession 只增不减，
+ * 长期会让 FileRef.inlineData 里的 base64 载荷在 renderer 里滞留。
+ *
+ * 不传 sessionPath 时清空整张 Map（用于登出 / 切换 workspace）。
+ */
+export function invalidateSessionCache(sessionPath?: string): void {
+  if (sessionPath == null) {
+    cachedSession.clear();
+    return;
+  }
+  cachedSession.delete(sessionPath);
+}
 
 export function selectSessionFiles(state: SessionStateShape, sessionPath: string): readonly FileRef[] {
   const items = state.chatSessions?.[sessionPath]?.items;

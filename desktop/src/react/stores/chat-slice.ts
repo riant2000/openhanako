@@ -3,6 +3,7 @@
  */
 
 import type { ChatListItem, ChatMessage, SessionMessages, SessionModel } from './chat-types';
+import { invalidateSessionCache } from './selectors/file-refs';
 
 export interface ChatSlice {
   chatSessions: Record<string, SessionMessages>;
@@ -51,11 +52,16 @@ export const createChatSlice = (
       loadingMore: false,
       oldestId: items[0]?.type === 'message' ? items[0].data.id : undefined,
     };
-    // LRU 淘汰：只淘汰消息缓存，不动模型快照（模型是轻量常驻数据）
+    // LRU 淘汰：只淘汰消息缓存，不动模型快照（模型是轻量常驻数据）。
+    // 被淘汰的 session 的 FileRef 缓存（含 inlineData base64）必须同步清，
+    // 否则模块顶层的 cachedSession 会让载荷在 renderer 里滞留。
     const keys = Object.keys(sessions);
     if (keys.length > MAX_CACHED_SESSIONS) {
       const oldest = keys.find(k => k !== path);
-      if (oldest) delete sessions[oldest];
+      if (oldest) {
+        delete sessions[oldest];
+        invalidateSessionCache(oldest);
+      }
     }
     return { chatSessions: sessions };
   }),
@@ -177,6 +183,8 @@ export const createChatSlice = (
     delete models[path];
     const versions = { ...s._loadMessagesVersion };
     delete versions[path];
+    // FileRef 缓存绑定 session 生命周期
+    invalidateSessionCache(path);
     return { chatSessions: sessions, sessionModelsByPath: models, _loadMessagesVersion: versions };
   }),
 

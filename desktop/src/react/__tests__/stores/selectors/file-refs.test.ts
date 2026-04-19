@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectDeskFiles, selectSessionFiles } from '../../../stores/selectors/file-refs';
+import { selectDeskFiles, selectSessionFiles, invalidateSessionCache } from '../../../stores/selectors/file-refs';
 import type { DeskFile } from '../../../types';
 import type { ChatListItem } from '../../../stores/chat-types';
 
@@ -53,6 +53,34 @@ describe('selectDeskFiles', () => {
       '',
     );
     expect(selectDeskFiles(state)[0].path).toBe('/root/a.png');
+  });
+
+  it('UNC 前导 // 保留（Windows 网络盘）', () => {
+    const state = makeState(
+      [{ name: 'a.png', isDir: false }],
+      '//server/share',
+      'sub',
+    );
+    // 关键：前导 // 不能被折叠成 /，否则 pathToFileUrl 的 UNC 分支匹配不上
+    expect(selectDeskFiles(state)[0].path).toBe('//server/share/sub/a.png');
+  });
+
+  it('Windows 盘符风格 basePath（仅正斜杠）保留', () => {
+    const state = makeState(
+      [{ name: 'a.png', isDir: false }],
+      'C:/Users/foo',
+      '',
+    );
+    expect(selectDeskFiles(state)[0].path).toBe('C:/Users/foo/a.png');
+  });
+
+  it('多余斜杠被压扁（非 UNC 场景）', () => {
+    const state = makeState(
+      [{ name: 'a.png', isDir: false }],
+      '/root/',
+      '/sub/',
+    );
+    expect(selectDeskFiles(state)[0].path).toBe('/root/sub/a.png');
   });
 
   it('同一输入多次调用返回引用稳定（memoization）', () => {
@@ -185,6 +213,59 @@ describe('selectSessionFiles', () => {
     const state = sessionState(items);
     const r1 = selectSessionFiles(state, '/s/1');
     const r2 = selectSessionFiles(state, '/s/1');
+    expect(r1).toBe(r2);
+  });
+});
+
+describe('invalidateSessionCache（生命周期绑定）', () => {
+  it('invalidateSessionCache(path) 后再调 selectSessionFiles 会重新计算（引用不等）', () => {
+    const items: ChatListItem[] = [{
+      type: 'message',
+      data: { id: 'm', role: 'user', attachments: [{ path: '/a.png', name: 'a.png', isDir: false }] },
+    }];
+    const state = sessionState(items, '/s/evict');
+    const r1 = selectSessionFiles(state, '/s/evict');
+    invalidateSessionCache('/s/evict');
+    const r2 = selectSessionFiles(state, '/s/evict');
+    expect(r1).not.toBe(r2);
+    // 内容仍一致（只是重新构造了数组）
+    expect(r1).toEqual(r2);
+  });
+
+  it('invalidateSessionCache() 无参清空整张 Map（跨 session）', () => {
+    const itemsA: ChatListItem[] = [{
+      type: 'message',
+      data: { id: 'a', role: 'user', attachments: [{ path: '/a.png', name: 'a.png', isDir: false }] },
+    }];
+    const itemsB: ChatListItem[] = [{
+      type: 'message',
+      data: { id: 'b', role: 'user', attachments: [{ path: '/b.png', name: 'b.png', isDir: false }] },
+    }];
+    const stateA = {
+      deskFiles: [], deskBasePath: '', deskCurrentPath: '',
+      chatSessions: {
+        '/s/a': { items: itemsA, hasMore: false, loadingMore: false },
+        '/s/b': { items: itemsB, hasMore: false, loadingMore: false },
+      },
+    } as any;
+    const a1 = selectSessionFiles(stateA, '/s/a');
+    const b1 = selectSessionFiles(stateA, '/s/b');
+    invalidateSessionCache();
+    const a2 = selectSessionFiles(stateA, '/s/a');
+    const b2 = selectSessionFiles(stateA, '/s/b');
+    expect(a1).not.toBe(a2);
+    expect(b1).not.toBe(b2);
+  });
+
+  it('invalidateSessionCache(unknown) 幂等，不影响其它 session', () => {
+    const items: ChatListItem[] = [{
+      type: 'message',
+      data: { id: 'x', role: 'user', attachments: [{ path: '/x.png', name: 'x.png', isDir: false }] },
+    }];
+    const state = sessionState(items, '/s/keep');
+    const r1 = selectSessionFiles(state, '/s/keep');
+    invalidateSessionCache('/s/does-not-exist');
+    const r2 = selectSessionFiles(state, '/s/keep');
     expect(r1).toBe(r2);
   });
 });

@@ -13,18 +13,20 @@ describe('ImageStage', () => {
 
   beforeEach(() => {
     (window as any).platform = {
-      readFileBase64: vi.fn(async () => 'BASE64'),
+      // v0.105.1 起 image/svg 改走 getFileUrl（不再 readFileBase64 进 JS 堆）
+      getFileUrl: vi.fn((p: string) => `file:///MOCK${p}`),
     };
   });
   afterEach(() => { cleanup(); delete (window as any).platform; });
 
-  it('渲染 img 并异步加载 src', async () => {
+  it('渲染 img 并异步加载 src（走 getFileUrl 的 file:// URL）', async () => {
     const { container } = render(<ImageStage file={file} viewport={{ width: 800, height: 600 }} />);
     await waitFor(() => {
       const img = container.querySelector('img');
       expect(img).toBeTruthy();
-      expect(img!.getAttribute('src')).toContain('data:image/png;base64,');
+      expect(img!.getAttribute('src')).toBe('file:///MOCK/a.png');
     });
+    expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/a.png');
   });
 
   it('wheel 事件触发 transform 变化', async () => {
@@ -62,10 +64,27 @@ describe('ImageStage', () => {
     });
   });
 
-  it('loading 状态下显示 spinner', () => {
-    // readFileBase64 pending forever
-    (window as any).platform.readFileBase64 = vi.fn(() => new Promise(() => {}));
+  it('loading 状态下显示 spinner（platform 缺失使 loadMediaSource 抛错 → src 保持 null）', () => {
+    delete (window as any).platform;
     const { getByTestId } = render(<ImageStage file={file} viewport={{ width: 800, height: 600 }} />);
     expect(getByTestId('image-stage-spinner')).toBeTruthy();
+  });
+
+  it('邻图预加载也走 getFileUrl（不进 JS 堆）', async () => {
+    const prev: FileRef = { id: '0', kind: 'image', source: 'desk', name: 'prev.png', path: '/prev.png', ext: 'png' };
+    const next: FileRef = { id: '2', kind: 'image', source: 'desk', name: 'next.png', path: '/next.png', ext: 'png' };
+    render(
+      <ImageStage
+        file={file}
+        viewport={{ width: 800, height: 600 }}
+        neighbors={{ prev, next }}
+      />,
+    );
+    await waitFor(() => {
+      // 当前图 + 前 + 后 三次调用
+      expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/a.png');
+      expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/prev.png');
+      expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/next.png');
+    });
   });
 });

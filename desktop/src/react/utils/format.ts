@@ -37,11 +37,12 @@ export function parseCSV(text: string): string[][] {
   return rows;
 }
 
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico']);
+// 扩展名识别统一走 file-kind 中心表；禁止维护私有 IMAGE_EXTS 表。
+// 保留此 helper 纯粹是 API 形式（传 name，返回 boolean），内部委托给中心表。
+import { isImageOrSvgExt, extOfName } from './file-kind';
 
 export function isImageFile(name: string): boolean {
-  const ext = (name || '').toLowerCase().replace(/^.*(\.\w+)$/, '$1');
-  return IMAGE_EXTS.has(ext);
+  return isImageOrSvgExt(extOfName(name));
 }
 
 export function formatSessionDate(isoStr: string): string {

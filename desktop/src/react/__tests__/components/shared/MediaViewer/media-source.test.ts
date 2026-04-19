@@ -8,25 +8,30 @@ import type { FileRef } from '../../../../types/file-ref';
 describe('loadMediaSource', () => {
   beforeEach(() => {
     (window as any).platform = {
+      // 保留 mock，回归测试中如果谁还在走 readFileBase64 会被 expect().not.toHaveBeenCalled() 捕获
       readFileBase64: vi.fn(async (p: string) => `BASE64_OF_${p}`),
       getFileUrl: vi.fn((p: string) => `file:///MOCK${p}`),
     };
   });
   afterEach(() => { delete (window as any).platform; });
 
-  it('image: source=desk 走 readFileBase64 → data url', async () => {
+  it('image: source=desk 走 getFileUrl（不再整文件 base64）', async () => {
     const ref: FileRef = { id: '1', kind: 'image', source: 'desk', name: 'a.png', path: '/a.png', ext: 'png' };
     const src = await loadMediaSource(ref);
-    expect(src.url).toBe('data:image/png;base64,BASE64_OF_/a.png');
+    expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/a.png');
+    expect(src.url).toBe('file:///MOCK/a.png');
+    expect((window as any).platform.readFileBase64).not.toHaveBeenCalled();
   });
 
-  it('svg 推断 mime 为 image/svg+xml', async () => {
+  it('svg: 走 getFileUrl（不再整文件 base64）', async () => {
     const ref: FileRef = { id: '1', kind: 'svg', source: 'desk', name: 'a.svg', path: '/a.svg', ext: 'svg' };
     const src = await loadMediaSource(ref);
-    expect(src.url).toBe('data:image/svg+xml;base64,BASE64_OF_/a.svg');
+    expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/a.svg');
+    expect(src.url).toBe('file:///MOCK/a.svg');
+    expect((window as any).platform.readFileBase64).not.toHaveBeenCalled();
   });
 
-  it('session-block-screenshot: 直接用 inlineData', async () => {
+  it('session-block-screenshot: 直接用 inlineData data URL（base64 已在内存中）', async () => {
     const ref: FileRef = {
       id: '1', kind: 'image', source: 'session-block-screenshot',
       name: 's.png', path: '',
@@ -34,6 +39,7 @@ describe('loadMediaSource', () => {
     };
     const src = await loadMediaSource(ref);
     expect(src.url).toBe('data:image/png;base64,ABC');
+    expect((window as any).platform.getFileUrl).not.toHaveBeenCalled();
     expect((window as any).platform.readFileBase64).not.toHaveBeenCalled();
   });
 
@@ -42,7 +48,6 @@ describe('loadMediaSource', () => {
     const src = await loadMediaSource(ref);
     expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/a.mp4');
     expect(src.url).toBe('file:///MOCK/a.mp4');
-    // 没调 readFileBase64（视频不 base64）
     expect((window as any).platform.readFileBase64).not.toHaveBeenCalled();
   });
 
@@ -52,15 +57,19 @@ describe('loadMediaSource', () => {
     await expect(loadMediaSource(ref)).rejects.toThrow(/platform/i);
   });
 
-  it('video + platform.getFileUrl 缺失 → 抛错', async () => {
-    (window as any).platform = { readFileBase64: vi.fn() }; // 故意缺 getFileUrl
-    const ref: FileRef = { id: '1', kind: 'video', source: 'desk', name: 'a.mp4', path: '/a.mp4', ext: 'mp4' };
+  it('platform.getFileUrl 缺失 → 抛错', async () => {
+    (window as any).platform = {}; // 故意缺 getFileUrl
+    const ref: FileRef = { id: '1', kind: 'image', source: 'desk', name: 'a.png', path: '/a.png', ext: 'png' };
     await expect(loadMediaSource(ref)).rejects.toThrow(/getFileUrl/i);
   });
 
-  it('image 读取失败 → 抛错携带 path', async () => {
-    (window as any).platform.readFileBase64 = vi.fn(async () => null);
-    const ref: FileRef = { id: '1', kind: 'image', source: 'desk', name: 'a.png', path: '/a.png', ext: 'png' };
-    await expect(loadMediaSource(ref)).rejects.toThrow(/a\.png/);
+  it('带 path 但 kind 不支持 → 抛 unsupported', async () => {
+    const ref: FileRef = { id: '1', kind: 'other', source: 'desk', name: 'a.zip', path: '/a.zip' };
+    await expect(loadMediaSource(ref)).rejects.toThrow(/unsupported media kind/i);
+  });
+
+  it('缺 path 且无 inlineData → 抛错', async () => {
+    const ref: FileRef = { id: 'bad', kind: 'image', source: 'desk', name: 'x', path: '' };
+    await expect(loadMediaSource(ref)).rejects.toThrow(/path/);
   });
 });

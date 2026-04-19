@@ -18,7 +18,7 @@ import { useStore } from '../../stores';
 import { hanaFetch, hanaUrl } from '../../hooks/use-hana-fetch';
 import { openFilePreview, openSkillPreview } from '../../utils/file-preview';
 import { openMediaViewerForRef } from '../../utils/open-media-viewer';
-import { buildFileRefId } from '../../utils/file-kind';
+import { buildFileRefId, isImageOrSvgExt } from '../../utils/file-kind';
 import { openPreview } from '../../stores/artifact-actions';
 import { selectIsStreamingSession, selectSelectedIdsBySession } from '../../stores/session-selectors';
 import styles from './Chat.module.css';
@@ -224,8 +224,6 @@ const EXT_LABELS: Record<string, string> = {
   png: 'Image', jpg: 'Image', jpeg: 'Image', gif: 'Image', webp: 'Image',
 };
 
-const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']);
-
 // file / image block
 
 interface FileBlockCtx {
@@ -311,7 +309,8 @@ const FileBlock = memo(function FileBlock({ block, sessionPath, messageId, block
   blockIdx: number;
 }) {
   const ctx: FileBlockCtx = { sessionPath, messageId, blockIdx };
-  return IMAGE_EXTS.has(block.ext)
+  // 扩展名识别统一走中心表（inferKindByExt via isImageOrSvgExt）
+  return isImageOrSvgExt(block.ext)
     ? <ImageOutputCard filePath={block.filePath} label={block.label} ext={block.ext} ctx={ctx} />
     : <FileOutputCard filePath={block.filePath} label={block.label} ext={block.ext} ctx={ctx} />;
 });
