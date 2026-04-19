@@ -23,6 +23,7 @@ export const CONFIG_SCHEMA = {
   sandbox:                      { scope: 'global', setter: 'setSandbox',        getter: 'getSandbox' },
   file_backup:                  { scope: 'global', setter: 'setFileBackup',    getter: 'getFileBackup' },
   update_channel:               { scope: 'global', setter: 'setUpdateChannel',  getter: 'getUpdateChannel' },
+  auto_check_updates:           { scope: 'global', setter: 'setAutoCheckUpdates', getter: 'getAutoCheckUpdates' },
   thinking_level:               { scope: 'global', setter: 'setThinkingLevel',  getter: 'getThinkingLevel' },
   'capabilities.learn_skills':  { scope: 'global', setter: 'setLearnSkills',    getter: 'getLearnSkills' },
   'desk.heartbeat_master':      { scope: 'global', setter: 'setHeartbeatMaster', getter: 'getHeartbeatMaster' },

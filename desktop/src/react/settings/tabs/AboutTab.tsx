@@ -17,6 +17,8 @@ export function AboutTab() {
   const [version, setVersion] = useState('');
   const [autoUpdate, setAutoUpdate] = useState<AutoUpdateState | null>(null);
   const isBeta = settingsConfig?.update_channel === 'beta';
+  // 默认 true：老用户（preferences 里没写这个字段）保持原有"自动检查"行为
+  const autoCheck = settingsConfig?.auto_check_updates !== false;
 
   useEffect(() => {
     hana?.getAppVersion?.().then((v: string) => setVersion(v || ''));
@@ -40,6 +42,11 @@ export function AboutTab() {
     await autoSaveConfig({ update_channel: channel }, { silent: true });
     await loadSettingsConfig();
     hana?.autoUpdateCheck?.();
+  }, []);
+
+  const handleAutoCheckToggle = useCallback(async (on: boolean) => {
+    await autoSaveConfig({ auto_check_updates: on }, { silent: true });
+    await loadSettingsConfig();
   }, []);
 
   const renderUpdateStatus = () => {
@@ -161,6 +168,10 @@ export function AboutTab() {
               </svg>
             </a>
           }
+        />
+        <SettingsRow
+          label={t('settings.about.autoCheckUpdates')}
+          control={<Toggle on={autoCheck} onChange={handleAutoCheckToggle} />}
         />
         <SettingsRow
           label={t('settings.about.betaUpdates')}

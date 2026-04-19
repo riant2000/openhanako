@@ -393,6 +393,8 @@ export class HanaEngine {
   setTimezone(tz) { this._prefs.setTimezone(tz); }
   getUpdateChannel() { return this._prefs.getUpdateChannel(); }
   setUpdateChannel(ch) { this._prefs.setUpdateChannel(ch); }
+  getAutoCheckUpdates() { return this._prefs.getAutoCheckUpdates(); }
+  setAutoCheckUpdates(v) { this._prefs.setAutoCheckUpdates(v); }
   setMemoryEnabled(v) { return this._configCoord.setMemoryEnabled(v); }
   setMemoryMasterEnabled(id, v) { return this._configCoord.setMemoryMasterEnabled(id, v); }
   persistSessionMeta() { return this._configCoord.persistSessionMeta(); }

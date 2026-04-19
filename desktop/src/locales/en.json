@@ -467,7 +467,8 @@
       "They gathered the scattered feelings",
       "{name} smelled oranges from an afternoon",
       "Those conversations still carry warmth"
-    ]
+    ],
+    "installing": "{name} is updating to v{version}, please wait…"
   },
   "settings": {
     "title": "Settings",
@@ -600,7 +601,8 @@
       "updateCheckBtn": "Check for updates",
       "updateNeedInstall": "Please move Hanako to the Applications folder first",
       "updateDiskSpace": "Not enough disk space to download update",
-      "betaUpdates": "Receive beta updates"
+      "betaUpdates": "Receive beta updates",
+      "autoCheckUpdates": "Check for updates automatically"
     },
     "security": {
       "sandbox": "Sandbox",
@@ -1444,7 +1446,9 @@
       "serverMultipleCrash": "Hanako v{version}\n\nServer crashed multiple times ({reason}).\n\nPlease restart the application.",
       "serverStartTimeout": "Server start timed out (60s)",
       "serverKilledBySignal": "Server killed by signal ({signal})",
-      "serverExitedWithCode": "Server exited with code {code}"
+      "serverExitedWithCode": "Server exited with code {code}",
+      "installFailedTitle": "Hanako Update",
+      "installFailedBody": "Update installation failed:\n{error}\n\nPlease restart Hanako and try again, or check for updates manually in Settings."
     },
     "notification": {
       "ready": "Notifications enabled"

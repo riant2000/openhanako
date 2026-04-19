@@ -206,6 +206,18 @@ export class PreferencesManager {
     this.savePreferences(prefs);
   }
 
+  /** 读取"自动检查更新"开关：默认 true */
+  getAutoCheckUpdates() {
+    return this._cache.auto_check_updates !== false;
+  }
+
+  /** 保存"自动检查更新"开关 */
+  setAutoCheckUpdates(value) {
+    const prefs = this._mutableCopy();
+    prefs.auto_check_updates = value !== false;
+    this.savePreferences(prefs);
+  }
+
   /** 读取 primary agent ID */
   getPrimaryAgent() {
     return this._cache.primaryAgent || null;

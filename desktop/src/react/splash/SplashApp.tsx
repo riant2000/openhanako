@@ -33,8 +33,14 @@ export function SplashApp() {
   const linesRef = useRef<string[]>([]);
   const indexRef = useRef(0);
 
+  // 复用同一个窗口承载两种模式：默认启动动画 / 更新安装中提示。
+  // 安装模式固定文案、关闭轮播，避免用户误以为还在"启动中"。
+  const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+  const mode = params.get('mode') || '';
+  const installVersion = params.get('version') || '';
+
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
+    let timer: ReturnType<typeof setInterval> | undefined;
 
     (async () => {
       let locale = 'zh';
@@ -48,9 +54,13 @@ export function SplashApp() {
           hana?.getSplashInfo?.(),
         ]);
 
-        if (avatarPath) {
-          const base = window.platform?.getFileUrl?.(avatarPath) ?? '';
-          setAvatarSrc(base ? `${base}?t=${Date.now()}` : '');
+        if (avatarPath && window.platform?.getFileUrl) {
+          const base = window.platform.getFileUrl(avatarPath);
+          if (base) {
+            setAvatarSrc(`${base}?t=${Date.now()}`);
+          } else if (splashInfo?.yuan) {
+            setAvatarSrc(`assets/${YUAN_AVATARS[splashInfo.yuan] || 'Hanako.png'}`);
+          }
         } else if (splashInfo?.yuan) {
           setAvatarSrc(`assets/${YUAN_AVATARS[splashInfo.yuan] || 'Hanako.png'}`);
         }
@@ -62,6 +72,17 @@ export function SplashApp() {
         setSymbol(YUAN_SYMBOLS[yuan] || YUAN_SYMBOLS.hanako);
         setAccentColor(YUAN_COLORS[yuan] || YUAN_COLORS.hanako);
       } catch {}
+
+      // 安装模式：固定文案，不进轮播
+      if (mode === 'installing') {
+        const data = await fetch(`./locales/${locale}.json`).then(r => r.json()).catch(() => null);
+        const tpl = data?.splash?.installing
+          || (locale === 'en'
+            ? '{name} is updating to v{version}, please wait…'
+            : '{name} 正在更新到 v{version}，请稍候…');
+        setText(tpl.replaceAll('{name}', name).replaceAll('{version}', installVersion || ''));
+        return;
+      }
 
       // 加载语言包
       let lines: string[];
@@ -101,8 +122,8 @@ export function SplashApp() {
       }, 3000);
     })();
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => { if (timer) clearInterval(timer); };
+  }, [mode, installVersion]);
 
   return (
     <div className="splash-container">

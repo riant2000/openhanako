@@ -475,7 +475,11 @@ let _serverRestartAttempts = 0;
 function monitorServer() {
   if (!serverProcess) return;
   serverProcess.on("exit", async (code, signal) => {
-    if (isQuitting) return; // 正常退出流程
+    // 任何"主动退出"路径都跳过：用户 quit、托盘 quit、auto-updater 安装、
+    // shutdownServer 主动 kill。否则这里会和 quitAndInstall / shutdownServer
+    // 抢时间去 spawn 新 server，造成 serverProcess 被并发改写成 null，
+    // 后续 serverProcess.unref() 报 "Cannot read properties of null"。
+    if (isQuitting || _isUpdating || isExitingServer) return;
     const reason = signal ? `信号 ${signal}` : `退出码 ${code}`;
     console.error(`[desktop] Server 意外退出 (${reason})`);
 
@@ -663,6 +667,51 @@ function createSplashWindow() {
   });
 }
 
+// ── "正在安装更新" 小窗口 ──
+// auto-updater 的 quitAndInstall 会关掉主窗口、跑系统级文件替换、重启应用，
+// 中间用户看不到任何反馈。这个独立窗口从 install 触发到应用真的重启（或失败）
+// 期间一直在屏上，避免"整个 app 凭空消失"的体验。
+let installingWindow = null;
+function createInstallingWindow(version) {
+  if (installingWindow && !installingWindow.isDestroyed()) return;
+  installingWindow = new BrowserWindow({
+    width: 380,
+    height: 280,
+    resizable: false,
+    frame: false,
+    title: "Hanako",
+    ...titleBarOpts({ x: 12, y: 12 }),
+    transparent: true,
+    show: false,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.bundle.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  loadWindowURL(installingWindow, "splash", {
+    query: { mode: "installing", version: String(version || "") },
+  });
+  installingWindow.once("ready-to-show", () => {
+    if (installingWindow && !installingWindow.isDestroyed()) installingWindow.show();
+  });
+  installingWindow.on("closed", () => { installingWindow = null; });
+}
+
+function failInstallingWindow(msg) {
+  if (installingWindow && !installingWindow.isDestroyed()) {
+    try { installingWindow.close(); } catch {}
+  }
+  try {
+    dialog.showErrorBox(
+      mt("dialog.installFailedTitle", null, "Hanako Update"),
+      mt("dialog.installFailedBody", { error: msg || "unknown" })
+    );
+  } catch {}
+}
+
 // ── 窗口状态记忆 ──
 const windowStatePath = path.join(hanakoHome, "user", "window-state.json");
 
@@ -726,6 +775,8 @@ function createMainWindow() {
     shutdownServer,
     setIsUpdating: (v) => { _isUpdating = v; },
     hanakoHome,
+    showInstalling: createInstallingWindow,
+    failInstalling: failInstallingWindow,
   });
 
   if (saved?.isMaximized) {

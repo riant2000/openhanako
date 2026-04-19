@@ -472,7 +472,8 @@
       "Ta 把散落的情绪重新收好",
       "{name} 闻到了某个下午的橘子味",
       "那些对话还带着体温"
-    ]
+    ],
+    "installing": "{name} 正在更新到 v{version}，请稍候……"
   },
   "settings": {
     "title": "设置",
@@ -605,7 +606,8 @@
       "updateCheckBtn": "检查更新",
       "updateNeedInstall": "请先将 Hanako 移动到应用程序文件夹",
       "updateDiskSpace": "磁盘空间不足，无法下载更新",
-      "betaUpdates": "接收测试版更新"
+      "betaUpdates": "接收测试版更新",
+      "autoCheckUpdates": "自动检查更新"
     },
     "security": {
       "sandbox": "沙盒",
@@ -1449,7 +1451,9 @@
       "serverMultipleCrash": "Hanako v{version}\n\nServer 多次崩溃 ({reason})。\n\n请重新启动应用。",
       "serverStartTimeout": "Server 启动超时（60s）",
       "serverKilledBySignal": "Server 被信号终止 ({signal})",
-      "serverExitedWithCode": "Server 退出，code: {code}"
+      "serverExitedWithCode": "Server 退出，code: {code}",
+      "installFailedTitle": "Hanako 更新",
+      "installFailedBody": "更新安装失败：\n{error}\n\n请重启 Hanako 后重试，或前往设置页面手动检查更新。"
     },
     "notification": {
       "ready": "通知已就绪"

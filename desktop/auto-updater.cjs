@@ -15,7 +15,24 @@ let _mainWindow = null;
 let _shutdownServer = null; // 由 main.cjs 注入
 let _setIsUpdating = null;  // 由 main.cjs 注入
 let _hanakoHome = null;     // 由 main.cjs 注入
+let _showInstalling = null; // 由 main.cjs 注入：打开"正在安装更新"小窗
+let _failInstalling = null; // 由 main.cjs 注入：安装失败时切换窗口文案
 let _checkTimer = null;
+
+/**
+ * 读 preferences.json 里的 auto_check_updates，默认 true。
+ * 不缓存：每次调用都重新读，用户在设置页改完立刻生效，
+ * 不用另起一条 main↔server 的 IPC 通道。
+ */
+function isAutoCheckEnabled() {
+  try {
+    const prefsPath = path.join(_hanakoHome || "", "user", "preferences.json");
+    const prefs = JSON.parse(fs.readFileSync(prefsPath, "utf-8"));
+    return prefs.auto_check_updates !== false;
+  } catch {
+    return true;
+  }
+}
 
 // ── 状态管理（保持与前端 AutoUpdateState 契约一致）──
 
@@ -244,12 +261,16 @@ function registerIpcHandlers() {
     if (_updateState.status !== "downloaded") return;
     console.log("[auto-updater] 用户触发重启安装...");
     if (_setIsUpdating) _setIsUpdating(true);
+    // 在主窗口被关掉之前，先把"正在安装更新"的小窗打开，
+    // 防止 quitAndInstall 期间黑屏让用户以为 app 崩了。
+    try { _showInstalling?.(_updateState.version); } catch {}
     if (_shutdownServer) await _shutdownServer();
     try {
       autoUpdater.quitAndInstall(true, true);
     } catch (err) {
       // 权限不足等原因导致安装失败
       if (_setIsUpdating) _setIsUpdating(false);
+      try { _failInstalling?.(err?.message || String(err)); } catch {}
       setState({ status: "error", error: err?.message || String(err) });
     }
   });
@@ -265,17 +286,24 @@ function registerIpcHandlers() {
 
 function startPolling() {
   _checkTimer = setInterval(() => {
+    // 每 tick 都重新读 preferences：用户关掉开关后，下一 tick 就不再自动查
+    if (!isAutoCheckEnabled()) return;
     autoUpdater.checkForUpdates().catch(() => {});
   }, CHECK_INTERVAL);
 }
 
 // ── 公共 API ──
 
-function initAutoUpdater(mainWindow, { shutdownServer, setIsUpdating, hanakoHome } = {}) {
+function initAutoUpdater(mainWindow, {
+  shutdownServer, setIsUpdating, hanakoHome,
+  showInstalling, failInstalling,
+} = {}) {
   _mainWindow = mainWindow;
   _shutdownServer = shutdownServer;
   _setIsUpdating = setIsUpdating;
   _hanakoHome = hanakoHome;
+  _showInstalling = showInstalling;
+  _failInstalling = failInstalling;
 
   // 开发环境不初始化 auto-updater
   if (!app.isPackaged) {
@@ -295,11 +323,14 @@ function initAutoUpdater(mainWindow, { shutdownServer, setIsUpdating, hanakoHome
 
   setupAutoUpdater();
   registerIpcHandlers();
+  // 定时轮询 handler 自己判断开关，直接起 timer 不需要外层判断
   startPolling();
 }
 
 async function checkForUpdatesAuto() {
   if (!app.isPackaged || isRunningFromDmg()) return;
+  // 用户关了自动检查开关：启动时也不自动 check
+  if (!isAutoCheckEnabled()) return;
   try {
     await autoUpdater.checkForUpdates();
   } catch {}
