@@ -23,6 +23,7 @@ dist/
 dist-server/
 dist-server-bundle/
 desktop/main.bundle.cjs
+desktop/preload.bundle.cjs
 .cache/
 desktop/dist-renderer/
 vendor/

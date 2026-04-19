@@ -5,7 +5,12 @@
  * IPC 仅用于：窗口管理、系统对话框、跨窗口消息转发。
  */
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
-const { pathToFileUrl } = require("./src/shared/path-to-file-url.js");
+// ⚠️ 这是 preload 的"源文件"，不是 Electron 实际加载的。
+// Vite (vite.config.preload.js) 会把这个文件和其依赖 bundle 成
+// desktop/preload.bundle.cjs —— main.cjs 里 BrowserWindow 的
+// webPreferences.preload 指向 bundle 产物。
+// 可以放心 require 任何相对路径 / node_modules，bundler 会内联。
+const { pathToFileUrl } = require("./src/shared/path-to-file-url.cjs");
 
 function resolveTheme() {
   const saved = localStorage.getItem("hana-theme") || "auto";
@@ -42,7 +47,7 @@ contextBridge.exposeInMainWorld("hana", {
   unwatchFile: (filePath) => ipcRenderer.invoke("unwatch-file", filePath),
   onFileChanged: (cb) => ipcRenderer.on("file-changed", (_, filePath) => cb(filePath)),
   readFileBase64: (path) => ipcRenderer.invoke("read-file-base64", path),
-  // 本地路径 → file:// URL（同步，纯字符串转换，无 IPC）。逻辑见 src/shared/path-to-file-url.js
+  // 本地路径 → file:// URL（同步，纯字符串转换，无 IPC）。逻辑见 src/shared/path-to-file-url.cjs
   getFileUrl: (filePath) => pathToFileUrl(filePath),
   readDocxHtml: (path) => ipcRenderer.invoke("read-docx-html", path),
   readXlsxHtml: (path) => ipcRenderer.invoke("read-xlsx-html", path),

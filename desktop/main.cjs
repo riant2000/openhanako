@@ -634,7 +634,7 @@ function createSplashWindow() {
     transparent: true,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
+      preload: path.join(__dirname, "preload.bundle.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -695,7 +695,7 @@ function createMainWindow() {
     backgroundColor: "#F4F0E4",
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
+      preload: path.join(__dirname, "preload.bundle.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -846,7 +846,7 @@ function createSettingsWindow(tab, theme) {
     backgroundColor: THEME_BG[theme || _browserViewerTheme] || THEME_BG["warm-paper"],
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
+      preload: path.join(__dirname, "preload.bundle.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -955,7 +955,7 @@ function createBrowserViewerWindow(opts = {}) {
     show: shouldShow,
     acceptFirstMouse: true, // macOS: 第一次点击不仅激活窗口，还穿透到内容
     webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
+      preload: path.join(__dirname, "preload.bundle.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -1648,7 +1648,7 @@ function createOnboardingWindow(query = {}) {
     backgroundColor: "#F4F0E4",
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
+      preload: path.join(__dirname, "preload.bundle.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -2003,7 +2003,7 @@ wrapIpcHandler("open-editor-window", (_event, data) => {
     show: true,
     acceptFirstMouse: true,
     webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
+      preload: path.join(__dirname, "preload.bundle.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },

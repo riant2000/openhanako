@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pathToFileUrl } from '../../../shared/path-to-file-url.js';
+import { pathToFileUrl } from '../../../shared/path-to-file-url.cjs';
 
 describe('pathToFileUrl', () => {
   it('empty string → empty', () => {
