@@ -40,29 +40,37 @@ import { getPlatformPromptNote } from "./platform-prompt.js";
 export class Agent {
   /**
    * @param {object} opts
-   * @param {string} opts.agentDir   - 这个助手的数据目录（yuan, ishiki, config, memory, avatars）
+   * @param {string} opts.id         - 助手 ID（唯一信源，等于数据目录名）
+   * @param {string} opts.agentsDir  - 所有助手的父目录（从中派生 agentDir）
    * @param {string} opts.productDir - 产品模板目录（ishiki.example.md, yuan 模板等）
    * @param {string} opts.userDir    - 用户数据目录（user.md, 用户头像）—— 跨助手共享
    */
-  constructor({ agentDir, productDir, userDir, channelsDir, agentsDir, searchConfigResolver }) {
-    this.agentDir = agentDir;
+  constructor({ id, agentsDir, productDir, userDir, channelsDir, searchConfigResolver }) {
+    if (!id) throw new Error("Agent: id is required");
+    if (!agentsDir) throw new Error("Agent: agentsDir is required");
+
+    // id 是唯一信源；agentDir 是其派生值（不再作为构造参数）。
+    // 所有持有 Agent 实例的地方通过 agent.id 识别身份，
+    // 需要磁盘路径时读 agent.agentDir（或从它派生的 sessionDir / configPath 等）。
+    this.id = id;
+    this.agentsDir = agentsDir;
+    this.agentDir = path.join(agentsDir, id);
     this.productDir = productDir;
     this.userDir = userDir;
     this.channelsDir = channelsDir || null;
-    this.agentsDir = agentsDir || null;
     this._searchConfigResolver = searchConfigResolver || null;
 
-    // 路径
-    this.configPath = path.join(agentDir, "config.yaml");
-    this.factsDbPath = path.join(agentDir, "memory", "facts.db");
-    this.memoryMdPath = path.join(agentDir, "memory", "memory.md");
-    this.todayMdPath    = path.join(agentDir, "memory", "today.md");
-    this.weekMdPath     = path.join(agentDir, "memory", "week.md");
-    this.longtermMdPath = path.join(agentDir, "memory", "longterm.md");
-    this.factsMdPath    = path.join(agentDir, "memory", "facts.md");
-    this.summariesDir = path.join(agentDir, "memory", "summaries");
-    this.sessionDir = path.join(agentDir, "sessions");
-    this.deskDir = path.join(agentDir, "desk");
+    // 路径（全部从 this.agentDir 派生）
+    this.configPath = path.join(this.agentDir, "config.yaml");
+    this.factsDbPath = path.join(this.agentDir, "memory", "facts.db");
+    this.memoryMdPath = path.join(this.agentDir, "memory", "memory.md");
+    this.todayMdPath    = path.join(this.agentDir, "memory", "today.md");
+    this.weekMdPath     = path.join(this.agentDir, "memory", "week.md");
+    this.longtermMdPath = path.join(this.agentDir, "memory", "longterm.md");
+    this.factsMdPath    = path.join(this.agentDir, "memory", "facts.md");
+    this.summariesDir = path.join(this.agentDir, "memory", "summaries");
+    this.sessionDir = path.join(this.agentDir, "sessions");
+    this.deskDir = path.join(this.agentDir, "desk");
 
     // 身份（init 后从 config 填充）
     this.userName = "User";
@@ -309,7 +317,7 @@ export class Agent {
 
     // 9. 频道工具 + 私信工具（需要 channelsDir 和 agentsDir）
     if (this.channelsDir && this.agentsDir) {
-      const agentId = path.basename(this.agentDir);
+      const agentId = this.id;
       const listAgents = () => {
         try {
           return fs.readdirSync(this.agentsDir, { withFileTypes: true })
@@ -401,7 +409,7 @@ export class Agent {
       removeSubagentController: (id) => this._cb?.removeSubagentController?.(id),
       getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
       listAgents: this._listAgents || null,
-      currentAgentId: this.channelsDir && this.agentsDir ? path.basename(this.agentDir) : undefined,
+      currentAgentId: this.channelsDir && this.agentsDir ? this.id : undefined,
       agentDir: this.agentDir,
       emitEvent: (event, sp) => this._cb?.emitEvent?.(event, sp),
       persistSubagentSessionMeta: (sessionPath, meta) => writeSubagentSessionMeta(sessionPath, meta),
@@ -618,7 +626,7 @@ export class Agent {
     const fill = (text) => text
       .replace(/\{\{userName\}\}/g, this.userName)
       .replace(/\{\{agentName\}\}/g, this.agentName)
-      .replace(/\{\{agentId\}\}/g, path.basename(this.agentDir));
+      .replace(/\{\{agentId\}\}/g, this.id);
     const readFile = (p) => safeReadFile(p, "");
     const langDir = isZh ? "" : "en/";
     const yuanType = this._config?.agent?.yuan || "hanako";
@@ -649,7 +657,7 @@ export class Agent {
     const fill = (text) => text
       .replace(/\{\{userName\}\}/g, this.userName)
       .replace(/\{\{agentName\}\}/g, this.agentName)
-      .replace(/\{\{agentId\}\}/g, path.basename(this.agentDir));
+      .replace(/\{\{agentId\}\}/g, this.id);
     const yuanType = this._config?.agent?.yuan || "hanako";
     const isZh = String(this._config.locale || "").startsWith("zh");
     const langDir = isZh ? "" : "en/";
@@ -886,7 +894,7 @@ export class Agent {
 
     // 团队协作（仅当存在其他 agent 时注入）
     if (this._listAgents) {
-      const myId = path.basename(this.agentDir);
+      const myId = this.id;
       const allAgents = this._listAgents();
       const others = allAgents.filter(a => a.id !== myId);
       if (others.length > 0) {

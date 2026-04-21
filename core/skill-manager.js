@@ -92,7 +92,7 @@ export class SkillManager {
   /** 按 agent 过滤可用 skills（learned skills 有 per-agent 隔离） */
   getSkillsForAgent(targetAgent) {
     const enabled = new Set(targetAgent?.config?.skills?.enabled || []);
-    const agentId = targetAgent ? path.basename(targetAgent.agentDir) : null;
+    const agentId = targetAgent?.id || null;
     return {
       skills: this._allSkills.filter(s =>
         this._isRuntimeEnabledForAgent(s, enabled)

@@ -92,15 +92,14 @@ export class AgentManager {
 
     const entries = this._scanAgentDirs();
     const initOne = async (agentId) => {
-      const agentDir = path.join(this._d.agentsDir, agentId);
-      const ag = this._createAgentInstance(agentDir, () => ({}));
+      const ag = this._createAgentInstance(agentId, () => ({}));
       ag.setGetOwnerIds(this._makeOwnerIdsFn(ag));
       await ag.init(
         agentId === this._activeAgentId ? log : () => {},
         sharedModels,
         resolveModel,
       );
-      this._agents.set(agentId, ag);
+      this._registerAgent(agentId, ag);
     };
 
     // 焦点 agent 先初始化 — 失败不阻塞启动，让用户能进应用修配置
@@ -113,8 +112,7 @@ export class AgentManager {
       // 关键：必须至少把 config 加载进来，否则 agent.config.models.chat 读不到，
       // 下游会误判为"没配模型"，触发 session 创建跳过 / 记忆系统未启动等连锁崩溃（#414）。
       if (!this._agents.has(this._activeAgentId)) {
-        const agentDir = path.join(this._d.agentsDir, this._activeAgentId);
-        const ag = this._createAgentInstance(agentDir, () => ({}));
+        const ag = this._createAgentInstance(this._activeAgentId, () => ({}));
         ag.setGetOwnerIds(this._makeOwnerIdsFn(ag));
         try {
           ag.loadConfigOnly();
@@ -122,7 +120,7 @@ export class AgentManager {
           console.error(`[agent-manager] fallback loadConfigOnly 也失败: ${cfgErr.message}`);
           if (cfgErr.stack) console.error(cfgErr.stack);
         }
-        this._agents.set(this._activeAgentId, ag);
+        this._registerAgent(this._activeAgentId, ag);
       }
     }
 
@@ -363,7 +361,7 @@ export class AgentManager {
     this._d.getChannelManager().setupChannelsForNewAgent(agentId);
 
     // 初始化并加入长驻 Map
-    const ag = this._createAgentInstance(agentDir, () => ({}));
+    const ag = this._createAgentInstance(agentId, () => ({}));
     ag.setGetOwnerIds(this._makeOwnerIdsFn(ag));
     const resolveModel = (bareId) =>
       this._d.getModels().resolveModelWithCredentials(bareId);
@@ -385,7 +383,7 @@ export class AgentManager {
         throw err;
       }
     }
-    this._agents.set(agentId, ag);
+    this._registerAgent(agentId, ag);
 
     // 启动 cron + heartbeat
     const hub = this._d.getHub();
@@ -591,13 +589,24 @@ export class AgentManager {
     };
   }
 
-  _createAgentInstance(agentDir, getOwnerIds) {
+  /**
+   * 注册 agent 到长驻 Map，写入前校验 id 与实例字段一致。
+   * 防止未来某次改动让 Map key 和 agent.id 错位（这是过去 agent.id=undefined 类 bug 的温床）。
+   */
+  _registerAgent(agentId, ag) {
+    if (ag.id !== agentId) {
+      throw new Error(`agent id mismatch: map key "${agentId}" vs instance.id "${ag.id}"`);
+    }
+    this._agents.set(agentId, ag);
+  }
+
+  _createAgentInstance(agentId, getOwnerIds) {
     const ag = new Agent({
-      agentDir,
+      id: agentId,
+      agentsDir: this._d.agentsDir,
       productDir: this._d.productDir,
       userDir: this._d.userDir,
       channelsDir: this._d.channelsDir,
-      agentsDir: this._d.agentsDir,
       searchConfigResolver: () => this._d.getSearchConfig(),
     });
     ag.setGetOwnerIds(getOwnerIds);
@@ -635,7 +644,7 @@ export class AgentManager {
       this._d.getHub()?.eventBus?.emit({ type: "notification", title, body }, null);
     });
     ag.setDescriptionRefreshHandler(() => {
-      this._refreshDescription(path.basename(ag.agentDir)).catch(() => {});
+      this._refreshDescription(ag.id).catch(() => {});
     });
     return ag;
   }

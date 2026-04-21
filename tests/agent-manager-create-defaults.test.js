@@ -13,16 +13,19 @@ import { deepMerge } from "../lib/memory/config-loader.js";
 // and no-op setters.
 vi.mock("../core/agent.js", () => ({
   Agent: vi.fn().mockImplementation(function (opts) {
-    this.agentDir = opts.agentDir;
+    // 对齐真实 Agent 构造：id 是唯一信源，agentDir 从 agentsDir + id 派生
+    this.id = opts.id;
+    this.agentsDir = opts.agentsDir;
+    this.agentDir = path.join(opts.agentsDir, opts.id);
     this.config = {};
     this.init = async () => {
-      const cfgPath = path.join(opts.agentDir, "config.yaml");
+      const cfgPath = path.join(this.agentDir, "config.yaml");
       if (fs.existsSync(cfgPath)) {
         this.config = YAML.load(fs.readFileSync(cfgPath, "utf-8")) || {};
       }
     };
     this.updateConfig = (partial) => {
-      const cfgPath = path.join(opts.agentDir, "config.yaml");
+      const cfgPath = path.join(this.agentDir, "config.yaml");
       const existing = fs.existsSync(cfgPath)
         ? YAML.load(fs.readFileSync(cfgPath, "utf-8")) || {}
         : {};

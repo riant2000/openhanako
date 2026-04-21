@@ -371,9 +371,8 @@ export function createConfigRoute(engine) {
         await fs.writeFile(p, "", "utf-8").catch(() => {});
         await fs.unlink(p + ".fingerprint").catch(() => {});
       }
-      debugLog()?.log("api", `DELETE /api/memories/compiled agent=${path.basename(agent.agentDir)}`);
-      const agentId = path.basename(agent.agentDir);
-      const resolvedAgent = engine.getAgent(agentId);
+      debugLog()?.log("api", `DELETE /api/memories/compiled agent=${agent.id}`);
+      const resolvedAgent = engine.getAgent(agent.id);
       if (resolvedAgent) await resolvedAgent.updateConfig({});
       return c.json({ ok: true });
     } catch (err) {
@@ -391,9 +390,8 @@ export function createConfigRoute(engine) {
       store.clearAll();
       const mdPath = agent.memoryMdPath;
       await fs.writeFile(mdPath, "", "utf-8");
-      debugLog()?.log("api", `DELETE /api/memories agent=${path.basename(agent.agentDir)}`);
-      const agentId = path.basename(agent.agentDir);
-      const resolvedAgent = engine.getAgent(agentId);
+      debugLog()?.log("api", `DELETE /api/memories agent=${agent.id}`);
+      const resolvedAgent = engine.getAgent(agent.id);
       if (resolvedAgent) await resolvedAgent.updateConfig({});
       return c.json({ ok: true });
     } catch (err) {

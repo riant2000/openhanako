@@ -298,12 +298,52 @@ export async function summarizeActivityQuick(utilConfig, sessionPath) {
 }
 
 /**
- * 用 LLM 根据显示名生成 agent ID
+ * 规整为合法 agent id 的 slug：小写字母/数字/连字符，首尾去横线、合并连续横线、截断 12 字符。
+ * 返回空字符串表示洗完啥也不剩（如纯 emoji 输入）。
+ */
+function sanitizeAgentId(raw) {
+  return (raw || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
+    .slice(0, 12)
+    .replace(/-+$/g, ""); // 截断后可能留下尾部横线
+}
+
+/**
+ * 在 agentsDir 下为 base 找一个不冲突的 id：base → base-2 → base-3 → ...
+ * 超上限返回 null，交给调用方走时间戳兜底。
+ */
+function findAvailableAgentId(base, agentsDir, max = 99) {
+  if (!base) return null;
+  if (!fs.existsSync(path.join(agentsDir, base))) return base;
+  for (let i = 2; i <= max; i++) {
+    // 候选可能超 12 字符（如 "hanakohanako-12"），做截断后再试
+    const suffix = `-${i}`;
+    const trimmedBase = base.slice(0, Math.max(2, 12 - suffix.length));
+    const candidate = `${trimmedBase}${suffix}`;
+    if (!fs.existsSync(path.join(agentsDir, candidate))) return candidate;
+  }
+  return null;
+}
+
+/**
+ * 用 LLM 根据显示名生成 agent ID（语义化优先，冲突加序号而非直接丢弃）。
+ *
+ * 策略三段式：
+ *   1. LLM 音译 → sanitize → 作为 base
+ *   2. LLM 失败 / 洗完无效 → 用 name 自己 sanitize 做 base（兜底仍保留语义）
+ *   3. base 拿到后探测 base / base-2 / ... / base-99，找到空位就用
+ *   4. 上述全失败 → 时间戳兜底 `agent-xxxxxx`（几乎不可能冲突，再兜底一次防万一）
+ *
  * @param {object} utilConfig
  * @param {string} name - 显示名
  * @param {string} agentsDir - agents 根目录（检查冲突）
  */
 export async function generateAgentId(utilConfig, name, agentsDir) {
+  let base = "";
+
   try {
     const isZh = getLocale().startsWith("zh");
     const { utility: model, api_key, base_url, api } = utilConfig;
@@ -343,16 +383,27 @@ Examples:
       max_tokens: 20,
     });
 
-    if (text) {
-      const id = text.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 12);
-      if (id.length >= 2 && !fs.existsSync(path.join(agentsDir, id))) {
-        return id;
-      }
-    }
+    base = sanitizeAgentId(text);
   } catch (err) {
     console.error("[llm-utils] generateAgentId LLM failed:", err.message);
   }
-  return `agent-${Date.now().toString(36)}`;
+
+  // LLM 失败或洗完太短 → 用 name 自己做 slug（比时间戳兜底更有语义）
+  if (base.length < 2) {
+    base = sanitizeAgentId(name);
+  }
+
+  if (base.length >= 2) {
+    const available = findAvailableAgentId(base, agentsDir);
+    if (available) return available;
+  }
+
+  // 最终兜底：时间戳 id（几乎不可能冲突，再兜一次防御极端时序）
+  let ts = `agent-${Date.now().toString(36)}`;
+  while (fs.existsSync(path.join(agentsDir, ts))) {
+    ts = `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 4)}`;
+  }
+  return ts;
 }
 
 /**
