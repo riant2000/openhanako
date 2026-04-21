@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { usePanel } from '../hooks/use-panel';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
@@ -154,8 +155,10 @@ function AutomationItem({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [modelOpen, setModelOpen] = useState(false);
+  const [modelPanelStyle, setModelPanelStyle] = useState<React.CSSProperties>({});
   const inputRef = useRef<HTMLInputElement>(null);
-  const modelRef = useRef<HTMLSpanElement>(null);
+  const modelTriggerRef = useRef<HTMLButtonElement>(null);
+  const modelPanelRef = useRef<HTMLDivElement>(null);
 
   const labelText = job.label || job.prompt?.slice(0, 40) || job.id;
 
@@ -193,14 +196,41 @@ function AutomationItem({
     return opts;
   }, [availableModels, jobModelId]);
 
-  // 模型下拉 click outside
+  // 模型下拉：计算 fixed 位置（向下呼出），避免被父卡片 overflow:hidden 截断
+  useEffect(() => {
+    if (!modelOpen || !modelTriggerRef.current) return;
+    const rect = modelTriggerRef.current.getBoundingClientRect();
+    setModelPanelStyle({
+      position: 'fixed',
+      top: rect.bottom + 4,
+      left: rect.left,
+      minWidth: rect.width,
+      zIndex: 9999,
+    });
+  }, [modelOpen]);
+
+  // 点击外部关闭（trigger + portal 面板双白名单）
   useEffect(() => {
     if (!modelOpen) return;
     const handler = (e: MouseEvent) => {
-      if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false);
+      const target = e.target as Node;
+      if (modelTriggerRef.current?.contains(target)) return;
+      if (modelPanelRef.current?.contains(target)) return;
+      setModelOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [modelOpen]);
+
+  // 外部滚动时关闭（fixed 面板会脱轨），排除面板自身滚动
+  useEffect(() => {
+    if (!modelOpen) return;
+    const handler = (e: Event) => {
+      if (modelPanelRef.current?.contains(e.target as Node)) return;
+      setModelOpen(false);
+    };
+    window.addEventListener('scroll', handler, true);
+    return () => window.removeEventListener('scroll', handler, true);
   }, [modelOpen]);
 
   return (
@@ -238,16 +268,17 @@ function AutomationItem({
           </div>
           <span className={fp.autoItemSchedule}>{cronToHuman(job.schedule)}</span>
           {availableModels.length > 0 && (
-            <span className={`${fp.autoItemModelWrap}${modelOpen ? ` ${fp.autoModelOpen}` : ''}`} ref={modelRef}>
+            <span className={`${fp.autoItemModelWrap}${modelOpen ? ` ${fp.autoModelOpen}` : ''}`}>
               <button
+                ref={modelTriggerRef}
                 className={fp.autoModelPill}
                 onClick={() => setModelOpen(!modelOpen)}
               >
                 <span>{jobModelId || (window.t ?? ((p: string) => p))('automation.defaultModel')}</span>
                 <span className={fp.autoModelArrow}>▾</span>
               </button>
-              {modelOpen && (
-                <div className={fp.autoModelDropdown}>
+              {modelOpen && createPortal(
+                <div ref={modelPanelRef} className={fp.autoModelDropdown} style={modelPanelStyle}>
                   <button
                     className={`${fp.autoModelOption}${!jobModelId ? ` ${fp.autoModelOptionActive}` : ''}`}
                     onClick={() => { onUpdate(job.id, { model: '' }); setModelOpen(false); }}
@@ -263,7 +294,8 @@ function AutomationItem({
                       {mid}
                     </button>
                   ))}
-                </div>
+                </div>,
+                document.body,
               )}
             </span>
           )}

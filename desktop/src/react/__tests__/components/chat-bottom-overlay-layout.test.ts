@@ -9,17 +9,19 @@ function read(relPath: string) {
 }
 
 describe('chat bottom overlay layout', () => {
-  it('session panel stays pinned to the bottom edge', () => {
-    const styleSource = read('components/chat/Chat.module.css');
-
-    expect(styleSource).toMatch(/\.sessionPanel\s*\{[\s\S]*bottom:\s*0;/);
-  });
-
-  it('session footer uses input height as transparent scroll padding', () => {
+  it('session panel cuts off at input area midline so truncation falls inside the input card', () => {
     const styleSource = read('components/chat/Chat.module.css');
 
     expect(styleSource).toMatch(
-      /\.sessionFooter\s*\{[\s\S]*height:\s*max\(12rem,\s*calc\(var\(--input-area-h,\s*0px\)\s*\+\s*2rem\)\);/,
+      /\.sessionPanel\s*\{[\s\S]*bottom:\s*calc\(var\(--input-area-h,\s*0px\)\s*\/\s*2\);/,
+    );
+  });
+
+  it('session footer leaves one extra line of breathing room above the input top edge', () => {
+    const styleSource = read('components/chat/Chat.module.css');
+
+    expect(styleSource).toMatch(
+      /\.sessionFooter\s*\{[\s\S]*height:\s*calc\(var\(--input-area-h,\s*0px\)\s*\/\s*2\s*\+\s*3\.5rem\);/,
     );
   });
 });

@@ -59,7 +59,7 @@ export const ToolGroupBlock = memo(function ToolGroupBlock({ tools: rawTools, co
           <span className={styles.toolGroupTitle}>{summaryText}</span>
           {allDone && <span className={styles.toolGroupArrow}>{collapsed ? '›' : '‹'}</span>}
           {!allDone && (
-            <span className={styles.toolDots}><span /><span /><span /></span>
+            <span className={styles.toolDots} />
           )}
         </div>
       )}
@@ -115,7 +115,7 @@ const ToolIndicator = memo(function ToolIndicator({ tool, agentName }: { tool: T
             {tool.success ? '✓' : '✗'}
           </span>
         ) : (
-          <span className={styles.toolDots}><span /><span /><span /></span>
+          <span className={styles.toolDots} />
         )}
       </div>
     </>

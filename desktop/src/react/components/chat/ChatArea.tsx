@@ -91,10 +91,11 @@ const Panel = memo(function Panel({ path, active }: { path: string; active: bool
     if (el) el.scrollTop = el.scrollHeight;
   };
 
-  // scroll 事件维护 isAtBottom 标志 + 上滑加载更多
+  // scroll 事件维护 isAtBottom 标志 + 上滑加载更多 + 滚动中显现 scrollbar
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
       checkAtBottom();
       // 触顶加载更多
@@ -104,9 +105,18 @@ const Panel = memo(function Panel({ path, active }: { path: string; active: bool
           loadMoreMessages(path);
         }
       }
+      // 滚动中显示 scrollbar，停下 800ms 后隐藏
+      el.classList.add(styles['is-scrolling']);
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        el.classList.remove(styles['is-scrolling']);
+      }, 800);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
   }, [path]);
 
   // prepend 后保持滚动位置：监听 items 变化，如果头部变了就修正 scrollTop
@@ -186,9 +196,7 @@ const Panel = memo(function Panel({ path, active }: { path: string; active: bool
         )}
         <ChatTranscript items={items} sessionPath={path} agentId={sessionAgentId} />
         {isSessionStreaming && (
-          <div className={styles.typingIndicator}>
-            <span /><span /><span />
-          </div>
+          <div className={styles.typingIndicator} />
         )}
         <div className={styles.sessionFooter} />
       </div>

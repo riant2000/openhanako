@@ -540,22 +540,18 @@
 }
 
 .xingCardStatus .thinkingDots {
-    display: inline-flex;
-    gap: 2px;
-    margin-left: 2px;
-    vertical-align: middle;
+    display: inline-block;
+    margin-left: 4px;
+    vertical-align: baseline;
+    font-family: var(--font-serif);
+    font-weight: 700;
+    letter-spacing: 0.1em;
 }
 
-.xingCardStatus .thinkingDots span {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: dotPulse 1.2s infinite;
+.xingCardStatus .thinkingDots::after {
+    content: '';
+    animation: typewriterDots 1.4s steps(1, end) infinite;
 }
-
-.xingCardStatus .thinkingDots span:nth-child(2) { animation-delay: 0.2s; }
-.xingCardStatus .thinkingDots span:nth-child(3) { animation-delay: 0.4s; }
 
 .xingCardBody {
     font-size: 0.85rem;
@@ -697,25 +693,17 @@
 }
 
 .toolDots {
-    display: inline-flex;
-    gap: 2px;
+    display: inline-block;
     margin-left: auto;
+    font-family: var(--font-serif);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--accent);
 }
 
-.toolDots span {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: dotPulse 1.2s infinite;
-}
-
-.toolDots span:nth-child(2) { animation-delay: 0.2s; }
-.toolDots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes dotPulse {
-    0%, 60%, 100% { opacity: 0.3; }
-    30% { opacity: 1; }
+.toolDots::after {
+    content: '';
+    animation: typewriterDots 1.4s steps(1, end) infinite;
 }
 
 .toolStatus {
@@ -755,21 +743,17 @@
 }
 
 .thinkingBlockSummary .thinkingDots {
-    display: inline-flex;
-    gap: 2px;
-    margin-left: 2px;
+    display: inline-block;
+    margin-left: 4px;
+    font-family: var(--font-serif);
+    font-weight: 700;
+    letter-spacing: 0.1em;
 }
 
-.thinkingBlockSummary .thinkingDots span {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: dotPulse 1.2s infinite;
+.thinkingBlockSummary .thinkingDots::after {
+    content: '';
+    animation: typewriterDots 1.4s steps(1, end) infinite;
 }
-
-.thinkingBlockSummary .thinkingDots span:nth-child(2) { animation-delay: 0.2s; }
-.thinkingBlockSummary .thinkingDots span:nth-child(3) { animation-delay: 0.4s; }
 
 .thinkingBlockArrow {
     display: inline-block;
@@ -1010,9 +994,21 @@
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: calc(var(--input-area-h, 0px) / 2);
     overflow-y: auto;
     padding: 76px var(--space-lg) 0;
+}
+
+/* 静默滚动条：默认 thumb 透明（track 已是 transparent），hover 或正在滚动时才显色。
+   不改宽度，避免布局抖动。is-scrolling class 由 Panel 的 scroll handler 在滚动时打上、800ms 无滚动后摘掉。 */
+.sessionPanel::-webkit-scrollbar-thumb {
+    background: transparent;
+    transition: background 0.25s ease-out;
+}
+
+.sessionPanel:hover::-webkit-scrollbar-thumb,
+.sessionPanel.is-scrolling::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.25);
 }
 
 .sessionMessages {
@@ -1032,32 +1028,37 @@
 }
 
 .sessionFooter {
-    /* 输入区本身负责遮挡，footer 只负责提供透明滚动缓冲。 */
-    height: max(12rem, calc(var(--input-area-h, 0px) + 2rem));
+    /* 和 sessionPanel 的 /2 切点对齐：滚到底时最后一条消息底边 ≈ 输入框上沿上方 3.5rem（一行文字 + 2rem 呼吸）。 */
+    height: calc(var(--input-area-h, 0px) / 2 + 3.5rem);
     flex-shrink: 0;
 }
 
 /* ── Typing indicator (streaming 等待) ── */
 
 .typingIndicator {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0.6rem 0;
+    padding: 0.2rem 0 0.6rem;
     padding-left: calc(var(--space-sm) + 2px);
+    font-family: var(--font-serif);
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 0.6;
+    letter-spacing: 0.08em;
+    color: var(--accent);
     animation: msgIn 0.3s var(--ease-out);
 }
 
-.typingIndicator span {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: dotPulse 1.2s infinite;
+.typingIndicator::after {
+    content: '';
+    animation: typewriterDots 1.4s steps(1, end) infinite;
 }
 
-.typingIndicator span:nth-child(2) { animation-delay: 0.2s; }
-.typingIndicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typewriterDots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+}
 
 /* ── Scroll to bottom FAB ── */
 

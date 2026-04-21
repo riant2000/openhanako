@@ -578,13 +578,15 @@
     margin-left: 0.3rem;
 }
 
-/* 展开列表 — 绝对定位向上弹出，白色卡片，和标签有间距 */
+/* 展开列表 — 绝对定位向上弹出，白色卡片，和标签有间距；超 6 条滚动 */
 .todo-bar-list {
     position: absolute;
     bottom: calc(100% + 6px);
     right: 0;
     min-width: 240px;
     max-width: 360px;
+    max-height: calc(6 * 1.5rem + var(--space-sm) * 2);
+    overflow-y: auto;
     padding: var(--space-sm);
     background: var(--bg-card);
     border: 1px solid var(--overlay-light);
