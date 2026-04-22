@@ -20,7 +20,10 @@ declare global {
 
     // ── 主题（由 lib/theme.js IIFE bundle 注入） ──
     setTheme: (name: string) => void;
-    applyTheme: (name: string) => void;
+    // applyTheme 为 optional：ws-message-handler 运行在所有窗口中，包括不加载
+    // lib/theme.js 的 viewer-window 等，这些窗口里该方法确实不存在。
+    // callsite 使用 window.applyTheme?.() 是正确的防御性调用，类型须与之一致。
+    applyTheme?: (name: string) => void;
     loadSavedTheme: () => void;
     setSerifFont: (enabled: boolean) => void;
     loadSavedFont: () => void;
@@ -45,8 +48,10 @@ declare global {
 
   // theme helpers（window.* 属性，IIFE bundle 注入后可通过全局名调用）
   // 保留 declare function 以兼容 bootstrap.ts 的 typeof loadSavedTheme === 'function' 检查
+  // 覆盖 bootstrap.ts 里所有 6 个有裸调用点的函数（applyTheme 无裸调用点，不在此列）
   function loadSavedTheme(): void;
   function loadSavedFont(): void;
+  function loadSavedPaperTexture(): void;
   function setTheme(theme: string): void;
   function setSerifFont(enabled: boolean): void;
   function setPaperTexture(enabled: boolean): void;
