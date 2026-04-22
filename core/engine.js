@@ -326,6 +326,8 @@ export class HanaEngine {
   get bridgeSessionManager() { return this._bridge; }
   get slashRegistry() { return this._slashSystem?.registry ?? null; }
   get slashDispatcher() { return this._slashSystem?.dispatcher ?? null; }
+  /** /rc 接管态 + pending-selection 内存 store（Phase 2-A） */
+  get rcState() { return this._slashSystem?.rcState ?? null; }
   async closeSession(p) { return this._sessionCoord.closeSession(p); }
   getSessionByPath(p) { return this._sessionCoord.getSessionByPath(p); }
   isSessionStreaming(p) { return this._sessionCoord.isSessionStreaming(p); }

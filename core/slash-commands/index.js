@@ -2,13 +2,16 @@ import { SlashCommandRegistry } from "../slash-command-registry.js";
 import { SlashCommandDispatcher } from "../slash-command-dispatcher.js";
 import { createSessionOps } from "./session-ops.js";
 import { bridgeCommands } from "./bridge-commands.js";
+import { RcStateStore } from "./rc-state.js";
 
 export function createSlashSystem({ engine, hub }) {
   const registry = new SlashCommandRegistry();
   const sessionOps = createSessionOps({ engine });
+  // Phase 2-A：rc 态 store 在 slash-system 构造时注入（随 engine 生命周期，重启清空）
+  const rcState = new RcStateStore();
   const dispatcher = new SlashCommandDispatcher({ registry, engine, hub, sessionOps });
   for (const def of bridgeCommands) registry.registerCommand(def);
-  return { registry, dispatcher, sessionOps };
+  return { registry, dispatcher, sessionOps, rcState };
 }
 
 /**
