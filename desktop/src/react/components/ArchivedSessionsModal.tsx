@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '../hooks/use-i18n';
 import {
   listArchivedSessions,
@@ -91,7 +92,7 @@ export function ArchivedSessionsModal({ open, onClose }: Props) {
     await refresh();
   };
 
-  return (
+  return createPortal(
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
@@ -101,59 +102,64 @@ export function ArchivedSessionsModal({ open, onClose }: Props) {
           </button>
         </div>
 
-        <div className={styles.stats}>
-          <span>
-            {t('session.archived.stats', {
-              count: list.length,
-              size: formatBytes(totalSize),
-            })}
-          </span>
-          <div className={styles.cleanupBtns}>
-            <button onClick={() => handleCleanup(30)}>
-              {t('session.archived.cleanup30')}
-            </button>
-            <button onClick={() => handleCleanup(90)}>
-              {t('session.archived.cleanup90')}
-            </button>
+        <div className={styles.content}>
+          <div className={styles.summaryCard}>
+            <span className={styles.summaryText}>
+              {t('session.archived.stats', {
+                count: list.length,
+                size: formatBytes(totalSize),
+              })}
+            </span>
+            <div className={styles.cleanupBtns}>
+              <button onClick={() => handleCleanup(30)}>
+                {t('session.archived.cleanup30')}
+              </button>
+              <button onClick={() => handleCleanup(90)}>
+                {t('session.archived.cleanup90')}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.listCard}>
+            <div className={styles.list}>
+              {loading ? (
+                <div className={styles.loading}>{t('common.loading')}</div>
+              ) : list.length === 0 ? (
+                <div className={styles.empty}>{t('session.archived.empty')}</div>
+              ) : (
+                list.map((item) => (
+                  <div key={item.path} className={styles.row}>
+                    <div className={styles.rowMain}>
+                      <div className={styles.rowTitle}>
+                        {item.title || t('session.untitled')}
+                      </div>
+                      <div className={styles.rowMeta}>
+                        {item.agentName} · {formatAgo(item.archivedAt, t)} ·{' '}
+                        {formatBytes(item.sizeBytes)}
+                      </div>
+                    </div>
+                    <div className={styles.rowActions}>
+                      <button
+                        title={t('session.archived.restore')}
+                        onClick={() => handleRestore(item.path)}
+                      >
+                        {t('session.archived.restore')}
+                      </button>
+                      <button
+                        title={t('session.archived.deleteForever')}
+                        onClick={() => handleDelete(item.path)}
+                      >
+                        {t('session.archived.deleteForever')}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
-
-        <div className={styles.list}>
-          {loading ? (
-            <div className={styles.loading}>{t('common.loading')}</div>
-          ) : list.length === 0 ? (
-            <div className={styles.empty}>{t('session.archived.empty')}</div>
-          ) : (
-            list.map((item) => (
-              <div key={item.path} className={styles.row}>
-                <div className={styles.rowMain}>
-                  <div className={styles.rowTitle}>
-                    {item.title || t('session.untitled')}
-                  </div>
-                  <div className={styles.rowMeta}>
-                    {item.agentName} · {formatAgo(item.archivedAt, t)} ·{' '}
-                    {formatBytes(item.sizeBytes)}
-                  </div>
-                </div>
-                <div className={styles.rowActions}>
-                  <button
-                    title={t('session.archived.restore')}
-                    onClick={() => handleRestore(item.path)}
-                  >
-                    {t('session.archived.restore')}
-                  </button>
-                  <button
-                    title={t('session.archived.deleteForever')}
-                    onClick={() => handleDelete(item.path)}
-                  >
-                    {t('session.archived.deleteForever')}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
