@@ -159,3 +159,45 @@ describe("POST /api/sessions/restore", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("POST /api/sessions/archived/delete", () => {
+  let tmpDir, engine, app, archPath, activeKey;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-del-arch-"));
+    const sessDir = path.join(tmpDir, "agents", "a", "sessions");
+    const archDir = path.join(sessDir, "archived");
+    fs.mkdirSync(archDir, { recursive: true });
+    archPath = path.join(archDir, "d1.jsonl");
+    activeKey = path.join(sessDir, "d1.jsonl");
+    fs.writeFileSync(archPath, "{}\n");
+    engine = makeEngine(tmpDir);
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    app = new Hono();
+    app.route("/api", createSessionsRoute(engine));
+  });
+
+  it("unlinks the archived file and clears title orphan", async () => {
+    const res = await app.request("/api/sessions/archived/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: archPath }),
+    });
+    expect(res.status).toBe(200);
+    expect(fs.existsSync(archPath)).toBe(false);
+    expect(engine.clearSessionTitle).toHaveBeenCalledWith(activeKey);
+  });
+
+  it("rejects non-archived path", async () => {
+    const bogus = path.join(tmpDir, "agents", "a", "sessions", "active.jsonl");
+    fs.writeFileSync(bogus, "{}\n");
+    const res = await app.request("/api/sessions/archived/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: bogus }),
+    });
+    expect(res.status).toBe(403);
+    expect(fs.existsSync(bogus)).toBe(true);
+  });
+});

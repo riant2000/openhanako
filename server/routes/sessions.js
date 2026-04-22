@@ -522,5 +522,37 @@ export function createSessionsRoute(engine) {
     }
   });
 
+  // 永久删除一条归档 session
+  route.post("/sessions/archived/delete", async (c) => {
+    try {
+      const body = await safeJson(c);
+      const { path: sessionPath } = body;
+      if (!sessionPath) {
+        return c.json({ error: t("error.missingParam", { param: "path" }) }, 400);
+      }
+      if (!isValidSessionPath(sessionPath, engine.agentsDir)) {
+        return c.json({ error: "Invalid session path" }, 403);
+      }
+      const archDir = path.dirname(sessionPath);
+      if (path.basename(archDir) !== "archived") {
+        return c.json({ error: "Not an archived session path" }, 403);
+      }
+      try {
+        await fs.unlink(sessionPath);
+      } catch (err) {
+        if (err.code === "ENOENT") {
+          return c.json({ error: t("error.sessionNotFound") }, 404);
+        }
+        throw err;
+      }
+      // 清理 titles.json 孤儿（key = 对应的活跃路径）
+      const activeKey = path.join(path.dirname(archDir), path.basename(sessionPath));
+      try { await engine.clearSessionTitle(activeKey); } catch {}
+      return c.json({ ok: true });
+    } catch (err) {
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
   return route;
 }
