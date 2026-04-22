@@ -38,7 +38,7 @@ import { PreferencesManager } from "./preferences-manager.js";
 import { ModelManager } from "./model-manager.js";
 import { SkillManager } from "./skill-manager.js";
 import { BridgeSessionManager } from "./bridge-session-manager.js";
-import { createSlashSystem, exposeSkillsAsCommands } from "./slash-commands/index.js";
+import { createSlashSystem } from "./slash-commands/index.js";
 import { AgentManager } from "./agent-manager.js";
 import { sanitizeMessagesForModel } from "./message-sanitizer.js";
 import { SessionCoordinator } from "./session-coordinator.js";
@@ -264,9 +264,7 @@ export class HanaEngine {
   invalidateAgentListCache() { this._agentMgr.invalidateAgentListCache(); }
   async createAgent(opts) { return this._agentMgr.createAgent(opts); }
   async switchAgent(agentId) {
-    const result = await this._agentMgr.switchAgent(agentId);
-    this._refreshSlashSkills();
-    return result;
+    return this._agentMgr.switchAgent(agentId);
   }
   async deleteAgent(agentId) { return this._agentMgr.deleteAgent(agentId); }
   setPrimaryAgent(agentId) { return this._agentMgr.setPrimaryAgent(agentId); }
@@ -335,7 +333,9 @@ export class HanaEngine {
   isSessionStreaming(p) { return this._sessionCoord.isSessionStreaming(p); }
   async abortSessionByPath(p) { return this._sessionCoord.abortSessionByPath(p); }
   async listSessions() { return this._sessionCoord.listSessions(); }
+  async listArchivedSessions() { return this._sessionCoord.listArchivedSessions(); }
   async saveSessionTitle(p, t) { return this._sessionCoord.saveSessionTitle(p, t); }
+  async clearSessionTitle(p) { return this._sessionCoord.clearSessionTitle(p); }
   createSessionContext() { return this._sessionCoord.createSessionContext(); }
   promoteActivitySession(f, agentId) { return this._sessionCoord.promoteActivitySession(f, agentId); }
   async executeIsolated(prompt, opts) { return this._sessionCoord.executeIsolated(prompt, opts); }
@@ -801,23 +801,8 @@ export class HanaEngine {
     // 9. 清理过期的 .ephemeral session 文件（>7 天）
     this._cleanEphemeralSessions();
 
-    // 10. Slash 命令 skill 自动暴露（当前 agent 的 runtime skills 生成为 /<skillName> 命令）
-    //    后续 switchAgent 也会调用，保证切换 agent 时菜单同步刷新
-    this._refreshSlashSkills();
-
     const totalTime = ((Date.now() - startupTimer) / 1000).toFixed(1);
     log(`✿ 初始化完成（${totalTime}s）`);
-  }
-
-  /** 把当前 agent 的 skill 列表同步到 slash registry（幂等） */
-  _refreshSlashSkills() {
-    const agentId = this._agentMgr.activeAgentId;
-    if (!agentId || !this._slashSystem) return;
-    try {
-      exposeSkillsAsCommands({ registry: this._slashSystem.registry, engine: this, agentId });
-    } catch (err) {
-      console.warn(`[engine] _refreshSlashSkills failed: ${err.message}`);
-    }
   }
 
   /** 清理所有 agent 的 .ephemeral/ 目录中超过 7 天的文件 */

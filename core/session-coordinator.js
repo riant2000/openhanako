@@ -986,6 +986,69 @@ After dispatching subagent or other background tasks:
     this._titlesCache.set(sessionDir, { titles: { ...titles }, ts: Date.now() });
   }
 
+  /**
+   * 清除指定 session 在 session-titles.json 的标题条目。
+   * 供归档永久删除 / cleanup 使用，避免 titles.json 孤儿残留。
+   * 文件不存在或 key 不在时为 no-op。
+   */
+  async clearSessionTitle(sessionPath) {
+    const agentId = this._d.agentIdFromSessionPath(sessionPath);
+    const sessionDir = agentId
+      ? path.join(this._d.agentsDir, agentId, "sessions")
+      : this._d.getAgent().sessionDir;
+    const titlePath = path.join(sessionDir, "session-titles.json");
+    let raw;
+    try {
+      raw = await fsp.readFile(titlePath, "utf-8");
+    } catch {
+      return; // titles.json 不存在
+    }
+    let titles;
+    try { titles = JSON.parse(raw); } catch { return; }
+    if (!(sessionPath in titles)) return;
+    delete titles[sessionPath];
+    await fsp.writeFile(titlePath, JSON.stringify(titles, null, 2), "utf-8");
+    this._titlesCache.set(sessionDir, { titles: { ...titles }, ts: Date.now() });
+  }
+
+  /**
+   * 列出所有 agent 的已归档 session（`<agentDir>/sessions/archived/*.jsonl`）。
+   * title 的存储 key 仍是活跃路径——从 archived 路径反推活跃路径再查 titles.json。
+   */
+  async listArchivedSessions() {
+    const agents = this._d.listAgents();
+    const perAgent = await Promise.all(agents.map(async (agent) => {
+      const sessionDir = path.join(this._d.agentsDir, agent.id, "sessions");
+      const archDir = path.join(sessionDir, "archived");
+      let files;
+      try { files = await fsp.readdir(archDir); } catch { return []; }
+      const titles = await this._loadSessionTitlesFor(sessionDir).catch(() => ({}));
+      const rows = await Promise.all(files
+        .filter((f) => f.endsWith(".jsonl"))
+        .map(async (f) => {
+          const full = path.join(archDir, f);
+          try {
+            const stat = await fsp.stat(full);
+            const activeKey = path.join(sessionDir, f);
+            return {
+              path: full,
+              title: titles[activeKey] || null,
+              archivedAt: stat.mtime.toISOString(),
+              sizeBytes: stat.size,
+              agentId: agent.id,
+              agentName: agent.name,
+            };
+          } catch {
+            return null;
+          }
+        }));
+      return rows.filter(Boolean);
+    }));
+    const all = perAgent.flat();
+    all.sort((a, b) => new Date(b.archivedAt) - new Date(a.archivedAt));
+    return all;
+  }
+
   async getTitlesForPaths(paths) {
     const titles = {};
     for (const p of paths) titles[p] = null;
