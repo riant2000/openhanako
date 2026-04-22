@@ -11,11 +11,12 @@ const { contextBridge, ipcRenderer, webUtils } = require("electron");
 // webPreferences.preload 指向 bundle 产物。
 // 可以放心 require 任何相对路径 / node_modules，bundler 会内联。
 const { pathToFileUrl } = require("./src/shared/path-to-file-url.cjs");
+const themeRegistry = require("./src/shared/theme-registry.cjs");
 
 function resolveTheme() {
-  const saved = localStorage.getItem("hana-theme") || "auto";
+  const saved = localStorage.getItem(themeRegistry.STORAGE_KEY);
   const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return saved === "auto" ? (isDark ? "midnight" : "warm-paper") : saved;
+  return themeRegistry.resolveSavedTheme(saved, isDark).concrete;
 }
 
 contextBridge.exposeInMainWorld("hana", {
