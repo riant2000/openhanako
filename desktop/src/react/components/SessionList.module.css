@@ -57,6 +57,24 @@
     opacity: 0.8;
 }
 
+.sessionRcBadge {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    margin-top: 0.35rem;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+    font-size: 0.65rem;
+    line-height: 1.2;
+    font-weight: 600;
+    max-width: calc(100% - 28px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* 重命名按钮 */
 .sessionRenameBtn {
     position: absolute;
@@ -223,4 +241,3 @@
     color: var(--text-muted);
     font-size: 0.78rem;
 }
-

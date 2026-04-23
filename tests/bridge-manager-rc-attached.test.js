@@ -2,9 +2,8 @@
  * BridgeManager RC attached-session 路由集成测试
  *
  * 当 sessionKey 有 active attachment 时：
- *   - _flushPending 检测到 attachment → 走 _flushAttachedDesktopSession
- *   - 不调 hub.send（不写 bridge session jsonl）
- *   - 调用 engine.ensureSessionLoaded + session.prompt
+ *   - _flushPending 检测到 attachment → 仍走桌面 session 的统一发送入口
+ *   - 调用 hub.send({ sessionPath })，不再直接 promptAttachedDesktopSession
  *   - 返回 reply 通过 adapter.sendReply 送 TG
  */
 
@@ -18,26 +17,8 @@ import os from "os";
 import { BridgeManager } from "../lib/bridge/bridge-manager.js";
 import { createSlashSystem } from "../core/slash-commands/index.js";
 
-function makeFakeSession({ replyText = "desktop reply", toolMedia = [] } = {}) {
-  const subs = [];
-  return {
-    subscribe: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if (i >= 0) subs.splice(i, 1); }; },
-    prompt: vi.fn(async () => {
-      // emit text_delta one chunk
-      for (const fn of subs) {
-        fn({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: replyText } });
-        for (const url of toolMedia) {
-          fn({ type: "tool_execution_end", isError: false, result: { details: { media: { mediaUrls: [url] } } } });
-        }
-      }
-    }),
-    model: null,
-    _subs: subs,
-  };
-}
-
 function createMocks({ session } = {}) {
-  const s = session || makeFakeSession();
+  const s = session || {};
   const adapter = {
     sendReply: vi.fn().mockResolvedValue(),
     sendTypingIndicator: vi.fn().mockResolvedValue(),
@@ -58,7 +39,7 @@ function createMocks({ session } = {}) {
     currentAgentId: "hana",
   };
   const hub = {
-    send: vi.fn().mockResolvedValue("should NOT be called"),
+    send: vi.fn().mockResolvedValue({ text: "desktop reply", toolMedia: [] }),
     eventBus: { emit: vi.fn() },
   };
   const slashSystem = createSlashSystem({ engine, hub });
@@ -78,7 +59,7 @@ describe("BridgeManager RC attached-session routing", () => {
   afterEach(() => { vi.useRealTimers(); });
 
   it("with active attachment → routes DM to desktop session, NOT hub.send", async () => {
-    const { bm, adapter, engine, hub, rcState, session } = createMocks();
+    const { bm, adapter, engine, hub, rcState } = createMocks();
     rcState.attach("tg_dm_owner123@hana", "/path/to/desk.jsonl");
 
     bm._handleMessage("telegram", {
@@ -91,11 +72,12 @@ describe("BridgeManager RC attached-session routing", () => {
 
     await vi.advanceTimersByTimeAsync(2500);
 
-    // hub 未被调用（消息不走 bridge session）
-    expect(hub.send).not.toHaveBeenCalled();
-    // 桌面 session 被加载 + prompt
-    expect(engine.ensureSessionLoaded).toHaveBeenCalledWith("/path/to/desk.jsonl");
-    expect(session.prompt).toHaveBeenCalledOnce();
+    expect(hub.send).toHaveBeenCalledWith("帮我看看 foo 这个函数", expect.objectContaining({
+      sessionPath: "/path/to/desk.jsonl",
+      displayMessage: expect.objectContaining({ text: "帮我看看 foo 这个函数" }),
+      onDelta: expect.any(Function),
+      uiContext: null,
+    }));
     // 回复送回 TG（排除 "正在输入..." 之类的预热消息）
     const replyCalls = adapter.sendReply.mock.calls.filter(c => c[1] === "desktop reply");
     expect(replyCalls).toHaveLength(1);
@@ -116,7 +98,7 @@ describe("BridgeManager RC attached-session routing", () => {
 
     await vi.advanceTimersByTimeAsync(2500);
 
-    // 常规路径：hub 被调用，桌面 session 不加载
+    // 常规路径：hub 被调用
     expect(hub.send).toHaveBeenCalledOnce();
     expect(engine.ensureSessionLoaded).not.toHaveBeenCalled();
   });
@@ -136,14 +118,13 @@ describe("BridgeManager RC attached-session routing", () => {
 
     await vi.advanceTimersByTimeAsync(2500);
 
-    // 非 owner 走正常路径（hub.send），不碰桌面 session
+    // 非 owner 走正常路径（hub.send），不碰桌面 session 接管入口
     expect(engine.ensureSessionLoaded).not.toHaveBeenCalled();
   });
 
   it("desktop session prompt failure → sends [Error] to bridge", async () => {
-    const session = makeFakeSession();
-    session.prompt.mockRejectedValueOnce(new Error("model timeout"));
-    const { bm, adapter, rcState } = createMocks({ session });
+    const { bm, adapter, hub, rcState } = createMocks();
+    hub.send.mockRejectedValueOnce(new Error("model timeout"));
     rcState.attach("tg_dm_owner123@hana", "/err.jsonl");
 
     bm._handleMessage("telegram", {
@@ -161,10 +142,10 @@ describe("BridgeManager RC attached-session routing", () => {
   });
 
   it("tool media from desktop session → forwarded via adapter", async () => {
-    const session = makeFakeSession({ replyText: "see image", toolMedia: ["https://example.com/a.png"] });
     const adapterSendMedia = vi.fn().mockResolvedValue();
-    const { bm, adapter, rcState } = createMocks({ session });
+    const { bm, adapter, hub, rcState } = createMocks();
     adapter.sendMedia = adapterSendMedia;
+    hub.send.mockResolvedValueOnce({ text: "see image", toolMedia: ["https://example.com/a.png"] });
     rcState.attach("tg_dm_owner123@hana", "/s.jsonl");
 
     bm._handleMessage("telegram", {

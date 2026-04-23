@@ -25,6 +25,7 @@ import {
   loadSessionHistoryMessages,
   isValidSessionPath,
 } from "../core/message-utils.js";
+import { submitDesktopSessionMessage } from "../core/desktop-session-submit.js";
 
 export class Hub {
   /**
@@ -120,8 +121,10 @@ export class Hub {
       images,
       sessionPath,
       agentId,
+      uiContext,
+      displayMessage,
     } = opts;
-    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images, sessionPath, agentId };
+    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images, sessionPath, agentId, uiContext, displayMessage };
 
     // ── 图片预处理：持久化到磁盘 + 插入 [attached_image] 标记 ──
     // 在路由之前统一处理，所有消息路径（WS / Bridge DM / Bridge Group）共享
@@ -150,7 +153,14 @@ export class Hub {
       { // 桌面端 owner
         match: o => !o.sessionKey && !o.ephemeral && o.role === "owner",
         handle: () => o.sessionPath
-          ? this._engine.promptSession(o.sessionPath, text, { images: o.images })
+          ? submitDesktopSessionMessage(this._engine, {
+            sessionPath: o.sessionPath,
+            text,
+            images: o.images,
+            onDelta: o.onDelta,
+            uiContext: o.uiContext,
+            displayMessage: o.displayMessage,
+          })
           : this._engine.prompt(text, { images: o.images }),
       },
       { // Bridge guest

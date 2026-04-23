@@ -20,6 +20,11 @@ import {
 } from "../../core/message-utils.js";
 import { loadLatestTodosFromSessionFile } from "../../lib/tools/todo-compat.js";
 
+function rcPlatformFromSessionKey(sessionKey) {
+  const match = /^([a-z]+)_/i.exec(sessionKey || "");
+  return match ? match[1] : "bridge";
+}
+
 export function createSessionsRoute(engine) {
   const route = new Hono();
 
@@ -124,6 +129,14 @@ export function createSessionsRoute(engine) {
   route.get("/sessions", async (c) => {
     try {
       const sessions = await engine.listSessions();
+      const attachments = engine.rcState?.listAttachments?.() || [];
+      const rcAttachmentByPath = new Map(attachments.map((attachment) => [
+        attachment.desktopSessionPath,
+        {
+          sessionKey: attachment.sessionKey,
+          platform: rcPlatformFromSessionKey(attachment.sessionKey),
+        },
+      ]));
       return c.json(sessions.map(s => ({
         path: s.path,
         title: s.title || null,
@@ -135,6 +148,12 @@ export function createSessionsRoute(engine) {
         agentName: s.agentName || null,
         modelId: s.modelId || null,
         modelProvider: s.modelProvider || null,
+        rcAttachment: rcAttachmentByPath.get(s.path)
+          ? {
+            ...rcAttachmentByPath.get(s.path),
+            title: s.title || null,
+          }
+          : null,
       })));
     } catch (err) {
       return c.json({ error: err.message }, 500);

@@ -171,6 +171,7 @@ const SessionItem = memo(function SessionItem({ session: s, isActive, isStreamin
     if (dirName) parts.push(dirName);
   }
   if (s.modified) parts.push(formatSessionDate(s.modified));
+  const rcLabel = s.rcAttachment ? `${formatRcPlatform(s.rcAttachment.platform)} 接管中` : null;
 
   return (
     <button
@@ -220,6 +221,12 @@ const SessionItem = memo(function SessionItem({ session: s, isActive, isStreamin
         {parts.join(' · ')}
       </div>
 
+      {rcLabel && (
+        <div className={styles.sessionRcBadge}>
+          {rcLabel}
+        </div>
+      )}
+
       {browserUrl && (
         <span className={styles.sessionBrowserBadge} title={browserUrl}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -232,6 +239,15 @@ const SessionItem = memo(function SessionItem({ session: s, isActive, isStreamin
     </button>
   );
 });
+
+function formatRcPlatform(platform: string) {
+  const lower = (platform || '').toLowerCase();
+  if (lower === 'tg' || lower === 'telegram') return 'Telegram';
+  if (lower === 'feishu' || lower === 'fs') return '飞书';
+  if (lower === 'wechat' || lower === 'wx') return '微信';
+  if (lower === 'qq') return 'QQ';
+  return platform || 'Bridge';
+}
 
 // ── Agent Avatar Badge ──
 

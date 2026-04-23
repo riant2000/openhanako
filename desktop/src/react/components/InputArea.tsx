@@ -23,7 +23,6 @@ import { SlashCommandMenu } from './input/SlashCommandMenu';
 import { InputStatusBars } from './input/InputStatusBars';
 import { InputContextRow } from './input/InputContextRow';
 import { InputControlBar } from './input/InputControlBar';
-import { RcAttachedBanner } from './input/RcAttachedBanner';
 import { SkillBadge } from './input/extensions/skill-badge';
 import { serializeEditor } from '../utils/editor-serializer';
 import { useSkillSlashItems } from '../hooks/use-slash-items';
@@ -181,21 +180,12 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
       loadSessions();
     }
 
-    const sessionPath = useStore.getState().currentSessionPath;
-    if (sessionPath) {
-      const { renderMarkdown } = await import('../utils/markdown');
-      const msgText = displayText ?? text;
-      useStore.getState().appendItem(sessionPath, {
-        type: 'message',
-        data: { id: `user-${Date.now()}`, role: 'user', text: msgText, textHtml: renderMarkdown(msgText) },
-      });
-      useStore.setState({ welcomeVisible: false });
-    }
     ws.send(JSON.stringify({
       type: 'prompt',
       text,
       sessionPath: useStore.getState().currentSessionPath,
       uiContext: collectUiContext(useStore.getState()),
+      displayMessage: { text: displayText ?? text },
     }));
     return true;
   }, [pendingNewSession]);
@@ -474,30 +464,6 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
       const allFiles = [...(hasFiles ? attachedFiles : [])];
       if (docForRender) allFiles.push({ path: docForRender.path, name: docForRender.name });
 
-      // 写入 store
-      const sessionPath = useStore.getState().currentSessionPath;
-      if (sessionPath) {
-        const { renderMarkdown } = await import('../utils/markdown');
-        useStore.getState().appendItem(sessionPath, {
-          type: 'message',
-          data: {
-            id: `user-${Date.now()}`, role: 'user', text,
-            textHtml: renderMarkdown(text),
-            skills: skills.length > 0 ? skills : undefined,
-            quotedText: qs?.text,
-            attachments: allFiles.length > 0 ? allFiles.map(f => {
-              const cached = imageBase64Map.get(f.path);
-              return {
-                path: f.path, name: f.name, isDir: false,
-                base64Data: f.base64Data || cached?.base64Data || undefined,
-                mimeType: f.mimeType || cached?.mimeType || undefined,
-              };
-            }) : undefined,
-          },
-        });
-        useStore.setState({ welcomeVisible: false });
-      }
-
       editor.commands.clearContent();
       if (currentSessionPath) clearDraft(currentSessionPath);
       clearAttachedFiles();
@@ -510,6 +476,21 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
         text: finalText,
         sessionPath: useStore.getState().currentSessionPath,
         uiContext: collectUiContext(useStore.getState()),
+        displayMessage: {
+          text,
+          skills: skills.length > 0 ? skills : undefined,
+          quotedText: qs?.text,
+          attachments: allFiles.length > 0 ? allFiles.map(f => {
+            const cached = imageBase64Map.get(f.path);
+            return {
+              path: f.path,
+              name: f.name,
+              isDir: false,
+              base64Data: f.base64Data || cached?.base64Data || undefined,
+              mimeType: f.mimeType || cached?.mimeType || undefined,
+            };
+          }) : undefined,
+        },
       };
       if (images.length > 0) wsMsg.images = images;
       if (skills.length > 0) wsMsg.skills = skills;
@@ -595,7 +576,6 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
             onSelect={handleSlashSelect} onHover={(i) => setSlashSelected(i)} />
         )}
       </div>
-      <RcAttachedBanner />
       <div className={styles['input-wrapper']} ref={cardRef}>
         <div
           onKeyDown={handleEditorKeyDown}

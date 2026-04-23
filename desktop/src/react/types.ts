@@ -26,6 +26,11 @@ export interface Session {
   agentId: string | null;
   agentName: string | null;
   cwd: string | null;
+  rcAttachment?: {
+    sessionKey: string;
+    platform: string;
+    title?: string | null;
+  } | null;
   _optimistic?: boolean;
 }
 

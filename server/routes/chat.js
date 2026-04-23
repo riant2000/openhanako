@@ -371,6 +371,47 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       broadcast({ type: "bridge_message", message: event.message });
     } else if (event.type === "bridge_status") {
       broadcast({ type: "bridge_status", platform: event.platform, status: event.status, error: event.error, agentId: event.agentId || null });
+    } else if (event.type === "session_user_message") {
+      broadcast({ type: "session_user_message", sessionPath, message: event.message });
+    } else if (event.type === "session_status") {
+      if (ss) {
+        if (event.isStreaming) {
+          ss.thinkTagParser.reset();
+          ss.moodParser.reset();
+          ss.cardParser.reset();
+          ss._cardHints = [];
+          ss._cardEmitted = false;
+          ss.isThinking = false;
+          ss.hasOutput = false;
+          ss.hasToolCall = false;
+          ss.hasThinking = false;
+          ss.hasError = false;
+          ss.isAborted = false;
+          ss.titleRequested = false;
+          ss.titlePreview = "";
+          beginSessionStream(ss);
+        } else if (ss.isStreaming) {
+          finishSessionStream(ss);
+          ss.thinkTagParser.reset();
+          ss.moodParser.reset();
+          ss.cardParser.reset();
+        }
+      }
+      broadcast({ type: "status", isStreaming: !!event.isStreaming, sessionPath });
+    } else if (event.type === "bridge_rc_attached") {
+      broadcast({
+        type: "bridge_rc_attached",
+        sessionKey: event.sessionKey,
+        sessionPath,
+        title: event.title,
+        platform: event.platform || null,
+      });
+    } else if (event.type === "bridge_rc_detached") {
+      broadcast({
+        type: "bridge_rc_detached",
+        sessionKey: event.sessionKey,
+        sessionPath,
+      });
     } else if (event.type === "plan_mode") {
       broadcast({ type: "plan_mode", enabled: event.enabled, sessionPath });
     } else if (event.type === "notification") {
@@ -711,32 +752,26 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
                 wsSend(ws, { type: "error", message: t("error.stillStreaming", { name: engine.agentName }), sessionPath: promptSessionPath });
                 return;
               }
-              // UI context（用户视野：current_folder / active_file / pinned_files）
-              // 写入 engine session-keyed Map，context extension handler 每轮读取拼 reminder。
-              // msg.uiContext 为 null/undefined → 清空旧值（避免 stale 信息持续注入）。
-              engine.setUiContext?.(promptSessionPath, msg.uiContext ?? null);
               // Reject prompt while model switch is in progress
               const switchingEntry = engine._sessionCoord?.sessions?.get(promptSessionPath);
               if (switchingEntry?._switching) {
                 wsSend(ws, { type: "error", message: "正在切换模型，请稍候", sessionPath: promptSessionPath });
                 return;
               }
-              const ss = getState(promptSessionPath);
               try {
-                ss.thinkTagParser.reset();
-                ss.moodParser.reset();
-                ss.isAborted = false;
-                ss.titleRequested = false;
-                ss.titlePreview = "";
-                beginSessionStream(ss);
-                broadcast({ type: "status", isStreaming: true, sessionPath: promptSessionPath });
-                await hub.send(promptText, msg.images ? { images: msg.images, sessionPath: promptSessionPath } : { sessionPath: promptSessionPath });
-                broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
+                await hub.send(promptText, {
+                  sessionPath: promptSessionPath,
+                  images: msg.images,
+                  uiContext: msg.uiContext ?? null,
+                  displayMessage: msg.displayMessage,
+                });
               } catch (err) {
                 if (!err.message?.includes("aborted")) {
-                  wsSend(ws, { type: "error", message: err.message, sessionPath: promptSessionPath });
+                  const errMessage = err.message === "session_busy"
+                    ? t("error.stillStreaming", { name: engine.agentName })
+                    : err.message;
+                  wsSend(ws, { type: "error", message: errMessage, sessionPath: promptSessionPath });
                 }
-                broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
               }
             }
           })().catch((err) => {

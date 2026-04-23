@@ -24,6 +24,8 @@ import {
 } from './stream-resume';
 import { TODO_TOOL_NAMES, type TodoToolName } from '../utils/todo-constants';
 import { migrateLegacyTodos } from '../utils/todo-compat';
+import { renderMarkdown } from '../utils/markdown';
+import { bumpMessageLiveVersion } from '../stores/message-live-version';
 
 declare function t(key: string, vars?: Record<string, string>): any;
 
@@ -256,22 +258,61 @@ export function handleServerMessage(msg: any): void {
       }
       break;
 
+    case 'session_user_message': {
+      const sp = msg.sessionPath;
+      if (!sp || !msg.message) break;
+      if (!useStore.getState().chatSessions[sp]) {
+        useStore.getState().initSession(sp, [], false);
+      }
+      const text = typeof msg.message.text === 'string' ? msg.message.text : '';
+      useStore.getState().appendItem(sp, {
+        type: 'message',
+        data: {
+          id: msg.message.id || `user-${Date.now()}`,
+          role: 'user',
+          text,
+          textHtml: text ? renderMarkdown(text) : undefined,
+          attachments: msg.message.attachments,
+          quotedText: msg.message.quotedText,
+          skills: msg.message.skills,
+          deskContext: msg.message.deskContext ?? undefined,
+        },
+      });
+      bumpMessageLiveVersion(sp);
+      if (sp === useStore.getState().currentSessionPath) {
+        useStore.setState({ welcomeVisible: false });
+      }
+      break;
+    }
+
     case 'bridge_rc_attached': {
-      // Phase 2-D：bridge 端 /rc 选中了某个桌面 session，前端按 sessionPath 渲染接管横幅
       const sp = msg.sessionPath;
       if (sp && msg.sessionKey) {
-        useStore.getState().setRcAttached(sp, {
-          sessionKey: msg.sessionKey,
-          platform: msg.platform || 'bridge',
-          title: msg.title,
-        });
+        useStore.setState((s) => ({
+          sessions: s.sessions.map((session) => session.path === sp
+            ? {
+              ...session,
+              rcAttachment: {
+                sessionKey: msg.sessionKey,
+                platform: msg.platform || 'bridge',
+                title: msg.title || null,
+              },
+            }
+            : session),
+        }));
       }
       break;
     }
 
     case 'bridge_rc_detached': {
       const sp = msg.sessionPath;
-      if (sp) useStore.getState().clearRcAttached(sp);
+      if (sp) {
+        useStore.setState((s) => ({
+          sessions: s.sessions.map((session) => session.path === sp
+            ? { ...session, rcAttachment: null }
+            : session),
+        }));
+      }
       break;
     }
 
