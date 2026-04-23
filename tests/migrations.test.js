@@ -435,7 +435,7 @@ describe("migration #2: migrateBridgeToPerAgent", () => {
     expect(config.bridge.telegram.agentId).toBeUndefined();
   });
 
-  it("readOnly 只写入 primaryAgent", () => {
+  it("保留 bridge.readOnly 为全局偏好，不再写入 agent config", () => {
     writeAgentConfig(agentsDir, "primary", { api: { provider: "" } });
     writeAgentConfig(agentsDir, "secondary", { api: { provider: "" } });
     const prefs = makePrefs(userDir);
@@ -454,8 +454,9 @@ describe("migration #2: migrateBridgeToPerAgent", () => {
     const cfgPrimary = readAgentConfig(agentsDir, "primary");
     const cfgSecondary = readAgentConfig(agentsDir, "secondary");
 
-    expect(cfgPrimary.bridge.readOnly).toBe(true);
+    expect(cfgPrimary.bridge.readOnly).toBeUndefined();
     expect(cfgSecondary.bridge.readOnly).toBeUndefined();
+    expect(prefs.getPreferences().bridge?.readOnly).toBe(true);
   });
 });
 
@@ -503,7 +504,7 @@ describe("migration #3 — migrateWorkspaceToPerAgent", () => {
 
     const p = prefs.getPreferences();
     expect(p.home_folder).toBeUndefined();
-    expect(p._dataVersion).toBe(8);
+    expect(p._dataVersion).toBe(9);
   });
 
   it("skips when home_folder is empty", () => {
@@ -515,7 +516,7 @@ describe("migration #3 — migrateWorkspaceToPerAgent", () => {
 
     const config = readAgentConfig(agentsDir, "hana");
     expect(config.desk).toBeUndefined();
-    expect(prefs.getPreferences()._dataVersion).toBe(8);
+    expect(prefs.getPreferences()._dataVersion).toBe(9);
   });
 
   it("falls back to first agent when primaryAgent not found", () => {
@@ -580,7 +581,7 @@ describe("migration #3 — migrateWorkspaceToPerAgent", () => {
     });
 
     runMigration3(prefs);
-    expect(prefs.getPreferences()._dataVersion).toBe(8);
+    expect(prefs.getPreferences()._dataVersion).toBe(9);
 
     // Manually reset _dataVersion to 2 to simulate forced rerun
     const p2 = prefs.getPreferences();
@@ -589,7 +590,7 @@ describe("migration #3 — migrateWorkspaceToPerAgent", () => {
     runMigration3(prefs);
 
     // home_folder is gone from prefs, so migration skips cleanly
-    expect(prefs.getPreferences()._dataVersion).toBe(8);
+    expect(prefs.getPreferences()._dataVersion).toBe(9);
     const config = readAgentConfig(agentsDir, "hana");
     expect(config.desk.home_folder).toBe("/workspace");
   });
@@ -657,6 +658,65 @@ describe("migration #3 — migrateWorkspaceToPerAgent", () => {
     // User explicitly set heartbeat_enabled=true → migration respects it
     const assistantConfig = readAgentConfig(agentsDir, "assistant");
     expect(assistantConfig.desk.heartbeat_enabled).toBe(true);
+  });
+});
+
+// ── 迁移 #9：bridge.readOnly 从 per-agent 收敛到全局 prefs ──────────────────
+
+describe("migration #9 — migrateBridgeReadOnlyToGlobal", () => {
+  let tmpDir, userDir, agentsDir;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    userDir = path.join(tmpDir, "user");
+    agentsDir = path.join(tmpDir, "agents");
+    fs.mkdirSync(agentsDir, { recursive: true });
+  });
+
+  afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });
+
+  function runMigration9(prefs) {
+    const p = prefs.getPreferences();
+    p._dataVersion = 8;
+    prefs.savePreferences(p);
+
+    runMigrations({
+      hanakoHome: tmpDir,
+      agentsDir,
+      prefs,
+      providerRegistry: makeRegistry([]),
+      log: () => {},
+    });
+  }
+
+  it("lifts any agent-level bridge.readOnly into preferences and removes stale agent fields", () => {
+    writeAgentConfig(agentsDir, "agent-a", {
+      api: { provider: "" },
+      bridge: {
+        readOnly: true,
+        telegram: { token: "tg-a" },
+      },
+    });
+    writeAgentConfig(agentsDir, "agent-b", {
+      api: { provider: "" },
+      bridge: {
+        readOnly: false,
+        feishu: { appId: "fs-b" },
+      },
+    });
+    const prefs = makePrefs(userDir);
+    prefs.savePreferences({});
+
+    runMigration9(prefs);
+
+    expect(prefs.getPreferences().bridge?.readOnly).toBe(true);
+
+    const cfgA = readAgentConfig(agentsDir, "agent-a");
+    const cfgB = readAgentConfig(agentsDir, "agent-b");
+    expect(cfgA.bridge.readOnly).toBeUndefined();
+    expect(cfgB.bridge.readOnly).toBeUndefined();
+    expect(cfgA.bridge.telegram).toEqual({ token: "tg-a" });
+    expect(cfgB.bridge.feishu).toEqual({ appId: "fs-b" });
   });
 });
 
@@ -825,7 +885,7 @@ describe("#7 migrateVisionToImage", () => {
     expect(models[0].vision).toBeUndefined();
     expect(models[1]).toEqual({ id: "qwen-plus", image: false });
     expect(models[2]).toBe("qwen-turbo");
-    expect(prefs.getPreferences()._dataVersion).toBe(8);
+    expect(prefs.getPreferences()._dataVersion).toBe(9);
   });
 
   it("幂等：已迁移过的 added-models.yaml 重跑不改写", () => {
@@ -884,7 +944,7 @@ describe("#7 migrateVisionToImage", () => {
 
     runMigration7(prefs);
 
-    expect(prefs.getPreferences()._dataVersion).toBe(8);
+    expect(prefs.getPreferences()._dataVersion).toBe(9);
   });
 });
 
@@ -922,6 +982,6 @@ describe("migration #8 — repairPostMigrationModelRefs", () => {
 
     const cfg = readAgentConfig(agentsDir, "hana");
     expect(cfg.models.chat).toEqual({ id: "qwen3.6-flash", provider: "dashscope" });
-    expect(prefs.getPreferences()._dataVersion).toBe(8);
+    expect(prefs.getPreferences()._dataVersion).toBe(9);
   });
 });

@@ -61,7 +61,8 @@ export function createBridgeRoute(engine, bridgeManager) {
         configured: !!bridge.wechat?.botToken,
         token: bridge.wechat?.botToken || "",
       }),
-      readOnly: !!bridge.readOnly,
+      readOnly: engine.getBridgeReadOnly(),
+      receiptEnabled: engine.getBridgeReceiptEnabled(),
       knownUsers: collectKnownUsers(engine.getBridgeIndex(agent.id)),
       owner: ownerDict,
     });
@@ -110,15 +111,20 @@ export function createBridgeRoute(engine, bridgeManager) {
     return c.json({ ok: true });
   });
 
-  /** 更新 bridge 设置（readOnly 等）— per-agent */
+  /** 更新 bridge 总设置（readOnly / receiptEnabled）— global preferences */
   route.post("/bridge/settings", async (c) => {
     const body = await safeJson(c);
-    const { readOnly } = body;
-    const agent = resolveAgentStrict(engine, c);
+    const { readOnly, receiptEnabled } = body;
     if (typeof readOnly === "boolean") {
-      agent.updateConfig({ bridge: { readOnly } });
+      engine.setBridgeReadOnly(readOnly);
     }
-    debugLog()?.log("api", `POST /api/bridge/settings agent=${agent.id} readOnly=${readOnly}`);
+    if (typeof receiptEnabled === "boolean") {
+      engine.setBridgeReceiptEnabled(receiptEnabled);
+    }
+    debugLog()?.log(
+      "api",
+      `POST /api/bridge/settings readOnly=${readOnly} receiptEnabled=${receiptEnabled}`,
+    );
     return c.json({ ok: true });
   });
 

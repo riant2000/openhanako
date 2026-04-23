@@ -1,5 +1,4 @@
 import React from 'react';
-import { hanaFetch } from '../api';
 import { t } from '../helpers';
 import { Toggle } from '../widgets/Toggle';
 import { PlatformSection } from './bridge/PlatformSection';
@@ -17,15 +16,41 @@ export function BridgeTab() {
   const qqInfo = b.status?.qq || {};
   const wxInfo = b.status?.wechat || {};
   const readOnly = !!b.status?.readOnly;
+  const receiptEnabled = b.status?.receiptEnabled !== false;
 
   return (
     <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="bridge">
-      {/* BridgeAgentRow：tab 级 context，水平平铺头像+名字
-       * 未超宽时居中显示，超宽时横向滚动；selected 高亮对齐 AgentCardStack */}
-      <BridgeAgentRow
-        value={b.selectedAgentId}
-        onChange={b.setSelectedAgentId}
-      />
+      <SettingsSection title={t('settings.bridge.globalSettings')}>
+        <SettingsRow
+          label={t('settings.bridge.receiptEnabled')}
+          hint={t('settings.bridge.receiptEnabledDesc')}
+          control={
+            <Toggle
+              on={receiptEnabled}
+              onChange={(on) => b.saveGlobalSettings({ receiptEnabled: on })}
+            />
+          }
+        />
+        <SettingsRow
+          label={t('settings.bridge.readOnly')}
+          hint={t('settings.bridge.readOnlyDesc')}
+          control={
+            <Toggle
+              on={readOnly}
+              onChange={(on) => b.saveGlobalSettings({ readOnly: on })}
+            />
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection title={t('settings.bridge.agentSettings')} variant="flush">
+        {/* BridgeAgentRow：tab 级 context，水平平铺头像+名字
+         * 未超宽时居中显示，超宽时横向滚动；selected 高亮对齐 AgentCardStack */}
+        <BridgeAgentRow
+          value={b.selectedAgentId}
+          onChange={b.setSelectedAgentId}
+        />
+      </SettingsSection>
 
       {/* 对外意识：hint 在上、textarea 在下，直接作为 section body children（单 textarea 不套 row） */}
       <SettingsSection title={t('settings.agent.publicIshiki')}>
@@ -146,32 +171,6 @@ export function BridgeTab() {
         onReload={b.loadStatus}
         agentId={b.selectedAgentId}
       />
-
-      {/* 只读模式 */}
-      <SettingsSection title={t('settings.bridge.readOnly')}>
-        <SettingsRow
-          label={t('settings.bridge.readOnlyDesc')}
-          control={
-            <Toggle
-              on={readOnly}
-              onChange={async (on) => {
-                try {
-                  const agentQuery = b.selectedAgentId ? `?agentId=${encodeURIComponent(b.selectedAgentId)}` : '';
-                  await hanaFetch(`/api/bridge/settings${agentQuery}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ readOnly: on }),
-                  });
-                  b.showToast(t('settings.saved'), 'success');
-                  await b.loadStatus();
-                } catch {
-                  b.showToast(t('settings.saveFailed'), 'error');
-                }
-              }}
-            />
-          }
-        />
-      </SettingsSection>
     </div>
   );
 }

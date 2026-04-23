@@ -81,6 +81,25 @@ describe("splitByScope", () => {
     expect(agent.desk.heartbeat_master).toBeUndefined();
   });
 
+  it("extracts bridge.readOnly and bridge.receiptEnabled as global while keeping platform config", () => {
+    const partial = {
+      bridge: {
+        readOnly: true,
+        receiptEnabled: false,
+        telegram: { token: "tg-token" },
+      },
+    };
+    const { global: g, agent } = splitByScope(partial);
+
+    expect(g).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "bridge.readOnly", value: true }),
+      expect.objectContaining({ key: "bridge.receiptEnabled", value: false }),
+    ]));
+    expect(agent.bridge.telegram).toEqual({ token: "tg-token" });
+    expect(agent.bridge.readOnly).toBeUndefined();
+    expect(agent.bridge.receiptEnabled).toBeUndefined();
+  });
+
   it("returns empty global array when no global fields present", () => {
     const partial = { models: ["qwen-plus"], name: "Alice" };
     const { global: g, agent } = splitByScope(partial);
@@ -130,6 +149,8 @@ describe("injectGlobalFields", () => {
       getThinkingLevel: () => "high",
       getLearnSkills: () => true,
       getHeartbeatMaster: () => true,
+      getBridgeReadOnly: () => true,
+      getBridgeReceiptEnabled: () => false,
     };
     const config = {};
     injectGlobalFields(config, engine);
@@ -141,6 +162,8 @@ describe("injectGlobalFields", () => {
     expect(config.thinking_level).toBe("high");
     expect(config.capabilities?.learn_skills).toBe(true);
     expect(config.desk?.heartbeat_master).toBe(true);
+    expect(config.bridge?.readOnly).toBe(true);
+    expect(config.bridge?.receiptEnabled).toBe(false);
   });
 
   it("skips getters that don't exist on engine (doesn't throw)", () => {
@@ -159,6 +182,8 @@ describe("injectGlobalFields", () => {
     const engine = {
       getLearnSkills: () => false,
       getHeartbeatMaster: () => false,
+      getBridgeReadOnly: () => false,
+      getBridgeReceiptEnabled: () => true,
     };
     const config = {};
     injectGlobalFields(config, engine);
@@ -167,6 +192,9 @@ describe("injectGlobalFields", () => {
     expect(config.capabilities.learn_skills).toBe(false);
     expect(config.desk).toBeDefined();
     expect(config.desk.heartbeat_master).toBe(false);
+    expect(config.bridge).toBeDefined();
+    expect(config.bridge.readOnly).toBe(false);
+    expect(config.bridge.receiptEnabled).toBe(true);
   });
 });
 
@@ -301,7 +329,7 @@ describe("migrateConfigScope", () => {
     migrateConfigScope({ agentsDir, prefs, primaryAgentId: "agent-1" });
 
     const store = prefs._getStore();
-    expect(store.capabilities?.learn_skills).toBe(true);
+    expect(store.learn_skills).toBe(true);
 
     // The cleaned config.yaml should have other cap but not learn_skills
     const cfg = YAML.load(
@@ -311,5 +339,31 @@ describe("migrateConfigScope", () => {
     expect(cfg.capabilities?.other).toBe("keep");
     // agent-scoped field must still be in config.yaml
     expect(cfg.name).toBe("Alice");
+  });
+
+  it("uses schema prefsPath/defaultValue when migrating bridge and heartbeat globals", () => {
+    const agentsDir = path.join(tmpDir, "agents");
+    writeAgentConfig(agentsDir, "primary", {
+      bridge: { readOnly: false },
+      desk: { heartbeat_master: true },
+    });
+    writeAgentConfig(agentsDir, "secondary", {
+      bridge: { readOnly: true },
+      desk: { heartbeat_master: false },
+    });
+
+    const prefs = makeMockPrefs({});
+    migrateConfigScope({ agentsDir, prefs, primaryAgentId: "primary" });
+
+    const store = prefs._getStore();
+    expect(store.bridge?.readOnly).toBe(true);
+    expect(store.heartbeat_master).toBe(false);
+
+    const cfgPrimary = YAML.load(fs.readFileSync(path.join(agentsDir, "primary", "config.yaml"), "utf-8"));
+    const cfgSecondary = YAML.load(fs.readFileSync(path.join(agentsDir, "secondary", "config.yaml"), "utf-8"));
+    expect(cfgPrimary.bridge).toBeUndefined();
+    expect(cfgSecondary.bridge).toBeUndefined();
+    expect(cfgPrimary.desk).toBeUndefined();
+    expect(cfgSecondary.desk).toBeUndefined();
   });
 });

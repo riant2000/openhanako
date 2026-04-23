@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../store';
 import { hanaFetch } from '../../api';
+import { loadSettingsConfig } from '../../actions';
 import { t } from '../../helpers';
 import type { KnownUser } from './BridgeWidgets';
 
@@ -28,6 +29,7 @@ export interface BridgeStatus {
   qq: QQStatus;
   wechat: WechatStatus;
   readOnly: boolean;
+  receiptEnabled: boolean;
   knownUsers: { telegram?: KnownUser[]; feishu?: KnownUser[]; whatsapp?: KnownUser[]; qq?: KnownUser[]; wechat?: KnownUser[] };
   owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string; wechat?: string };
 }
@@ -178,6 +180,23 @@ export function useBridgeState() {
     }
   };
 
+  const saveGlobalSettings = async (partial: { readOnly?: boolean; receiptEnabled?: boolean }) => {
+    try {
+      await hanaFetch('/api/bridge/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(partial),
+      });
+      showToast(t('settings.saved'), 'success');
+      await Promise.all([
+        loadStatus(),
+        loadSettingsConfig(),
+      ]);
+    } catch {
+      showToast(t('settings.saveFailed'), 'error');
+    }
+  };
+
   return {
     status, testingPlatform, showToast, loadStatus,
     selectedAgentId, setSelectedAgentId,
@@ -185,6 +204,6 @@ export function useBridgeState() {
     tgToken, setTgToken,
     fsAppId, setFsAppId, fsAppSecret, setFsAppSecret,
     qqAppId, setQqAppId, qqAppSecret, setQqAppSecret,
-    saveBridgeConfig, testPlatform, setOwner,
+    saveBridgeConfig, testPlatform, setOwner, saveGlobalSettings,
   };
 }

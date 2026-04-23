@@ -41,6 +41,7 @@ export class BridgeSessionManager {
    * @param {object} deps - 注入依赖（不持有 engine 引用）
    * @param {() => object} deps.getAgent - 返回当前 agent（需 sessionDir, yuanPrompt）
    * @param {(id: string) => object|null} deps.getAgentById - 按 ID 获取 agent
+   * @param {() => Map<string, object>|object[]|undefined} [deps.getAgents] - 返回所有 agent（reconcile 用）
    * @param {() => import('./model-manager.js').ModelManager} deps.getModelManager
    * @param {() => object} deps.getResourceLoader
    * @param {() => object} deps.getPreferences
@@ -74,34 +75,58 @@ export class BridgeSessionManager {
     return path.join(a.sessionDir, "bridge", "bridge-sessions.json");
   }
 
+  _resolveAgent(opts = {}, operation = "operation") {
+    if (opts.agentId) {
+      const agent = this._deps.getAgentById?.(opts.agentId) || null;
+      if (!agent) throw new Error(`bridge ${operation}: agent "${opts.agentId}" not found`);
+      return agent;
+    }
+    const agent = this._deps.getAgent?.() || null;
+    if (!agent) throw new Error(`bridge ${operation}: focus agent not available`);
+    return agent;
+  }
+
+  _listAgentsForReconcile() {
+    const all = this._deps.getAgents?.();
+    if (all instanceof Map) return [...all.values()].filter(Boolean);
+    if (Array.isArray(all)) return all.filter(Boolean);
+    const focus = this._deps.getAgent?.();
+    return focus ? [focus] : [];
+  }
+
   /**
    * 启动时 sanity check：扫描 bridge-index，清理孤儿条目
    * （有 file 引用但 JSONL 文件已不存在的）
-   *
-   * 注意：当前仅 reconcile focus agent 的 bridge 目录。
-   * 多 agent 场景下应遍历所有 agent，但这属于更大范围的重构，暂留此限制。
    */
   reconcile() {
-    const index = this.readIndex();
-    const bridgeDir = path.join(this._deps.getAgent().sessionDir, "bridge");
-    let cleaned = 0;
+    let totalCleaned = 0;
 
-    for (const [sessionKey, raw] of Object.entries(index)) {
-      const entry = typeof raw === "string" ? { file: raw } : raw;
-      if (!entry.file) continue;
-      const fp = path.join(bridgeDir, entry.file);
-      if (!fs.existsSync(fp)) {
-        // 保留元数据（name/avatarUrl/userId），只删 file 引用
-        delete entry.file;
-        index[sessionKey] = entry;
-        cleaned++;
+    for (const agent of this._listAgentsForReconcile()) {
+      const index = this.readIndex(agent);
+      const bridgeDir = path.join(agent.sessionDir, "bridge");
+      let cleaned = 0;
+
+      for (const [sessionKey, raw] of Object.entries(index)) {
+        const entry = typeof raw === "string" ? { file: raw } : raw;
+        if (!entry.file) continue;
+        const fp = path.join(bridgeDir, entry.file);
+        if (!fs.existsSync(fp)) {
+          // 保留元数据（name/avatarUrl/userId），只删 file 引用
+          delete entry.file;
+          index[sessionKey] = entry;
+          cleaned++;
+        }
+      }
+
+      if (cleaned > 0) {
+        this.writeIndex(index, agent);
+        totalCleaned += cleaned;
+        debugLog()?.log("bridge", `reconcile: cleaned ${cleaned} orphan session refs for ${agent.id || "unknown"}`);
       }
     }
 
-    if (cleaned > 0) {
-      this.writeIndex(index);
-      console.log(`[bridge-session] reconcile: 清理 ${cleaned} 个孤儿 session 引用`);
-      debugLog()?.log("bridge", `reconcile: cleaned ${cleaned} orphan session refs`);
+    if (totalCleaned > 0) {
+      console.log(`[bridge-session] reconcile: 清理 ${totalCleaned} 个孤儿 session 引用`);
     }
   }
 
@@ -156,25 +181,20 @@ export class BridgeSessionManager {
    * @returns {Promise<string|null>} agent 的回复文本
    */
   async executeExternalMessage(prompt, sessionKey, meta, opts = {}) {
-    // 优先用调用方传入的 agentId；fallback 到 focus agent 仅作最后保底
-    let agent = opts.agentId ? this._deps.getAgentById?.(opts.agentId) : null;
-    if (!agent) {
-      if (opts.agentId) console.warn(`[bridge-session] executeExternalMessage: agentId "${opts.agentId}" not found, falling back to focus agent`);
-      agent = this._deps.getAgent();
-    }
-    const mm = this._deps.getModelManager();
-    const bridgeDir = path.join(agent.sessionDir, "bridge");
-    const subDir = opts.guest ? "guests" : "owner";
-    const sessionDir = path.join(bridgeDir, subDir);
-    fs.mkdirSync(sessionDir, { recursive: true });
-
-    // 查找已有 session（兼容旧格式字符串和新格式对象）
-    const index = this.readIndex(agent);
-    const raw = index[sessionKey];
-    const existingFile = typeof raw === "string" ? raw : raw?.file || null;
-    const existingPath = existingFile ? path.join(bridgeDir, existingFile) : null;
-
     try {
+      const agent = this._resolveAgent(opts, "executeExternalMessage");
+      const mm = this._deps.getModelManager();
+      const bridgeDir = path.join(agent.sessionDir, "bridge");
+      const subDir = opts.guest ? "guests" : "owner";
+      const sessionDir = path.join(bridgeDir, subDir);
+      fs.mkdirSync(sessionDir, { recursive: true });
+
+      // 查找已有 session（兼容旧格式字符串和新格式对象）
+      const index = this.readIndex(agent);
+      const raw = index[sessionKey];
+      const existingFile = typeof raw === "string" ? raw : raw?.file || null;
+      const existingPath = existingFile ? path.join(bridgeDir, existingFile) : null;
+
       let mgr;
       let reopenError = null;
       if (existingPath) {
@@ -333,13 +353,8 @@ export class BridgeSessionManager {
    * @returns {boolean}
    */
   injectMessage(sessionKey, text, opts = {}) {
+    const agent = this._resolveAgent(opts, "injectMessage");
     try {
-      // 优先用指定 agentId；fallback 到 focus agent 仅作最后保底
-      let agent = opts.agentId ? this._deps.getAgentById?.(opts.agentId) : null;
-      if (!agent) {
-        if (opts.agentId) console.warn(`[bridge-session] injectMessage: agentId "${opts.agentId}" not found, falling back to focus agent`);
-        agent = this._deps.getAgent();
-      }
       const index = this.readIndex(agent);
       const raw = index[sessionKey];
       const existingFile = typeof raw === "string" ? raw : raw?.file || null;
@@ -382,7 +397,7 @@ export class BridgeSessionManager {
    */
   _buildOwnerSessionOpts(agent, mm, homeCwd) {
     const prefs = this._deps.getPreferences();
-    const bridgeReadOnly = !!agent.config?.bridge?.readOnly;
+    const bridgeReadOnly = prefs?.bridge?.readOnly === true;
     const { tools: baseTools, customTools: baseCustomTools } = this._deps.buildTools(
       homeCwd, agent.tools,
       { workspace: homeCwd, agentDir: agent.agentDir },
@@ -441,12 +456,7 @@ export class BridgeSessionManager {
    */
   async compactSession(sessionKey, opts = {}) {
     // 1. 定位 agent
-    let agent = opts.agentId ? this._deps.getAgentById?.(opts.agentId) : null;
-    if (!agent) {
-      if (opts.agentId) console.warn(`[bridge-session] compactSession: agentId "${opts.agentId}" not found, falling back to focus agent`);
-      agent = this._deps.getAgent();
-    }
-    if (!agent) throw new Error("bridge compact: agent not found");
+    const agent = this._resolveAgent(opts, "compactSession");
 
     // 2. 并发保护：正在生成回复时禁止压缩（SDK 内部冲突）
     const active = this._activeSessions.get(sessionKey);

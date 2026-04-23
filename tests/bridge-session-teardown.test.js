@@ -31,13 +31,13 @@ vi.mock("../lib/pi-sdk/index.js", async (importOriginal) => {
 
 import { BridgeSessionManager } from "../core/bridge-session-manager.js";
 
-function makeAgent(rootDir) {
+function makeAgent(rootDir, id = "agent-a") {
   const sessionDir = path.join(rootDir, "sessions");
   const agentDir = path.join(rootDir, "agent");
   fs.mkdirSync(sessionDir, { recursive: true });
   fs.mkdirSync(agentDir, { recursive: true });
   return {
-    id: "agent-a",
+    id,
     agentName: "Agent A",
     sessionDir,
     agentDir,
@@ -56,6 +56,7 @@ function makeDeps(agent) {
   return {
     getAgent: () => agent,
     getAgentById: (id) => (id === agent.id ? agent : null),
+    getAgents: () => new Map([[agent.id, agent]]),
     getModelManager: () => ({
       availableModels: [{ id: "gpt-4o", provider: "openai", name: "GPT-4o" }],
       authStorage: {},
@@ -216,5 +217,45 @@ describe("BridgeSessionManager teardown", () => {
       name: "Alice",
       userId: "u-1",
     });
+  });
+
+  it("explicit unresolved agentId errors instead of falling back to focus agent", async () => {
+    const agent = makeAgent(rootDir);
+    const manager = new BridgeSessionManager(makeDeps(agent));
+
+    await expect(
+      manager.executeExternalMessage("hello", "bridge-missing", null, { agentId: "missing-agent" }),
+    ).resolves.toMatchObject({
+      __bridgeError: true,
+      message: expect.stringMatching(/agent "missing-agent" not found/),
+    });
+    expect(() => manager.injectMessage("bridge-missing", "note", { agentId: "missing-agent" }))
+      .toThrow(/agent "missing-agent" not found/);
+    await expect(
+      manager.compactSession("bridge-missing", { agentId: "missing-agent" }),
+    ).rejects.toThrow(/agent "missing-agent" not found/);
+    expect(sessionManagerCreateMock).not.toHaveBeenCalled();
+    expect(sessionManagerOpenMock).not.toHaveBeenCalled();
+  });
+
+  it("reconcile cleans bridge indexes for every agent, not just focus agent", () => {
+    const focusAgent = makeAgent(path.join(rootDir, "focus"), "focus");
+    const otherAgent = makeAgent(path.join(rootDir, "other"), "other");
+    const deps = {
+      ...makeDeps(focusAgent),
+      getAgents: () => new Map([
+        [focusAgent.id, focusAgent],
+        [otherAgent.id, otherAgent],
+      ]),
+    };
+    const manager = new BridgeSessionManager(deps);
+
+    manager.writeIndex({ "focus-k": { file: "owner/missing-focus.jsonl", name: "Focus" } }, focusAgent);
+    manager.writeIndex({ "other-k": { file: "owner/missing-other.jsonl", name: "Other" } }, otherAgent);
+
+    manager.reconcile();
+
+    expect(manager.readIndex(focusAgent)["focus-k"]).toEqual({ name: "Focus" });
+    expect(manager.readIndex(otherAgent)["other-k"]).toEqual({ name: "Other" });
   });
 });

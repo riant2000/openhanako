@@ -160,6 +160,7 @@ export class HanaEngine {
     this._bridge = new BridgeSessionManager({
       getAgent: () => this.agent,
       getAgentById: (id) => this._agentMgr.getAgent(id),
+      getAgents: () => this._agentMgr.agents,
       getModelManager: () => this._models,
       getResourceLoader: () => this._resourceLoader,
       getPreferences: () => this._readPreferences(),
@@ -410,6 +411,10 @@ export class HanaEngine {
   getChannelsEnabled() { return this._configCoord.getChannelsEnabled(); }
   async setChannelsEnabled(v) { return this._configCoord.setChannelsEnabled(v); }
   isChannelsEnabled() { return this._configCoord.getChannelsEnabled(); }
+  getBridgeReadOnly() { return this._prefs.getBridgeReadOnly(); }
+  setBridgeReadOnly(v) { this._prefs.setBridgeReadOnly(v); }
+  getBridgeReceiptEnabled() { return this._prefs.getBridgeReceiptEnabled(); }
+  setBridgeReceiptEnabled(v) { this._prefs.setBridgeReceiptEnabled(v); }
   getSharedModels() { return this._configCoord.getSharedModels(); }
   setSharedModels(p) { return this._configCoord.setSharedModels(p); }
   getSearchConfig() { return this._configCoord.getSearchConfig(); }
@@ -956,7 +961,8 @@ export class HanaEngine {
       if (opts.agentDir) {
         const dirAgentId = path.basename(opts.agentDir);
         const dirAgent = this.getAgent(dirAgentId);
-        ct = dirAgent?.tools || this.agent.tools;
+        if (!dirAgent) throw new Error(`buildTools: agent "${dirAgentId}" not found`);
+        ct = dirAgent.tools;
         agentId = dirAgentId;
       } else {
         ct = this.agent.tools;

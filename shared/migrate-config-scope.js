@@ -59,13 +59,27 @@ export function migrateConfigScope({ agentsDir, prefs, primaryAgentId, log = () 
     return 0;
   });
 
-  // 默认值表（用于判断 preferences 中是否有有效值）
-  const DEFAULTS = {
-    locale: "",
-    timezone: "",
-    sandbox: true,
-    update_channel: "stable",
-    thinking_level: "auto",
+  const readPath = (obj, parts) => {
+    let cur = obj;
+    for (const part of parts) {
+      if (cur == null || typeof cur !== 'object') return undefined;
+      cur = cur[part];
+    }
+    return cur;
+  };
+
+  const writePath = (obj, parts, value) => {
+    if (parts.length === 1) {
+      obj[parts[0]] = value;
+      return;
+    }
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!cur[part] || typeof cur[part] !== 'object') cur[part] = {};
+      cur = cur[part];
+    }
+    cur[parts[parts.length - 1]] = value;
   };
 
   // Phase 1: migrate up — 将 agent config 中的全局值提升到 preferences
@@ -74,36 +88,20 @@ export function migrateConfigScope({ agentsDir, prefs, primaryAgentId, log = () 
     if (def.scope !== 'global') continue;
 
     const parts = schemaPath.split('.');
-    // 读 preferences 中的当前值
-    let prefsValue;
-    if (parts.length === 1) {
-      prefsValue = preferences[parts[0]];
-    } else if (parts.length === 2) {
-      prefsValue = preferences[parts[0]]?.[parts[1]];
-    }
+    const prefsParts = (def.prefsPath || schemaPath).split('.');
+    const prefsValue = readPath(preferences, prefsParts);
 
     // 判断 preferences 是否已有非默认值
-    const defaultVal = DEFAULTS[parts[0]];
+    const defaultVal = def.defaultValue;
     const prefsHasValue = prefsValue !== undefined && prefsValue !== defaultVal;
     if (prefsHasValue) continue; // preferences 已有值，不覆盖
 
     // 从 agent configs 中找第一个有值的（已按 primary 优先排序）
     for (const ac of agentConfigs) {
-      let agentValue;
-      if (parts.length === 1) {
-        agentValue = ac.config[parts[0]];
-      } else if (parts.length === 2) {
-        agentValue = ac.config[parts[0]]?.[parts[1]];
-      }
+      const agentValue = readPath(ac.config, parts);
 
       if (agentValue !== undefined && agentValue !== defaultVal) {
-        // 写入 preferences
-        if (parts.length === 1) {
-          preferences[parts[0]] = agentValue;
-        } else if (parts.length === 2) {
-          if (!preferences[parts[0]]) preferences[parts[0]] = {};
-          preferences[parts[0]][parts[1]] = agentValue;
-        }
+        writePath(preferences, prefsParts, agentValue);
         prefsChanged = true;
         log(`[migrate] ${schemaPath}: "${JSON.stringify(agentValue)}" migrated from agent "${ac.id}" to preferences`);
         break;

@@ -41,6 +41,8 @@ const migrations = {
   7: migrateVisionToImage,
   // 修复 migration #5 之后仍有入口把 models.* 写回旧字符串格式的问题
   8: repairPostMigrationModelRefs,
+  // bridge.readOnly 从 agent scope 收敛回全局 preferences
+  9: migrateBridgeReadOnlyToGlobal,
 };
 
 // ── Runner ──────────────────────────────────────────────────────────────────
@@ -190,8 +192,8 @@ function cleanDanglingProviderRefs(ctx) {
  *
  * preferences.json 中的 bridge.telegram / feishu / qq / wechat / whatsapp
  * 各自可能带 agentId 字段指定归属 agent。迁移后每个 platform config
- * 写入对应 agent 的 config.yaml，owner 信息一并合入，
- * readOnly 只写入 primaryAgent。迁移完成后删除 prefs.bridge。
+ * 写入对应 agent 的 config.yaml，owner 信息一并合入。
+ * bridge.readOnly / receiptEnabled 保留为全局偏好。
  */
 function migrateBridgeToPerAgent(ctx) {
   const { agentsDir, prefs, log } = ctx;
@@ -201,7 +203,8 @@ function migrateBridgeToPerAgent(ctx) {
 
   const primaryAgentId = preferences.primaryAgent || null;
   const ownerDict = bridge.owner || {};
-  const readOnly = !!bridge.readOnly;
+  const readOnly = bridge.readOnly === true;
+  const receiptEnabled = bridge.receiptEnabled === false ? false : undefined;
 
   const PLATFORMS = ["telegram", "feishu", "qq", "wechat", "whatsapp"];
   const agentConfigs = new Map(); // agentId → { platform: config }
@@ -269,18 +272,18 @@ function migrateBridgeToPerAgent(ctx) {
       log(`[migrations] agent ${agentId} config.yaml not found, skipping`);
       continue;
     }
-    // readOnly only goes to primary agent
-    const bridgeBlock = agentId === primaryAgentId
-      ? { ...bridgeConfig, readOnly }
-      : { ...bridgeConfig };
-    saveConfig(cfgPath, { bridge: bridgeBlock });
+    saveConfig(cfgPath, { bridge: { ...bridgeConfig } });
     log(`[migrations] migrated bridge config → agent ${agentId} (${Object.keys(bridgeConfig).join(", ")})`);
   }
 
-  // Delete bridge from global preferences
-  delete preferences.bridge;
+  // 清理旧的 platform / owner 键，只保留新的全局偏好键
+  const nextBridgePrefs = {};
+  if (readOnly) nextBridgePrefs.readOnly = true;
+  if (receiptEnabled === false) nextBridgePrefs.receiptEnabled = false;
+  if (Object.keys(nextBridgePrefs).length > 0) preferences.bridge = nextBridgePrefs;
+  else delete preferences.bridge;
   prefs.savePreferences(preferences);
-  log(`[migrations] deleted prefs.bridge`);
+  log(`[migrations] migrated prefs.bridge platform config to agents`);
 }
 
 function migrateSubagentExecutorMetadata(ctx) {
@@ -660,6 +663,76 @@ function migrateChannelsToGlobalDefaultOff(ctx) {
     log(`[migrations] #6: preferences.channels_enabled = false（所有显式设置都是关闭）`);
   } else {
     log(`[migrations] #6: preferences.channels_enabled = false（无显式历史设置，按产品默认关闭）`);
+  }
+}
+
+/**
+ * #9 — bridge.readOnly 从 per-agent 收敛到 global preferences
+ *
+ * 历史上 readOnly 被放在 agent.config.bridge.readOnly，但页面语义后来演进为
+ * 总开关。这里收敛到 preferences.bridge.readOnly，并清理所有 agent-level
+ * 残留字段。
+ *
+ * 冲突策略：任一 agent 显式 true → 全局 true，保证更保守的权限边界。
+ * 若 preferences 已有 bridge.readOnly，则以 preferences 为准，只做清理。
+ */
+function migrateBridgeReadOnlyToGlobal(ctx) {
+  const { agentsDir, prefs, log } = ctx;
+
+  let agentDirs;
+  try {
+    agentDirs = fs.readdirSync(agentsDir, { withFileTypes: true }).filter(d => d.isDirectory());
+  } catch {
+    agentDirs = [];
+  }
+
+  let anyReadOnlyTrue = false;
+  let anyExplicit = false;
+
+  for (const dir of agentDirs) {
+    const cfgPath = path.join(agentsDir, dir.name, "config.yaml");
+    const config = safeReadYAMLSync(cfgPath, null, YAML);
+    if (!config?.bridge || typeof config.bridge !== "object") continue;
+    if (!("readOnly" in config.bridge)) continue;
+    anyExplicit = true;
+    if (config.bridge.readOnly === true) anyReadOnlyTrue = true;
+  }
+
+  for (const dir of agentDirs) {
+    const cfgPath = path.join(agentsDir, dir.name, "config.yaml");
+    const config = safeReadYAMLSync(cfgPath, null, YAML);
+    if (!config?.bridge || typeof config.bridge !== "object") continue;
+    if (!("readOnly" in config.bridge)) continue;
+
+    delete config.bridge.readOnly;
+    if (Object.keys(config.bridge).length === 0) delete config.bridge;
+
+    const tmp = cfgPath + ".tmp";
+    fs.writeFileSync(tmp, YAML.dump(config, { indent: 2, lineWidth: -1, sortKeys: false, quotingType: '"' }), "utf-8");
+    fs.renameSync(tmp, cfgPath);
+    log(`[migrations] #9 ${dir.name}: 移除 agent-level bridge.readOnly`);
+  }
+
+  const preferences = prefs.getPreferences();
+  const hadPrefsValue = typeof preferences.bridge?.readOnly === "boolean";
+  const finalValue = hadPrefsValue
+    ? preferences.bridge.readOnly
+    : anyReadOnlyTrue;
+  const bridgePrefs = { ...(preferences.bridge || {}) };
+  if (finalValue) bridgePrefs.readOnly = true;
+  else delete bridgePrefs.readOnly;
+  if (Object.keys(bridgePrefs).length === 0) delete preferences.bridge;
+  else preferences.bridge = bridgePrefs;
+  prefs.savePreferences(preferences);
+
+  if (hadPrefsValue && !anyExplicit) {
+    log(`[migrations] #9: preferences.bridge.readOnly 保持现值 ${finalValue}`);
+  } else if (anyReadOnlyTrue) {
+    log(`[migrations] #9: preferences.bridge.readOnly = true（检测到至少一个 agent 显式开启）`);
+  } else if (anyExplicit) {
+    log(`[migrations] #9: preferences.bridge.readOnly = false（所有显式设置都是关闭）`);
+  } else {
+    log(`[migrations] #9: preferences.bridge.readOnly = false（无显式历史设置，按产品默认关闭）`);
   }
 }
 

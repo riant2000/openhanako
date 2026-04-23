@@ -95,6 +95,38 @@ export class PreferencesManager {
     this.savePreferences(prefs);
   }
 
+  /** 读取 bridge 只读总开关（全局，默认关闭） */
+  getBridgeReadOnly() {
+    return this._cache.bridge?.readOnly === true;
+  }
+
+  /** 保存 bridge 只读总开关 */
+  setBridgeReadOnly(enabled) {
+    const prefs = this._mutableCopy();
+    const bridge = { ...(prefs.bridge || {}) };
+    if (enabled) bridge.readOnly = true;
+    else delete bridge.readOnly;
+    if (Object.keys(bridge).length === 0) delete prefs.bridge;
+    else prefs.bridge = bridge;
+    this.savePreferences(prefs);
+  }
+
+  /** 读取 bridge 回复前提示总开关（全局，默认开启） */
+  getBridgeReceiptEnabled() {
+    return this._cache.bridge?.receiptEnabled !== false;
+  }
+
+  /** 保存 bridge 回复前提示总开关 */
+  setBridgeReceiptEnabled(enabled) {
+    const prefs = this._mutableCopy();
+    const bridge = { ...(prefs.bridge || {}) };
+    if (enabled === false) bridge.receiptEnabled = false;
+    else delete bridge.receiptEnabled;
+    if (Object.keys(bridge).length === 0) delete prefs.bridge;
+    else prefs.bridge = bridge;
+    this.savePreferences(prefs);
+  }
+
   /** 读取自学技能配置（全局，跨 agent） */
   getLearnSkills() {
     const cfg = this._cache.learn_skills;
