@@ -41,6 +41,7 @@ import { BridgeSessionManager } from "./bridge-session-manager.js";
 import { createSlashSystem } from "./slash-commands/index.js";
 import { AgentManager } from "./agent-manager.js";
 import { sanitizeMessagesForModel } from "./message-sanitizer.js";
+import { isDeepSeekModel, normalizeDeepSeekChatPayload } from "./deepseek-payload-compat.js";
 import { SessionCoordinator } from "./session-coordinator.js";
 import { ConfigCoordinator, SHARED_MODEL_KEYS } from "./config-coordinator.js";
 import { ChannelManager } from "./channel-manager.js";
@@ -732,9 +733,12 @@ export class HanaEngine {
       extensionFactories: this._extensionFactories = [
         /** 兼容性修正：剥离第三方 anthropic-messages 供应商不支持的字段 */
         (pi) => {
-          pi.on("before_provider_request", (event) => {
-            const p = event.payload;
+          pi.on("before_provider_request", (event, ctx) => {
+            let p = event.payload;
             if (!p) return p;
+            const requestModel = ctx?.model
+              || this._models.availableModels.find(m => m.provider === "deepseek" && m.id === p.model)
+              || null;
             // 剥离空 tools 数组 — dashscope / volcengine 不接受 tools: []
             if (Array.isArray(p.tools) && p.tools.length === 0) {
               delete p.tools;
@@ -743,11 +747,12 @@ export class HanaEngine {
             // payload.model 是裸 id 字符串，无 provider 信息；保守判断：
             // 只要 _availableModels 里同 id 的所有 provider 都不是 "anthropic"，就剥。
             // 任一匹配到 anthropic（多 provider 同 id 的少见场景）则保留，避免误删。
-            if (p.thinking) {
+            if (p.thinking && !isDeepSeekModel(requestModel)) {
               const matches = this._models.availableModels.filter(m => m.id === p.model);
               const hasAnthropic = matches.some(m => m.provider === "anthropic");
               if (matches.length > 0 && !hasAnthropic) delete p.thinking;
             }
+            p = normalizeDeepSeekChatPayload(p, requestModel);
             return p;
           });
         },
