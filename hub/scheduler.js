@@ -126,10 +126,13 @@ export class Scheduler {
       getAgentName: () => agent.agentName,
       registryPath: path.join(agent.deskDir, "jian-registry.json"),
       overwatchPath: path.join(agent.deskDir, "overwatch.md"),
-      onBeat: (prompt) => this._executeActivityForAgent(agentId, prompt, "heartbeat", null, { withMemory: true }),
+      // 巡检/笺巡检不传 withMemory：executeIsolated 默认走 agent.systemPrompt，
+      // 而该 cache 始终按 master 开关构建，与 per-session 开关解耦。
+      // 用户关 master 时自动不带记忆；只关某个 session 的开关不影响这里。
+      onBeat: (prompt) => this._executeActivityForAgent(agentId, prompt, "heartbeat", null, {}),
       onJianBeat: (prompt, cwd) => {
         const isZh = getLocale().startsWith("zh");
-        this._executeActivityForAgent(agentId, prompt, "heartbeat", `${isZh ? "笺" : "jian"}:${path.basename(cwd)}`, { cwd, withMemory: true });
+        this._executeActivityForAgent(agentId, prompt, "heartbeat", `${isZh ? "笺" : "jian"}:${path.basename(cwd)}`, { cwd });
       },
       intervalMinutes: hbInterval,
       emitDevLog: (text, level) => engine.emitDevLog(text, level),

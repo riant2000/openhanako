@@ -239,7 +239,9 @@ export class Agent {
         getMemoryMasterEnabled: () => this._memoryMasterEnabled,
         isSessionMemoryEnabled: (sessionPath) => this.isSessionMemoryEnabledFor(sessionPath),
         onCompiled: () => {
-          this._systemPrompt = this.buildSystemPrompt();
+          // _systemPrompt 是非 session 路径（巡检/cron/频道/DM/bridge owner 新建）
+          // 共享的 cache，必须按 master 构建，不被 per-session 开关污染。
+          this._systemPrompt = this.buildSystemPrompt({ forceMemoryEnabled: this._memoryMasterEnabled });
           console.log(`[${this.agentName}] 记忆编译完成，system prompt 已刷新`);
         },
         sessionDir: this.sessionDir,
@@ -418,9 +420,9 @@ export class Agent {
       persistSubagentSessionMeta: (sessionPath, meta) => writeSubagentSessionMeta(sessionPath, meta),
     });
 
-    // 12. 组装 system prompt
+    // 12. 组装 system prompt（按 master 构建，与 per-session 开关解耦）
     log(`  [agent] 9. buildSystemPrompt...`);
-    this._systemPrompt = this.buildSystemPrompt();
+    this._systemPrompt = this.buildSystemPrompt({ forceMemoryEnabled: this._memoryMasterEnabled });
     log(`  [agent] init 全部完成`);
   }
 
@@ -475,6 +477,12 @@ export class Agent {
 
   get config() { return this._config; }
   get factStore() { return this._factStore; }
+  /**
+   * 按 master 开关构建的 system prompt 缓存。
+   * 用于"非 session"路径（巡检/cron/频道/DM/bridge owner 新建快照），
+   * 不受任何 per-session 开关影响。Per-session 路径必须自己调
+   * `buildSystemPrompt({ forceMemoryEnabled: <session 自己的状态> })` 构建快照。
+   */
   get systemPrompt() { return this._systemPrompt; }
   /** 当前已 sync 进 agent 的 enabled skills（由 SkillManager.syncAgentSkills 注入） */
   get enabledSkills() { return this._enabledSkills; }
@@ -557,10 +565,15 @@ export class Agent {
   //  记忆开关
   // ════════════════════════════
 
-  /** 设置 per-session 记忆开关（持久化由 engine 负责） */
+  /**
+   * 设置 per-session 记忆开关（持久化由 engine 负责）。
+   *
+   * 不重建 `_systemPrompt`：per-session 开关只管该 session 自己的对话窗口，
+   * 不应该污染所有非 session 路径共享的全局 prompt 缓存。Session 创建时
+   * 会自己用 `buildSystemPrompt({ forceMemoryEnabled })` 单独构建快照。
+   */
   setMemoryEnabled(val) {
     this._memorySessionEnabled = !!val;
-    this._systemPrompt = this.buildSystemPrompt();
   }
 
   /** 查询指定 session 的持久化记忆开关，缺省视为开启 */
@@ -575,13 +588,13 @@ export class Agent {
   setMemoryMasterEnabled(val) {
     this._memoryMasterEnabled = !!val;
     this._config = loadConfig(this.configPath);
-    this._systemPrompt = this.buildSystemPrompt();
+    this._systemPrompt = this.buildSystemPrompt({ forceMemoryEnabled: this._memoryMasterEnabled });
   }
 
   /** 设置当前启用的 skill 列表（由 engine._syncAgentSkills 调用） */
   setEnabledSkills(skills) {
     this._enabledSkills = skills || [];
-    this._systemPrompt = this.buildSystemPrompt();
+    this._systemPrompt = this.buildSystemPrompt({ forceMemoryEnabled: this._memoryMasterEnabled });
   }
 
   // ════════════════════════════
@@ -620,8 +633,8 @@ export class Agent {
       });
     }
 
-    // 重建 system prompt
-    this._systemPrompt = this.buildSystemPrompt();
+    // 重建 system prompt（按 master 构建，与 per-session 开关解耦）
+    this._systemPrompt = this.buildSystemPrompt({ forceMemoryEnabled: this._memoryMasterEnabled });
 
     // identity / ishiki / yuan 变化时刷新 description
     if (partial.agent?.yuan) {

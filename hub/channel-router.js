@@ -145,7 +145,9 @@ export class ChannelRouter {
           readFile(path.join(agentDir, "ishiki.md"))].filter(Boolean).join("\n\n");
 
     // memory.md 和 user.md 内容会变，仍需从磁盘读取
-    const memoryMd = readFile(path.join(agentDir, "memory", "memory.md"));
+    // 记忆 master 关闭时跳过 memory.md（user.md 是用户档案，不属于记忆系统）
+    const memoryMasterOn = agentInstance?.memoryMasterEnabled !== false;
+    const memoryMd = memoryMasterOn ? readFile(path.join(agentDir, "memory", "memory.md")) : "";
     const userMd = readFile(path.join(engine.userDir, "user.md"));
     const isZh = getLocale().startsWith("zh");
     const memoryContext = memoryMd?.trim()
@@ -302,6 +304,13 @@ export class ChannelRouter {
   async _memorySummarize(agentId, channelName, contextText) {
     const engine = this._engine;
     try {
+      // 记忆 master 关闭时不写入新记忆（频道摘要是写侧操作）
+      const agentInstance = engine.getAgent(agentId);
+      if (agentInstance && agentInstance.memoryMasterEnabled === false) {
+        console.log(`\x1b[90m[channel] ${agentId} memory master 已关闭，跳过频道记忆摘要\x1b[0m`);
+        return;
+      }
+
       const utilCfg = engine.resolveUtilityConfig({ agentId }) || {};
       const { utility: model, api_key, base_url, api } = utilCfg;
       if (!api_key || !base_url || !api) {
@@ -323,7 +332,6 @@ export class ChannelRouter {
       });
 
       // 写入 agent 的 fact store
-      const agentInstance = engine.getAgent(agentId);
       let factStore = null;
       let needClose = false;
 

@@ -422,8 +422,13 @@ export class BridgeSessionManager {
       throw new Error(t("error.bridgeAgentModelNotAvailable", { name: agent.agentName, model: `${ref.provider}/${ref.id}` }));
     }
 
-    // 快照 prompt，隔离于其他 session 的 prompt 变更（与 SessionCoordinator.createSession 一致）
-    const ownerPromptSnapshot = agent.buildSystemPrompt({ cwdOverride: homeCwd });
+    // 快照 prompt，隔离于其他 session 的 prompt 变更（与 SessionCoordinator.createSession 一致）。
+    // 显式按 master 开关构建：bridge owner 是独立链路，不应受桌面端某个 session
+    // 的 per-session 开关污染。用户在桌面关掉某个 session 的记忆，不影响这里。
+    const ownerPromptSnapshot = agent.buildSystemPrompt({
+      cwdOverride: homeCwd,
+      forceMemoryEnabled: agent.memoryMasterEnabled,
+    });
     const ownerResourceLoader = Object.create(this._deps.getResourceLoader(), {
       getSystemPrompt: { value: () => ownerPromptSnapshot },
     });

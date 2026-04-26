@@ -1105,18 +1105,26 @@ export class HanaEngine {
     const { writeDiary } = await import("../lib/diary/diary-writer.js");
     const diaryModelId = this.agent.config.models?.chat || this.agent.memoryModel;
     const resolvedModel = this._models.resolveModelWithCredentials(diaryModelId);
+    // 写日记是用户主动触发的「读历史」功能，必须参考记忆，
+    // 跟「在对话中潜移默化带入记忆」的 master 开关无关。所以不查 memoryMasterEnabled。
+    // 但 per-session 开关要尊重：关了记忆开关的对话不进日记。
+    const agent = this.agent;
     return writeDiary({
-      summaryManager: this.agent.summaryManager,
+      summaryManager: agent.summaryManager,
       resolvedModel,
-      agentPersonality: this.agent.personality,
+      agentPersonality: agent.personality,
       memory: (() => {
-        try { return fs.readFileSync(this.agent.memoryMdPath, "utf-8"); } catch { return ""; }
+        try { return fs.readFileSync(agent.memoryMdPath, "utf-8"); } catch { return ""; }
       })(),
-      userName: this.agent.userName,
-      agentName: this.agent.agentName,
+      userName: agent.userName,
+      agentName: agent.agentName,
       cwd: this.homeCwd || process.cwd(),
       activityStore: this.activityStore,
-      todayMdPath: this.agent.todayMdPath,
+      todayMdPath: agent.todayMdPath,
+      isSessionMemoryEnabled: (sessionId) => {
+        const sessionPath = path.join(agent.sessionDir, `${sessionId}.jsonl`);
+        return agent.isSessionMemoryEnabledFor(sessionPath);
+      },
     });
   }
 

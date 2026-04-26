@@ -1337,7 +1337,7 @@ After dispatching subagent or other background tasks:
    *
    * opts:
    *   agentId, cwd, model, persist (string 目录路径 | falsy),
-   *   toolFilter, builtinFilter, withMemory, signal,
+   *   toolFilter, builtinFilter, signal,
    *   subagentContext (true = 走 subagent 专用 prompt：跳过记忆三段和团队名单),
    *   emitEvents (true 时将 session 事件转发到 EventBus),
    *   onSessionReady (sessionPath => void) 回调，session 创建后、prompt 执行前触发
@@ -1419,12 +1419,9 @@ After dispatching subagent or other background tasks:
         // Subagent 专用 prompt：跳过长期记忆、pinned、记忆规则、团队 agent 名单。
         // 不走 cached systemPrompt getter，因为它返回"完整 prompt"的缓存。
         isolatedPrompt = targetAgent.buildSystemPrompt({ forSubagent: true });
-      } else if (opts.withMemory && !targetAgent.memoryEnabled) {
-        const savedState = targetAgent.sessionMemoryEnabled;
-        targetAgent.setMemoryEnabled(true);
-        isolatedPrompt = targetAgent.systemPrompt;
-        targetAgent.setMemoryEnabled(savedState);
       } else {
+        // 非 session 路径（巡检/cron 等）统一用 master 版本的 systemPrompt cache。
+        // per-session 开关只管该 session 自己的对话窗口，不影响这里。
         isolatedPrompt = targetAgent.systemPrompt;
       }
       const execResourceLoader = (targetAgent === agent)
