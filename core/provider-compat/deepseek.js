@@ -238,6 +238,12 @@ export function apply(payload, model, options = {}) {
 
   if (isThinkingOff(reasoningLevel) || next.thinking?.type === "disabled") {
     disableThinking(editable());
+    // 兜底：disableThinking 已 strip 历史 reasoning_content，但 tool_calls 轮次仍需占位
+    const ensured = ensureReasoningContentForToolCalls(next.messages);
+    if (ensured !== next.messages) {
+      const e = editable();
+      e.messages = ensured;
+    }
     return next;
   }
 
@@ -245,6 +251,12 @@ export function apply(payload, model, options = {}) {
 
   if (mode === "utility") {
     disableThinking(editable());
+    // 同上：utility 路径也要兜底
+    const ensured = ensureReasoningContentForToolCalls(next.messages);
+    if (ensured !== next.messages) {
+      const e = editable();
+      e.messages = ensured;
+    }
     return next;
   }
 
@@ -253,5 +265,12 @@ export function apply(payload, model, options = {}) {
   normalizeReasoningEffort(p);
   enableThinking(p);
   ensureThinkingTokenBudget(p, model);
+
+  // chat mode 思考开启：兜底 tool_calls 历史的 reasoning_content（覆盖 transform-messages 降级）
+  const ensured = ensureReasoningContentForToolCalls(p.messages);
+  if (ensured !== p.messages) {
+    p.messages = ensured;
+  }
+
   return next;
 }

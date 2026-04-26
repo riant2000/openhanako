@@ -268,6 +268,102 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
   });
 });
 
+describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () => {
+  const deepseekModel = {
+    id: "deepseek-v4-pro",
+    provider: "deepseek",
+    reasoning: true,
+    maxTokens: 384000,
+  };
+
+  it("chat mode + 思考开启：tool_calls 历史补 reasoning_content（覆盖跨 V4 切换）", () => {
+    const payload = {
+      model: "deepseek-v4-flash",
+      messages: [
+        { role: "user", content: "what time" },
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "调用 date" }],  // 模拟降级
+          tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+        },
+        { role: "tool", tool_call_id: "call_1", content: "2026-04-26" },
+      ],
+      tools: [{ type: "function", function: { name: "date" } }],
+      reasoning_effort: "high",
+    };
+    const result = deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "high" });
+    expect(result.messages[1].reasoning_content).toBe("调用 date");
+    expect(result.thinking).toEqual({ type: "enabled" });
+  });
+
+  it("chat mode + 思考开启：tool_calls 历史无可恢复原文 → 空字符串占位", () => {
+    const payload = {
+      model: "deepseek-v4-pro",
+      messages: [
+        { role: "user", content: "what time" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+        },
+      ],
+      tools: [{ type: "function", function: { name: "date" } }],
+    };
+    const result = deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "high" });
+    expect(result.messages[1].reasoning_content).toBe("");
+  });
+
+  it("chat mode + reasoningLevel='off'（disableThinking 路径）也要跑 ensure", () => {
+    const payload = {
+      model: "deepseek-v4-pro",
+      messages: [
+        { role: "user", content: "what time" },
+        {
+          role: "assistant",
+          content: null,
+          reasoning_content: "应该调 date",
+          tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+        },
+      ],
+    };
+    const result = deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "off" });
+    // disableThinking 先 strip，然后 ensure 补回空字符串占位
+    expect(result.thinking).toEqual({ type: "disabled" });
+    expect(result.messages[1].reasoning_content).toBe("");
+  });
+
+  it("utility mode（disableThinking 路径）历史含 tool_calls 也要 ensure", () => {
+    const payload = {
+      model: "deepseek-v4-flash",
+      messages: [
+        { role: "user", content: "hi" },
+        {
+          role: "assistant",
+          content: null,
+          reasoning_content: "之前的思考",
+          tool_calls: [{ id: "call_1", type: "function", function: { name: "x", arguments: "{}" } }],
+        },
+      ],
+      max_tokens: 50,
+    };
+    const result = deepseek.apply(payload, deepseekModel, { mode: "utility" });
+    expect(result.thinking).toEqual({ type: "disabled" });
+    expect(result.messages[1].reasoning_content).toBe("");
+  });
+
+  it("无 tool_calls 历史时 ensure 不引入新字段（不污染）", () => {
+    const payload = {
+      model: "deepseek-v4-pro",
+      messages: [
+        { role: "user", content: "hi" },
+        { role: "assistant", content: "hello" },
+      ],
+    };
+    const result = deepseek.apply(payload, deepseekModel, { mode: "chat" });
+    expect(Object.prototype.hasOwnProperty.call(result.messages[1], "reasoning_content")).toBe(false);
+  });
+});
+
 describe("provider-compat/deepseek — apply 不可变性（M-1 回归保护）", () => {
   it("apply 不 mutate 输入 payload（chat mode + 思考开启）", () => {
     const original = {
