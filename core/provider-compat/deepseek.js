@@ -180,6 +180,47 @@ export function extractReasoningFromContent(message) {
   return "";
 }
 
+/**
+ * 兜底：保证所有「带 tool_calls 的 assistant message」都有 reasoning_content 字段。
+ *
+ * 三档策略：
+ *   档 1：已有 reasoning_content → 不动
+ *   档 2：无 reasoning_content 但能从 message.content 恢复原文 → 注入恢复值
+ *   档 3：原文也找不到 → 注入空字符串 ""（schema 兼容占位，DeepSeek server 接受）
+ *
+ * 这条兜底覆盖以下漏字段路径：
+ *   - 跨 V4 子版本切换：pi-ai transform-messages 把 thinking block 降级 text
+ *   - 空思考被过滤：openai-completions:492 nonEmptyThinkingBlocks filter 掉空内容
+ *   - disableThinking 路径：本模块的 stripReasoningContent 清掉但 tool_calls 残留
+ *   - compaction 边界：原文确实丢失
+ *
+ * 不可变契约：未修改时返回原数组；修改时返回新数组（仅修改的 message 浅拷贝）。
+ *
+ * @param {Array|any} messages — payload.messages
+ * @returns {Array|any} — 原数组或新数组
+ */
+export function ensureReasoningContentForToolCalls(messages) {
+  if (!Array.isArray(messages)) return messages;
+
+  let changed = false;
+  const next = messages.map((message) => {
+    if (!message || typeof message !== "object" || message.role !== "assistant") {
+      return message;
+    }
+    if (!Array.isArray(message.tool_calls) || message.tool_calls.length === 0) {
+      return message;
+    }
+    if (hasOwn(message, "reasoning_content")) {
+      return message;
+    }
+    changed = true;
+    const recovered = extractReasoningFromContent(message);
+    return { ...message, reasoning_content: recovered };
+  });
+
+  return changed ? next : messages;
+}
+
 export function apply(payload, model, options = {}) {
   if (!Array.isArray(payload.messages)) return payload;
   const mode = options.mode || "chat";

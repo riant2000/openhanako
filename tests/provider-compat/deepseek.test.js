@@ -107,3 +107,163 @@ describe("provider-compat/deepseek — extractReasoningFromContent", () => {
     expect(deepseek.extractReasoningFromContent(undefined)).toBe("");
   });
 });
+
+describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () => {
+  it("已有 reasoning_content 时不动（档 1）", () => {
+    const messages = [
+      { role: "user", content: "what time" },
+      {
+        role: "assistant",
+        content: null,
+        reasoning_content: "我应该调用 date 工具",
+        tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+      },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(result[1].reasoning_content).toBe("我应该调用 date 工具");
+  });
+
+  it("从 thinking block 恢复 reasoning_content（档 2，同模型路径）", () => {
+    const messages = [
+      { role: "user", content: "what time" },
+      {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "调用 date 工具", thinkingSignature: "reasoning_content" },
+          { type: "toolCall", id: "call_1", name: "date" },
+        ],
+        tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+      },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(result[1].reasoning_content).toBe("调用 date 工具");
+  });
+
+  it("从降级 text block 恢复 reasoning_content（档 2，跨 V4 子版本路径）", () => {
+    // 模拟 transform-messages 跨 V4-Pro 切 V4-Flash 后的状态
+    const messages = [
+      { role: "user", content: "what time" },
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "用 date 工具查时间" },
+        ],
+        tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+      },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(result[1].reasoning_content).toBe("用 date 工具查时间");
+  });
+
+  it("既无 reasoning_content 也无可恢复原文 → 注入空字符串占位（档 3）", () => {
+    const messages = [
+      { role: "user", content: "what time" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+      },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(result[1].reasoning_content).toBe("");
+  });
+
+  it("无 tool_calls 的 assistant message 不动（不属于硬约束）", () => {
+    const messages = [
+      { role: "user", content: "hi" },
+      {
+        role: "assistant",
+        content: "hello",
+      },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(Object.prototype.hasOwnProperty.call(result[1], "reasoning_content")).toBe(false);
+  });
+
+  it("user / tool / system message 不动", () => {
+    const messages = [
+      { role: "system", content: "you are an agent" },
+      { role: "user", content: "what time" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
+      },
+      { role: "tool", tool_call_id: "call_1", content: "2026-04-26" },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(result[0]).toBe(messages[0]);
+    expect(result[1]).toBe(messages[1]);
+    expect(result[3]).toBe(messages[3]);
+  });
+
+  it("全部 message 都已合规时返回原数组（不浪费分配）", () => {
+    const messages = [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello" },
+    ];
+    expect(deepseek.ensureReasoningContentForToolCalls(messages)).toBe(messages);
+  });
+
+  it("不 mutate 调用方传入的 message", () => {
+    const original = {
+      role: "assistant",
+      content: null,
+      tool_calls: [{ id: "call_1" }],
+    };
+    const messages = [{ role: "user", content: "x" }, original];
+    deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(Object.prototype.hasOwnProperty.call(original, "reasoning_content")).toBe(false);
+  });
+
+  it("messages 不是数组时原样返回", () => {
+    expect(deepseek.ensureReasoningContentForToolCalls(null)).toBe(null);
+    expect(deepseek.ensureReasoningContentForToolCalls(undefined)).toBe(undefined);
+    expect(deepseek.ensureReasoningContentForToolCalls("not an array")).toBe("not an array");
+  });
+
+  it("tool_calls 是空数组也视为无工具调用，不注入", () => {
+    const messages = [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello", tool_calls: [] },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(Object.prototype.hasOwnProperty.call(result[1], "reasoning_content")).toBe(false);
+  });
+});
+
+describe("provider-compat/deepseek — apply 不可变性（M-1 回归保护）", () => {
+  it("apply 不 mutate 输入 payload（chat mode + 思考开启）", () => {
+    const original = {
+      model: "deepseek-reasoner",
+      messages: [{ role: "user", content: "hi" }],
+      reasoning_effort: "low",
+    };
+    const snapshot = JSON.parse(JSON.stringify(original));
+    deepseek.apply(original, { provider: "deepseek", id: "deepseek-reasoner", reasoning: true }, { mode: "chat", reasoningLevel: "high" });
+    expect(original).toEqual(snapshot);
+  });
+
+  it("apply 不 mutate 输入 payload（utility mode 关思考）", () => {
+    const original = {
+      model: "deepseek-reasoner",
+      messages: [{ role: "user", content: "hi" }],
+    };
+    const snapshot = JSON.parse(JSON.stringify(original));
+    deepseek.apply(original, { provider: "deepseek", id: "deepseek-reasoner", reasoning: true }, { mode: "utility" });
+    expect(original).toEqual(snapshot);
+  });
+
+  it("apply 不 mutate 输入 payload（reasoningLevel='off' 强制 disable）", () => {
+    const original = {
+      model: "deepseek-reasoner",
+      messages: [
+        { role: "user", content: "hi" },
+        { role: "assistant", content: "x", reasoning_content: "thought" },
+      ],
+    };
+    const snapshot = JSON.parse(JSON.stringify(original));
+    deepseek.apply(original, { provider: "deepseek", id: "deepseek-reasoner", reasoning: true }, { mode: "chat", reasoningLevel: "off" });
+    expect(original).toEqual(snapshot);
+  });
+});
