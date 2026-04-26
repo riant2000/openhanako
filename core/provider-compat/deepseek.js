@@ -192,7 +192,7 @@ export function extractReasoningFromContent(message) {
  *   - 跨 V4 子版本切换：pi-ai transform-messages 把 thinking block 降级 text
  *   - 空思考被过滤：openai-completions:492 nonEmptyThinkingBlocks filter 掉空内容
  *   - disableThinking 路径：本模块的 stripReasoningContent 清掉但 tool_calls 残留
- *   - compaction 边界：原文确实丢失
+ *   - compaction / 跨 session 续接边界：原文确实丢失
  *
  * 不可变契约：未修改时返回原数组；修改时返回新数组（仅修改的 message 浅拷贝）。
  *

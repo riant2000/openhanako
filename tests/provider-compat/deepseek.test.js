@@ -123,6 +123,42 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
     expect(result[1].reasoning_content).toBe("我应该调用 date 工具");
   });
 
+  it("reasoning_content 已存在但为空字符串/null 时仍视为档 1（不再尝试从 content 恢复）", () => {
+    const messages = [
+      { role: "user", content: "x" },
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "本不应被当作 reasoning 取出" }],
+        reasoning_content: "",
+        tool_calls: [{ id: "call_1" }],
+      },
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "也不应被取出" }],
+        reasoning_content: null,
+        tool_calls: [{ id: "call_2" }],
+      },
+    ];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    // 档 1 命中：reasoning_content 字段存在即视为合规，即使值是 "" 或 null
+    expect(result[1].reasoning_content).toBe("");
+    expect(result[2].reasoning_content).toBeNull();
+    // 引用相等：档 1 不分配新对象
+    expect(result).toBe(messages);
+  });
+
+  it("档 1 命中时被检查的 assistant message 保持对象引用相等", () => {
+    const compliantAssistant = {
+      role: "assistant",
+      reasoning_content: "已经合规",
+      tool_calls: [{ id: "call_1" }],
+    };
+    const messages = [{ role: "user", content: "y" }, compliantAssistant];
+    const result = deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(result).toBe(messages); // 数组引用
+    expect(result[1]).toBe(compliantAssistant); // 单条 assistant 对象引用
+  });
+
   it("从 thinking block 恢复 reasoning_content（档 2，同模型路径）", () => {
     const messages = [
       { role: "user", content: "what time" },
@@ -264,6 +300,16 @@ describe("provider-compat/deepseek — apply 不可变性（M-1 回归保护）"
     };
     const snapshot = JSON.parse(JSON.stringify(original));
     deepseek.apply(original, { provider: "deepseek", id: "deepseek-reasoner", reasoning: true }, { mode: "chat", reasoningLevel: "off" });
+    expect(original).toEqual(snapshot);
+  });
+
+  it("apply 不 mutate 输入 payload（chat mode + 非 thinking 模型，走 no-op 早退）", () => {
+    const original = {
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: "hi" }],
+    };
+    const snapshot = JSON.parse(JSON.stringify(original));
+    deepseek.apply(original, { provider: "deepseek", id: "deepseek-chat" }, { mode: "chat" });
     expect(original).toEqual(snapshot);
   });
 });
