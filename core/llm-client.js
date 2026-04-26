@@ -115,12 +115,16 @@ export async function callText({
     body = {
       model: modelId, temperature, max_tokens: maxTokens,
       messages: allMessages,
-      ...(quirks.includes("enable_thinking") && { enable_thinking: false }),
     };
   }
 
-  // Provider 兼容化（与 chat 路径共享 provider-compat）
-  body = normalizeProviderPayload(body, modelObj, { mode: "utility" });
+  // Provider 兼容化（与 chat 路径共享 provider-compat）。
+  // 把 callText opts 传入的 quirks 合入 model 对象，让 qwen.js 等子模块的
+  // matches 能基于数据声明字段识别。modelObj 自身已有 quirks 时不覆盖。
+  const modelForCompat = modelObj
+    ? (Array.isArray(modelObj.quirks) ? modelObj : { ...modelObj, quirks })
+    : null;
+  body = normalizeProviderPayload(body, modelForCompat, { mode: "utility" });
 
   // ── 4. 发送请求 ──
   const SLOW_THRESHOLD_MS = 15_000;
