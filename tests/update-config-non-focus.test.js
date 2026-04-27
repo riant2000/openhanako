@@ -136,6 +136,29 @@ describe("updateConfig with agentId", () => {
     expect(targetAgent.setMemoryModel).toHaveBeenCalledWith({ id: "target-chat", provider: "deepseek" });
   });
 
+  it("setSharedModels stores vision without mutating utility or memory runtime state", () => {
+    let prefs = {
+      vision_model: { id: "qwen-vl", provider: "dashscope" },
+    };
+    const { focusAgent, deps } = makeDeps({
+      getPrefs: () => ({
+        getPreferences: () => prefs,
+        savePreferences: (next) => { prefs = { ...next }; },
+      }),
+    });
+    focusAgent.setUtilityModel = vi.fn();
+    focusAgent.setMemoryModel = vi.fn();
+    const coord = new ConfigCoordinator(deps);
+
+    coord.setSharedModels({
+      vision: { id: "gpt-4o", provider: "openai" },
+    });
+
+    expect(prefs.vision_model).toEqual({ id: "gpt-4o", provider: "openai" });
+    expect(focusAgent.setUtilityModel).not.toHaveBeenCalledWith({ id: "gpt-4o", provider: "openai" });
+    expect(focusAgent.setMemoryModel).not.toHaveBeenCalledWith({ id: "gpt-4o", provider: "openai" });
+  });
+
   it("agentId 等于焦点 agent 时，模型切换逻辑正常执行", async () => {
     const models = {
       availableModels: [{ id: "gpt-4", provider: "openai", name: "GPT-4" }],

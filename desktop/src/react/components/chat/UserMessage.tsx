@@ -165,23 +165,29 @@ const UserAttachmentsView = memo(function UserAttachmentsView({ attachments, des
       {attachments.map((att, i) => {
         if (isImage(att) && att.base64Data) {
           return (
-            <img
-              key={att.name || `att-${i}`}
-              className={styles.attachImage}
-              src={`data:${att.mimeType || 'image/png'};base64,${att.base64Data}`}
-              alt={att.name}
-              loading="lazy"
-              onClick={(e) => {
-                e.stopPropagation();
-                const ext = att.name.split('.').pop()?.toLowerCase() || '';
-                openFilePreview(att.path, att.name, ext, {
-                  origin: 'session',
-                  sessionPath,
-                  messageId,
-                });
-              }}
-              style={{ cursor: 'pointer' }}
-            />
+            <div key={att.name || `att-${i}`} className={styles.attachImageWrap}>
+              <img
+                className={styles.attachImage}
+                src={`data:${att.mimeType || 'image/png'};base64,${att.base64Data}`}
+                alt={att.name}
+                loading="lazy"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const ext = att.name.split('.').pop()?.toLowerCase() || '';
+                  openFilePreview(att.path, att.name, ext, {
+                    origin: 'session',
+                    sessionPath,
+                    messageId,
+                  });
+                }}
+                style={{ cursor: 'pointer' }}
+              />
+              {att.visionAuxiliary && (
+                <div className={styles.visionAuxiliaryLabel}>
+                  {t('chat.visionAuxiliary')}
+                </div>
+              )}
+            </div>
           );
         }
         return (

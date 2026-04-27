@@ -18,6 +18,57 @@ import { normalizeProviderPayload } from './provider-compat.js';
  * 与 chat 路径（engine.js 的 Pi SDK extension）共享同一个 provider-compat 模块。
  */
 
+function toDataUrl(block) {
+  const mime = block?.mimeType || "image/png";
+  const data = block?.data || "";
+  return `data:${mime};base64,${data}`;
+}
+
+function normalizeTextFromContent(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((c) => c?.type === "text" && typeof c.text === "string")
+    .map((c) => c.text)
+    .join("");
+}
+
+function convertContentForApi(content, api) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return typeof content === "undefined" ? "" : JSON.stringify(content);
+
+  if (api === "anthropic-messages") {
+    return content.map((block) => {
+      if (block?.type === "text") return { type: "text", text: block.text || "" };
+      if (block?.type === "image") {
+        return {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: block.mimeType || "image/png",
+            data: block.data || "",
+          },
+        };
+      }
+      return { type: "text", text: JSON.stringify(block) };
+    });
+  }
+
+  if (api === "openai-responses" || api === "openai-codex-responses") {
+    return content.map((block) => {
+      if (block?.type === "text") return { type: "input_text", text: block.text || "" };
+      if (block?.type === "image") return { type: "input_image", image_url: toDataUrl(block) };
+      return { type: "input_text", text: JSON.stringify(block) };
+    });
+  }
+
+  return content.map((block) => {
+    if (block?.type === "text") return { type: "text", text: block.text || "" };
+    if (block?.type === "image") return { type: "image_url", image_url: { url: toDataUrl(block) } };
+    return { type: "text", text: JSON.stringify(block) };
+  });
+}
+
 /**
  * 统一非流式文本生成。
  *
@@ -61,14 +112,13 @@ export async function callText({
   const normalizedMessages = [];
   for (const m of messages) {
     if (m.role === "system") {
-      const text = typeof m.content === "string"
-        ? m.content
-        : Array.isArray(m.content)
-          ? m.content.map(c => c.text || "").join("")
-          : "";
+      const text = normalizeTextFromContent(m.content);
       if (text) mergedSystem += (mergedSystem ? "\n" : "") + text;
     } else {
-      normalizedMessages.push({ role: m.role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) });
+      normalizedMessages.push({
+        role: m.role,
+        content: convertContentForApi(m.content, api),
+      });
     }
   }
 

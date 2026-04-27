@@ -104,4 +104,31 @@ describe("submitDesktopSessionMessage", () => {
       "/tmp/desk.jsonl",
     );
   });
+
+  it("forwards image attachment paths to promptSession", async () => {
+    const session = makeFakeSession();
+    const engine = {
+      ensureSessionLoaded: vi.fn(async () => session),
+      promptSession: vi.fn(async (sessionPath, text, opts) => session.prompt(text, opts)),
+      emitEvent: vi.fn(),
+      setUiContext: vi.fn(),
+    };
+
+    await submitDesktopSessionMessage(engine, {
+      sessionPath: "/tmp/desk.jsonl",
+      text: "see image",
+      images: [{ type: "image", data: "BASE64", mimeType: "image/png" }],
+      imageAttachmentPaths: ["/tmp/upload.png"],
+      displayMessage: { text: "see image" },
+    });
+
+    expect(engine.promptSession).toHaveBeenCalledWith(
+      "/tmp/desk.jsonl",
+      "see image",
+      {
+        images: [{ type: "image", data: "BASE64", mimeType: "image/png" }],
+        imageAttachmentPaths: ["/tmp/upload.png"],
+      },
+    );
+  });
 });

@@ -112,7 +112,8 @@
     "steer": "방향 전환",
     "stop": "중지",
     "browserScreenshot": "브라우저 스크린샷",
-    "compacting": "컨텍스트 압축 중"
+    "compacting": "컨텍스트 압축 중",
+    "visionAuxiliary": "보조 시각"
   },
   "time": {
     "justNow": "방금",
@@ -732,6 +733,8 @@
       "utilityModelHint": "제목, 간단한 분류 등. 저렴한 소형 모델을 추천해요",
       "utilityLargeModel": "유틸리티 (대형)",
       "utilityLargeModelHint": "활동 요약, 작업 분해 등. 비어 있으면 소형 유틸리티로 대체해요",
+      "visionModel": "보조 시각 모델",
+      "visionModelHint": "현재 채팅 모델이 이미지를 받을 수 없을 때만 먼저 이미지를 읽고 간단한 설명을 전달해요",
       "searchProvider": "검색 서비스",
       "searchProviderField": "검색 엔진",
       "searchApiKey": "검색 API Key",

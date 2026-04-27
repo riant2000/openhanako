@@ -141,6 +141,82 @@ describe("model sync related routes", () => {
     expect(engine.syncModelsAndRefresh).not.toHaveBeenCalled();
   });
 
+  it("shared vision model preference updates are provider-aware and image-capable", async () => {
+    const { createPreferencesRoute } = await import("../server/routes/preferences.js");
+    const app = new Hono();
+    const engine = {
+      getSharedModels: vi.fn(() => ({ vision: null })),
+      getSearchConfig: vi.fn(() => ({ provider: null, api_key: null })),
+      getUtilityApi: vi.fn(() => ({ provider: null, base_url: null, api_key: null })),
+      resolveModelWithCredentials: vi.fn(() => ({
+        model: { id: "qwen-vl", provider: "dashscope", input: ["text", "image"] },
+        provider: "dashscope",
+        api: "openai-completions",
+        api_key: "sk-test",
+        base_url: "https://example.test/v1",
+      })),
+      setSharedModels: vi.fn(),
+      setSearchConfig: vi.fn(),
+      setUtilityApi: vi.fn(),
+      syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
+    };
+
+    app.route("/api", createPreferencesRoute(engine));
+
+    const res = await app.request("/api/preferences/models", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        models: { vision: { id: "qwen-vl", provider: "dashscope" } },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(engine.resolveModelWithCredentials).toHaveBeenCalledWith({
+      id: "qwen-vl",
+      provider: "dashscope",
+    });
+    expect(engine.setSharedModels).toHaveBeenCalledWith({
+      vision: { id: "qwen-vl", provider: "dashscope" },
+    });
+  });
+
+  it("shared vision model preference rejects text-only models", async () => {
+    const { createPreferencesRoute } = await import("../server/routes/preferences.js");
+    const app = new Hono();
+    const engine = {
+      getSharedModels: vi.fn(() => ({ vision: null })),
+      getSearchConfig: vi.fn(() => ({ provider: null, api_key: null })),
+      getUtilityApi: vi.fn(() => ({ provider: null, base_url: null, api_key: null })),
+      resolveModelWithCredentials: vi.fn(() => ({
+        model: { id: "deepseek-chat", provider: "deepseek", input: ["text"] },
+        provider: "deepseek",
+        api: "openai-completions",
+        api_key: "sk-test",
+        base_url: "https://example.test/v1",
+      })),
+      setSharedModels: vi.fn(),
+      setSearchConfig: vi.fn(),
+      setUtilityApi: vi.fn(),
+      syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
+    };
+
+    app.route("/api", createPreferencesRoute(engine));
+
+    const res = await app.request("/api/preferences/models", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        models: { vision: { id: "deepseek-chat", provider: "deepseek" } },
+      }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toContain("image");
+    expect(engine.setSharedModels).not.toHaveBeenCalled();
+  });
+
   it("inline 凭证缺少显式 provider 时返回 400", async () => {
     const { createConfigRoute } = await import("../server/routes/config.js");
     const app = new Hono();

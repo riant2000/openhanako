@@ -129,6 +129,19 @@
     object-fit: contain;
 }
 
+.attachImageWrap {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.visionAuxiliaryLabel {
+    font-size: 11px;
+    line-height: 1.3;
+    color: var(--text-muted);
+}
+
 .attachImageImg {
     width: 100%;
     height: 100%;

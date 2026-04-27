@@ -123,6 +123,10 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
 
   const utilityVal = toModelRef(globalModelsConfig?.models?.utility);
   const utilityLargeVal = toModelRef(globalModelsConfig?.models?.utility_large);
+  const visionVal = toModelRef(globalModelsConfig?.models?.vision);
+  const imageCapableOnly = (model: { input?: string[] }) => (
+    Array.isArray(model.input) && model.input.includes('image')
+  );
 
   return (
     <div style={{ padding: 'var(--space-md)' }}>
@@ -158,6 +162,25 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             <ToolModelTestBtn modelRef={globalModelsConfig?.models?.utility_large || ''} />
           </div>
           <span className={styles['settings-field-hint']}>{t('settings.api.utilityLargeModelHint')}</span>
+        </div>
+      </div>
+      <div className={styles['settings-row']}>
+        <div className={`${styles['settings-field']} ${styles['settings-field-half']}`}>
+          <label className={styles['settings-field-label']}>{t('settings.api.visionModel')}</label>
+          <div className={styles['pv-tool-model-row']}>
+            <ModelWidget
+              providers={providers}
+              value={visionVal}
+              onSelect={(ref) => {
+                autoSaveGlobalModels({ models: { vision: ref } });
+              }}
+              lookupModelMeta={lookupModelMeta}
+              formatContext={formatContext}
+              filterModel={imageCapableOnly}
+            />
+            <ToolModelTestBtn modelRef={globalModelsConfig?.models?.vision || ''} />
+          </div>
+          <span className={styles['settings-field-hint']}>{t('settings.api.visionModelHint')}</span>
         </div>
       </div>
       <div className={styles['settings-row']}>

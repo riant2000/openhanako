@@ -46,6 +46,7 @@ export class GuestHandler {
       contextTag,
       onDelta: opts.onDelta,
       images: opts.images,
+      imageAttachmentPaths: opts.imageAttachmentPaths,
     });
   }
 }

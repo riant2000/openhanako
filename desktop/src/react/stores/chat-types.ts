@@ -25,6 +25,7 @@ export interface UserAttachment {
   isDir: boolean;
   base64Data?: string;
   mimeType?: string;
+  visionAuxiliary?: boolean;
 }
 
 export interface DeskContext {

@@ -20,6 +20,44 @@ function getSteerPrefix() {
   return isZh ? "（插话，无需 MOOD）\n" : "(Interjection, no MOOD needed)\n";
 }
 
+function withVisionExtension(resourceLoader, getBridge, getSessionPath, warn) {
+  return Object.create(resourceLoader, {
+    getExtensions: {
+      value: () => {
+        const base = resourceLoader.getExtensions?.() ?? { extensions: [], errors: [] };
+        const extension = {
+          path: "hana-vision-context-injection",
+          tools: new Map(),
+          handlers: new Map([
+            [
+              "context",
+              [
+                async (event) => {
+                  try {
+                    const bridge = getBridge?.();
+                    if (!bridge) return undefined;
+                    const { messages, injected } = bridge.injectNotes(event.messages, getSessionPath?.() || null);
+                    if (!injected) return undefined;
+                    return { messages };
+                  } catch (err) {
+                    warn?.(`vision context injection failed: ${err?.message || err}`);
+                    return undefined;
+                  }
+                },
+              ],
+            ],
+          ]),
+          flags: new Map(),
+          shortcuts: new Map(),
+          commands: new Map(),
+          messageRenderers: new Map(),
+        };
+        return { ...base, extensions: [...(base.extensions || []), extension] };
+      },
+    },
+  });
+}
+
 /**
  * Bridge index entry（持久化到 bridge-sessions.json）。
  * 这个 typedef 只声明结构以便 IDE 和未来读者，运行时仍是 plain JSON object。
@@ -182,6 +220,7 @@ export class BridgeSessionManager {
    */
   async executeExternalMessage(prompt, sessionKey, meta, opts = {}) {
     try {
+      let promptText = prompt;
       const agent = this._resolveAgent(opts, "executeExternalMessage");
       const mm = this._deps.getModelManager();
       const bridgeDir = path.join(agent.sessionDir, "bridge");
@@ -213,6 +252,7 @@ export class BridgeSessionManager {
       }
 
       let sessionOpts;
+      const sessionPathRef = { current: null };
       // 工具 details.media 收集器（被动提取 tool_execution_end 事件）
       let toolMediaUrls = [];
 
@@ -225,6 +265,12 @@ export class BridgeSessionManager {
         const tempResourceLoader = Object.create(this._deps.getResourceLoader());
         tempResourceLoader.getSystemPrompt = () => guestPrompt;
         tempResourceLoader.getSkills = () => ({ skills: [], diagnostics: [] });
+        const guestResourceLoader = withVisionExtension(
+          tempResourceLoader,
+          () => this._deps.getVisionBridge?.(),
+          () => sessionPathRef.current,
+          (msg) => console.warn(`[bridge-session] ${msg}`),
+        );
 
         // 使用 agent 配置的模型，而非 defaultModel。
         // migration #5 之后 models.chat 必为 {id, provider} 对象；缺 provider 视为未配置。
@@ -241,14 +287,14 @@ export class BridgeSessionManager {
         sessionOpts = {
           model: chatModel,
           thinkingLevel: "none",
-          resourceLoader: tempResourceLoader,
+          resourceLoader: guestResourceLoader,
           tools: [],
           customTools: [],
           settingsManager: this._createSettings(chatModel),
         };
       } else {
         // owner 模式：完整 agent。抽出 _buildOwnerSessionOpts 后，compactSession 也能复用同一构造逻辑
-        sessionOpts = this._buildOwnerSessionOpts(agent, mm, homeCwd);
+        sessionOpts = this._buildOwnerSessionOpts(agent, mm, homeCwd, sessionPathRef);
       }
 
       const { session } = await createAgentSession({
@@ -259,6 +305,8 @@ export class BridgeSessionManager {
         ...sessionOpts,
       });
 
+      const activeSessionPath = session.sessionManager?.getSessionFile?.() || null;
+      sessionPathRef.current = activeSessionPath;
       this._activeSessions.set(sessionKey, session);
 
       // 捕获文本输出
@@ -284,13 +332,25 @@ export class BridgeSessionManager {
       });
 
       try {
-        // 非 image 模型：剥离新贴的图片（历史由 engine context handler 净化）
+        // 非 image 模型：用视觉桥生成隐藏纸条，历史由 context extension 注入
         const bridgeInput = session.model?.input;
         if (opts.images?.length && Array.isArray(bridgeInput) && !bridgeInput.includes("image")) {
-          opts.images = undefined;
+          const visionBridge = this._deps.getVisionBridge?.();
+          if (!visionBridge) {
+            throw new Error("vision auxiliary model is required for image input with the current text-only model");
+          }
+          const prepared = await visionBridge.prepare({
+            sessionPath: activeSessionPath,
+            targetModel: session.model,
+            text: promptText,
+            images: opts.images,
+            imageAttachmentPaths: opts.imageAttachmentPaths,
+          });
+          promptText = prepared.text;
+          opts = { ...opts, images: prepared.images };
         }
         const promptOpts = opts.images?.length ? { images: opts.images } : undefined;
-        await session.prompt(prompt, promptOpts);
+        await session.prompt(promptText, promptOpts);
       } finally {
         await teardownSessionResources({
           session,
@@ -302,7 +362,7 @@ export class BridgeSessionManager {
       }
 
       // 更新索引 + 元数据
-      const sessionPath = session.sessionManager?.getSessionFile?.();
+      const sessionPath = activeSessionPath || session.sessionManager?.getSessionFile?.();
       if (sessionPath) {
         const { changed, file } = this._syncIndexEntry(index, sessionKey, raw, {
           bridgeDir,
@@ -395,7 +455,7 @@ export class BridgeSessionManager {
    * @param {string} homeCwd
    * @returns {object} sessionOpts for createAgentSession
    */
-  _buildOwnerSessionOpts(agent, mm, homeCwd) {
+  _buildOwnerSessionOpts(agent, mm, homeCwd, sessionPathRef = { current: null }) {
     const prefs = this._deps.getPreferences();
     const bridgeReadOnly = prefs?.bridge?.readOnly === true;
     const agentToolsSnapshot = typeof agent.getToolsSnapshot === "function"
@@ -435,11 +495,17 @@ export class BridgeSessionManager {
     const ownerResourceLoader = Object.create(this._deps.getResourceLoader(), {
       getSystemPrompt: { value: () => ownerPromptSnapshot },
     });
+    const visionResourceLoader = withVisionExtension(
+      ownerResourceLoader,
+      () => this._deps.getVisionBridge?.(),
+      () => sessionPathRef.current,
+      (msg) => console.warn(`[bridge-session] ${msg}`),
+    );
 
     return {
       model: ownerModel,
       thinkingLevel: mm.resolveThinkingLevel(prefs?.thinking_level || "auto"),
-      resourceLoader: ownerResourceLoader,
+      resourceLoader: visionResourceLoader,
       tools: bridgeTools,
       customTools: bridgeCustomTools,
       settingsManager: this._createSettings(ownerModel),

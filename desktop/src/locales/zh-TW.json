@@ -112,7 +112,8 @@
     "steer": "插話",
     "stop": "停止",
     "browserScreenshot": "瀏覽器截圖",
-    "compacting": "上下文壓縮中"
+    "compacting": "上下文壓縮中",
+    "visionAuxiliary": "輔助視覺"
   },
   "time": {
     "justNow": "剛剛",
@@ -732,6 +733,8 @@
       "utilityModelHint": "產生標題、輕量分類等簡單任務，推薦用便宜的小模型",
       "utilityLargeModel": "大工具模型",
       "utilityLargeModelHint": "活動摘要、任務拆解等需要理解力的場景，留空則複用小工具模型",
+      "visionModel": "視覺輔助模型",
+      "visionModelHint": "僅在目前聊天模型不能接收圖片時，用來先看圖並遞交簡潔說明",
       "searchProvider": "搜尋服務",
       "searchProviderField": "搜尋引擎",
       "searchApiKey": "搜尋 API Key",

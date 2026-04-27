@@ -166,6 +166,20 @@ export class SessionCoordinator {
                 return undefined;
               }
             },
+            async (event, ctx) => {
+              try {
+                const engine = getEngine?.();
+                const bridge = engine?.getVisionBridge?.();
+                if (!bridge) return undefined;
+                const sp = ctx.sessionManager?.getSessionFile?.();
+                const { messages, injected } = bridge.injectNotes(event.messages, sp);
+                if (!injected) return undefined;
+                return { messages };
+              } catch (err) {
+                log.warn(`vision context injection failed: ${err?.message || err}`);
+                return undefined;
+              }
+            },
           ],
         ],
       ]),
@@ -492,7 +506,19 @@ After dispatching subagent or other background tasks:
     // model.input 缺失/非数组时视为未知，放行让 API 决定。
     const inputMods = this._session.model?.input;
     if (opts?.images?.length && Array.isArray(inputMods) && !inputMods.includes("image")) {
-      opts = { ...opts, images: undefined };
+      const bridge = this._d.getEngine?.()?.getVisionBridge?.();
+      if (!bridge) {
+        throw new Error("vision auxiliary model is required for image input with the current text-only model");
+      }
+      const prepared = await bridge.prepare({
+        sessionPath: sp,
+        targetModel: this._session.model,
+        text,
+        images: opts.images,
+        imageAttachmentPaths: opts.imageAttachmentPaths,
+      });
+      text = prepared.text;
+      opts = { ...opts, images: prepared.images };
     }
     const promptOpts = opts?.images?.length ? { images: opts.images } : undefined;
     await this._session.prompt(text, promptOpts);
@@ -530,7 +556,19 @@ After dispatching subagent or other background tasks:
     // 非 image 模型：剥离新贴的图片（历史净化见 core/message-sanitizer.js）
     const inputMods2 = entry.session.model?.input;
     if (opts?.images?.length && Array.isArray(inputMods2) && !inputMods2.includes("image")) {
-      opts = { ...opts, images: undefined };
+      const bridge = this._d.getEngine?.()?.getVisionBridge?.();
+      if (!bridge) {
+        throw new Error("vision auxiliary model is required for image input with the current text-only model");
+      }
+      const prepared = await bridge.prepare({
+        sessionPath,
+        targetModel: entry.session.model,
+        text,
+        images: opts.images,
+        imageAttachmentPaths: opts.imageAttachmentPaths,
+      });
+      text = prepared.text;
+      opts = { ...opts, images: prepared.images };
     }
     const promptOpts = opts?.images?.length ? { images: opts.images } : undefined;
     await entry.session.prompt(text, promptOpts);

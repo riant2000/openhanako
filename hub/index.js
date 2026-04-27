@@ -119,12 +119,13 @@ export class Hub {
       to,
       onDelta,
       images,
+      imageAttachmentPaths,
       sessionPath,
       agentId,
       uiContext,
       displayMessage,
     } = opts;
-    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images, sessionPath, agentId, uiContext, displayMessage };
+    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images, imageAttachmentPaths, sessionPath, agentId, uiContext, displayMessage };
 
     // ── 图片预处理：持久化到磁盘 + 插入 [attached_image] 标记 ──
     // 在路由之前统一处理，所有消息路径（WS / Bridge DM / Bridge Group）共享
@@ -144,6 +145,7 @@ export class Hub {
       if (savedPaths.length) {
         const pathNote = savedPaths.map(p => `[attached_image: ${p}]`).join("\n");
         text = `${pathNote}\n${text}`;
+        o.imageAttachmentPaths = savedPaths;
       }
     }
 
@@ -157,6 +159,7 @@ export class Hub {
             sessionPath: o.sessionPath,
             text,
             images: o.images,
+            imageAttachmentPaths: o.imageAttachmentPaths,
             onDelta: o.onDelta,
             uiContext: o.uiContext,
             displayMessage: o.displayMessage,
@@ -165,11 +168,11 @@ export class Hub {
       },
       { // Bridge guest
         match: o => o.sessionKey && o.role === "guest",
-        handle: () => this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: o.onDelta, images: o.images }),
+        handle: () => this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: o.onDelta, images: o.images, imageAttachmentPaths: o.imageAttachmentPaths }),
       },
       { // Bridge owner
         match: o => o.sessionKey && !o.ephemeral,
-        handle: () => this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, agentId: o.agentId, onDelta: o.onDelta, images: o.images }),
+        handle: () => this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, agentId: o.agentId, onDelta: o.onDelta, images: o.images, imageAttachmentPaths: o.imageAttachmentPaths }),
       },
       { // 隔离执行（cron/heartbeat/channel）
         match: o => o.ephemeral,

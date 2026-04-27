@@ -11,6 +11,7 @@ interface ModelInfo {
   name: string;
   provider: string;
   contextWindow?: number | null;
+  input?: string[];
 }
 
 interface ModelRef {
@@ -26,11 +27,12 @@ interface ModelWidgetProps {
   placeholder?: string;
   lookupModelMeta?: (id: string) => any;
   formatContext?: (n: number) => string;
+  filterModel?: (model: ModelInfo) => boolean;
 }
 
 export function ModelWidget({
   value, onSelect,
-  placeholder, formatContext,
+  placeholder, formatContext, filterModel,
 }: ModelWidgetProps) {
   const t = window.t || ((k: string) => k);
   const [open, setOpen] = useState(false);
@@ -64,9 +66,13 @@ export function ModelWidget({
   }, [open]);
 
   const query = search.toLowerCase();
+  const visibleModels = useMemo(
+    () => (filterModel ? models.filter(filterModel) : models),
+    [models, filterModel],
+  );
   const valueKey = value?.id && value?.provider ? `${value.provider}/${value.id}` : '';
   const selectedModel = valueKey
-    ? models.find(m => m.id === value?.id && m.provider === value?.provider)
+    ? visibleModels.find(m => m.id === value?.id && m.provider === value?.provider)
     : null;
   const displayValue = selectedModel?.name
     || (value?.id ? (value.provider ? `${value.provider}/${value.id}` : value.id) : '');
@@ -74,14 +80,14 @@ export function ModelWidget({
   // 按 provider 分组
   const grouped = useMemo(() => {
     const groups: Record<string, ModelInfo[]> = {};
-    for (const m of models) {
+    for (const m of visibleModels) {
       if (query && !m.id.toLowerCase().includes(query) && !m.name.toLowerCase().includes(query)) continue;
       const g = m.provider || '';
       if (!groups[g]) groups[g] = [];
       groups[g].push(m);
     }
     return groups;
-  }, [models, query]);
+  }, [visibleModels, query]);
 
   const handleCustomSubmit = () => {
     const val = customInput.trim();

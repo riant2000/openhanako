@@ -78,7 +78,7 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
   const globalModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
   const sessionModel = useStore(s => s.currentSessionPath ? s.sessionModelsByPath[s.currentSessionPath] : undefined);
   const currentModelInfo = sessionModel || globalModelInfo;
-  // input 数组缺失视为未知，放行让 API 决定（与后端 session-coordinator 的策略对齐）
+  // input 数组缺失视为未知；只有显式 text-only 的模型才在 UI 上标记“辅助视觉”。
   const supportsVision = !Array.isArray(currentModelInfo?.input) || currentModelInfo.input.includes("image");
   const modelSwitching = useStore(s => s.modelSwitching);
   const sessionHasMessages = useStore(s => !!(s.currentSessionPath && s.chatSessions[s.currentSessionPath]?.items?.length));
@@ -408,9 +408,9 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
         loadSessions();
       }
 
-      // 分离图片和非图片附件（模型不支持 image 输入时，图片降级为普通附件路径）
-      const imageFiles = hasFiles && supportsVision ? attachedFiles.filter(f => !f.isDirectory && isImageFile(f.name)) : [];
-      const otherFiles = hasFiles ? attachedFiles.filter(f => f.isDirectory || !isImageFile(f.name) || !supportsVision) : [];
+      // 分离图片和非图片附件；后端决定原生图片、视觉桥或显式报错。
+      const imageFiles = hasFiles ? attachedFiles.filter(f => !f.isDirectory && isImageFile(f.name)) : [];
+      const otherFiles = hasFiles ? attachedFiles.filter(f => f.isDirectory || !isImageFile(f.name)) : [];
 
       let finalText = text;
       if (otherFiles.length > 0) {
@@ -482,12 +482,14 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
           quotedText: qs?.text,
           attachments: allFiles.length > 0 ? allFiles.map(f => {
             const cached = imageBase64Map.get(f.path);
+            const imageFile = !f.isDirectory && isImageFile(f.name);
             return {
               path: f.path,
               name: f.name,
               isDir: false,
               base64Data: f.base64Data || cached?.base64Data || undefined,
               mimeType: f.mimeType || cached?.mimeType || undefined,
+              visionAuxiliary: imageFile && !supportsVision,
             };
           }) : undefined,
         },
@@ -498,7 +500,7 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
     } finally {
       setSending(false);
     }
-  }, [editor, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, clearDraft, currentSessionPath, setDocContextAttached, slashCommands, slashSelected, handleSlashSelect]);
+  }, [editor, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, clearDraft, currentSessionPath, setDocContextAttached, slashCommands, slashSelected, handleSlashSelect, supportsVision]);
 
   // ── Steer ──
   const handleSteer = useCallback(async () => {

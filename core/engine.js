@@ -57,6 +57,7 @@ import { createSlashSystem } from "./slash-commands/index.js";
 import { AgentManager } from "./agent-manager.js";
 import { sanitizeMessagesForModel } from "./message-sanitizer.js";
 import { normalizeProviderPayload } from "./provider-compat.js";
+import { VisionBridge } from "./vision-bridge.js";
 import { SessionCoordinator } from "./session-coordinator.js";
 import { ConfigCoordinator, SHARED_MODEL_KEYS } from "./config-coordinator.js";
 import { ChannelManager } from "./channel-manager.js";
@@ -172,6 +173,10 @@ export class HanaEngine {
       getCurrentModel: () => this.currentModel?.name,
     });
 
+    this._visionBridge = new VisionBridge({
+      resolveVisionConfig: () => this.resolveVisionConfig(),
+    });
+
     // ── Bridge Session Manager ──
     this._bridge = new BridgeSessionManager({
       getAgent: () => this.agent,
@@ -182,6 +187,7 @@ export class HanaEngine {
       getPreferences: () => this._readPreferences(),
       buildTools: (cwd, customTools, opts) => this.buildTools(cwd, customTools, opts),
       getHomeCwd: (agentId) => this.getHomeCwd(agentId),
+      getVisionBridge: () => this._visionBridge,
     });
 
     // ── Slash Command System ──
@@ -433,6 +439,12 @@ export class HanaEngine {
   setBridgeReceiptEnabled(v) { this._prefs.setBridgeReceiptEnabled(v); }
   getSharedModels() { return this._configCoord.getSharedModels(); }
   setSharedModels(p) { return this._configCoord.setSharedModels(p); }
+  getVisionBridge() { return this._visionBridge; }
+  resolveVisionConfig() {
+    const ref = this.getSharedModels()?.vision || null;
+    if (!ref) return null;
+    return this.resolveModelWithCredentials(ref);
+  }
   getSearchConfig() { return this._configCoord.getSearchConfig(); }
   setSearchConfig(p) { return this._configCoord.setSearchConfig(p); }
   getUtilityApi() { return this._configCoord.getUtilityApi(); }

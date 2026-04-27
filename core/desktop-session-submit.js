@@ -9,6 +9,7 @@
  * @param {string} opts.sessionPath
  * @param {string} opts.text
  * @param {Array<{type:'image', data:string, mimeType:string}>} [opts.images]
+ * @param {string[]} [opts.imageAttachmentPaths]
  * @param {(delta: string, accumulated: string) => void} [opts.onDelta]
  * @param {object} [opts.displayMessage]
  * @param {object|null|undefined} [opts.uiContext]
@@ -19,6 +20,7 @@ export async function submitDesktopSessionMessage(engine, opts = {}) {
     sessionPath,
     text,
     images,
+    imageAttachmentPaths,
     onDelta,
     displayMessage,
     uiContext,
@@ -73,7 +75,10 @@ export async function submitDesktopSessionMessage(engine, opts = {}) {
   });
 
   try {
-    await engine.promptSession(sessionPath, text || "", images?.length ? { images } : undefined);
+    const promptOpts = images?.length
+      ? { images, ...(imageAttachmentPaths?.length ? { imageAttachmentPaths } : {}) }
+      : undefined;
+    await engine.promptSession(sessionPath, text || "", promptOpts);
   } finally {
     try { unsub?.(); } catch {}
     engine.emitEvent?.({ type: "session_status", isStreaming: false }, sessionPath);

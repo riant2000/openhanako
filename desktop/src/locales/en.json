@@ -113,7 +113,8 @@
     "steer": "Steer",
     "stop": "Stop",
     "browserScreenshot": "Browser screenshot",
-    "compacting": "Compacting context"
+    "compacting": "Compacting context",
+    "visionAuxiliary": "Vision auxiliary"
   },
   "time": {
     "justNow": "Just now",
@@ -759,6 +760,8 @@
       "utilityModelHint": "Titles, light classification, etc. A cheap small model is recommended",
       "utilityLargeModel": "Utility (large)",
       "utilityLargeModelHint": "Activity summaries, task breakdown, etc. Falls back to small utility if empty",
+      "visionModel": "Vision auxiliary model",
+      "visionModelHint": "Used only when the current chat model cannot accept images",
       "searchProvider": "Search Service",
       "searchProviderField": "Search engine",
       "searchApiKey": "Search API Key",

@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { normalizeSharedModelsPatch } from "../../core/config-coordinator.js";
+import { modelSupportsImage } from "../../core/message-sanitizer.js";
 
 export function createPreferencesRoute(engine) {
   const route = new Hono();
@@ -54,6 +55,17 @@ export function createPreferencesRoute(engine) {
           modelsPatch = normalizeSharedModelsPatch(body.models);
         } catch (err) {
           return c.json({ error: err.message }, 400);
+        }
+        if (modelsPatch.vision) {
+          let resolved;
+          try {
+            resolved = engine.resolveModelWithCredentials(modelsPatch.vision);
+          } catch (err) {
+            return c.json({ error: err.message }, 400);
+          }
+          if (!modelSupportsImage(resolved?.model)) {
+            return c.json({ error: "vision model must support image input" }, 400);
+          }
         }
         engine.setSharedModels(modelsPatch);
         sections.push("models");

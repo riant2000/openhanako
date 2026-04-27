@@ -112,7 +112,8 @@
     "steer": "操舵",
     "stop": "停止",
     "browserScreenshot": "ブラウザスクリーンショット",
-    "compacting": "コンテキスト圧縮中"
+    "compacting": "コンテキスト圧縮中",
+    "visionAuxiliary": "補助ビジョン"
   },
   "time": {
     "justNow": "たった今",
@@ -732,6 +733,8 @@
       "utilityModelHint": "タイトル生成、簡易分類など。安価な小型モデルを推奨します",
       "utilityLargeModel": "ユーティリティ（大）",
       "utilityLargeModelHint": "アクティビティ要約、タスク分解など。空の場合はユーティリティ（小）にフォールバックします",
+      "visionModel": "補助ビジョンモデル",
+      "visionModelHint": "現在のチャットモデルが画像を受け取れない場合だけ、先に画像を読み取って簡潔な説明を渡します",
       "searchProvider": "検索サービス",
       "searchProviderField": "検索エンジン",
       "searchApiKey": "検索 API Key",

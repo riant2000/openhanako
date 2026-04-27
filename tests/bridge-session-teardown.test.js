@@ -185,6 +185,52 @@ describe("BridgeSessionManager teardown", () => {
     expect(createAgentSessionMock.mock.calls[0][0].customTools.map((tool) => tool.name)).toContain("search_memory");
   });
 
+  it("owner bridge text-only model prepares images through the vision bridge", async () => {
+    const agent = makeAgent(rootDir);
+    const visionBridge = {
+      prepare: vi.fn(async ({ text }) => ({ text, images: undefined })),
+      injectNotes: vi.fn(() => ({ injected: 0 })),
+    };
+    const deps = {
+      ...makeDeps(agent),
+      getVisionBridge: () => visionBridge,
+      getModelManager: () => ({
+        availableModels: [{ id: "gpt-4o", provider: "openai", name: "GPT-4o", input: ["text"] }],
+        authStorage: {},
+        modelRegistry: {},
+        resolveThinkingLevel: () => "medium",
+      }),
+    };
+    const mgrPath = path.join(agent.sessionDir, "bridge", "owner", "s-vision.jsonl");
+    const manager = new BridgeSessionManager(deps);
+    sessionManagerCreateMock.mockReturnValue({ getSessionFile: () => mgrPath });
+
+    const session = {
+      model: { id: "gpt-4o", provider: "openai", input: ["text"] },
+      prompt: vi.fn(async () => {}),
+      subscribe: vi.fn(() => () => {}),
+      dispose: vi.fn(),
+      sessionManager: { getSessionFile: () => mgrPath },
+      extensionRunner: { hasHandlers: vi.fn(() => false) },
+    };
+    createAgentSessionMock.mockResolvedValue({ session });
+    const images = [{ type: "image", data: "BASE64", mimeType: "image/png" }];
+
+    await manager.executeExternalMessage("hello", "bridge-k-vision", null, {
+      agentId: "agent-a",
+      images,
+      imageAttachmentPaths: ["/tmp/upload.png"],
+    });
+
+    expect(visionBridge.prepare).toHaveBeenCalledWith(expect.objectContaining({
+      targetModel: expect.objectContaining({ input: ["text"] }),
+      text: "hello",
+      images,
+      imageAttachmentPaths: ["/tmp/upload.png"],
+    }));
+    expect(session.prompt).toHaveBeenCalledWith("hello", undefined);
+  });
+
   it("compactSession 的临时 owner session 结束后也会 shutdown + dispose", async () => {
     const agent = makeAgent(rootDir);
     const manager = new BridgeSessionManager(makeDeps(agent));
