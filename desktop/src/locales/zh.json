@@ -1807,6 +1807,8 @@
   "action.retry": "重试",
   "subagentAbort": "终止",
   "subagentAborted": "已终止",
+  "preview.markdownPreview": "预览",
+  "preview.exitMarkdownPreview": "回到编辑",
   "preview.openInNewWindow": "在新窗口查看",
   "preview.openInNewWindowUnsupported": "此类型不支持新窗口查看"
 }

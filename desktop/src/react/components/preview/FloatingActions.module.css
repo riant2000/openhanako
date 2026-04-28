@@ -29,3 +29,8 @@
     background: var(--overlay-light);
     color: var(--text);
 }
+
+.actionBtnActive {
+    background: var(--overlay-light);
+    color: var(--text);
+}

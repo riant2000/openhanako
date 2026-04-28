@@ -64,11 +64,16 @@ let _artifactCounter = 0;
 // ── Internal write primitive ──
 
 function updatePreview(
-  updater: (prev: Pick<ArtifactSlice, 'artifacts' | 'openTabs' | 'activeTabId'>) =>
-    Partial<Pick<ArtifactSlice, 'artifacts' | 'openTabs' | 'activeTabId'>>,
+  updater: (prev: Pick<ArtifactSlice, 'artifacts' | 'openTabs' | 'activeTabId' | 'markdownPreviewIds'>) =>
+    Partial<Pick<ArtifactSlice, 'artifacts' | 'openTabs' | 'activeTabId' | 'markdownPreviewIds'>>,
 ): void {
   useStore.setState((s: StoreState) => {
-    const prev = { artifacts: s.artifacts, openTabs: s.openTabs, activeTabId: s.activeTabId };
+    const prev = {
+      artifacts: s.artifacts,
+      openTabs: s.openTabs,
+      activeTabId: s.activeTabId,
+      markdownPreviewIds: s.markdownPreviewIds,
+    };
     return updater(prev);
   });
 }
@@ -104,7 +109,11 @@ export function closeTab(id: string): void {
     if (active === id) {
       active = tabs[Math.max(0, idx - 1)] ?? null;
     }
-    return { openTabs: tabs, activeTabId: active };
+    return {
+      openTabs: tabs,
+      activeTabId: active,
+      markdownPreviewIds: prev.markdownPreviewIds.filter(previewId => previewId !== id),
+    };
   });
 }
 
@@ -115,7 +124,21 @@ export function setActiveTab(id: string): void {
 
 /** 清空整个预览池 */
 export function clearPreview(): void {
-  updatePreview(() => ({ artifacts: [], openTabs: [], activeTabId: null }));
+  useStore.setState({
+    artifacts: [],
+    openTabs: [],
+    activeTabId: null,
+    markdownPreviewIds: [],
+  });
+}
+
+export function setMarkdownPreviewActive(id: string, active: boolean): void {
+  useStore.getState().setMarkdownPreviewActive(id, active);
+}
+
+export function toggleMarkdownPreview(id: string): void {
+  const s = useStore.getState();
+  s.setMarkdownPreviewActive(id, !s.markdownPreviewIds.includes(id));
 }
 
 // ── High-level actions ──

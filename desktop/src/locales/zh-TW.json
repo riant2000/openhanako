@@ -1748,6 +1748,8 @@
   "action.retry": "重试",
   "subagentAbort": "終止",
   "subagentAborted": "已終止",
+  "preview.markdownPreview": "預覽",
+  "preview.exitMarkdownPreview": "回到編輯",
   "preview.openInNewWindow": "在新視窗查看",
   "preview.openInNewWindowUnsupported": "此類型不支援新視窗查看"
 }

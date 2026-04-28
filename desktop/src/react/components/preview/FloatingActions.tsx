@@ -3,9 +3,17 @@ import styles from './FloatingActions.module.css';
 
 interface Props {
   content: string;
+  showMarkdownPreviewToggle?: boolean;
+  markdownPreviewActive?: boolean;
+  onToggleMarkdownPreview?: () => void;
 }
 
-export function FloatingActions({ content }: Props) {
+export function FloatingActions({
+  content,
+  showMarkdownPreviewToggle = false,
+  markdownPreviewActive = false,
+  onToggleMarkdownPreview,
+}: Props) {
   const [copyLabel, setCopyLabel] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -36,7 +44,21 @@ export function FloatingActions({ content }: Props) {
         </svg>
         <span>{copyLabel ?? t('attach.copy')}</span>
       </button>
-      <button className={styles.actionBtn} onClick={handleScreenshot} title={t('common.screenshot')}>
+      {showMarkdownPreviewToggle && (
+        <button
+          className={`${styles.actionBtn}${markdownPreviewActive ? ` ${styles.actionBtnActive}` : ''}`}
+          onClick={onToggleMarkdownPreview}
+          title={t(markdownPreviewActive ? 'preview.exitMarkdownPreview' : 'preview.markdownPreview')}
+          aria-label={t('preview.markdownPreview')}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      )}
+      <button className={styles.actionBtn} onClick={handleScreenshot} title={t('common.screenshot')} aria-label={t('common.screenshot')}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />

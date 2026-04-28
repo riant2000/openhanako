@@ -34,9 +34,34 @@ describe("CheckpointStore", () => {
     expect(list).toHaveLength(1);
     expect(list[0].id).toBe(id);
     expect(list[0].tool).toBe("write");
+    expect(list[0].source).toBe("llm");
+    expect(list[0].reason).toBe("tool-write");
     expect(list[0].path).toBe(srcFile);
     expect(list[0].size).toBeGreaterThan(0);
     expect(list[0].ts).toBeGreaterThan(0);
+
+    fs.rmSync(srcDir, { recursive: true, force: true });
+  });
+
+  it("stores explicit user-edit source and reason metadata", async () => {
+    const srcDir = fs.mkdtempSync(path.join(os.tmpdir(), "ckpt-user-edit-"));
+    const srcFile = path.join(srcDir, "note.md");
+    fs.writeFileSync(srcFile, "# Draft\n");
+
+    const id = await store.save({
+      sessionPath: null,
+      tool: "user-edit",
+      source: "user-edit",
+      reason: "edit-start",
+      filePath: srcFile,
+      maxSizeKb: 1024,
+    });
+
+    expect(id).toBeTruthy();
+    const [entry] = await store.list();
+    expect(entry.source).toBe("user-edit");
+    expect(entry.reason).toBe("edit-start");
+    expect(entry.tool).toBe("user-edit");
 
     fs.rmSync(srcDir, { recursive: true, force: true });
   });

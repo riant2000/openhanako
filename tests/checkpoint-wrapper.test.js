@@ -30,6 +30,8 @@ describe("wrapWithCheckpoint", () => {
     expect(store.save).toHaveBeenCalledWith({
       sessionPath: "sessions/test",
       tool: "write",
+      source: "llm",
+      reason: "tool-write",
       filePath: "/project/src/foo.js",
       maxSizeKb: 1024,
     });
@@ -50,6 +52,8 @@ describe("wrapWithCheckpoint", () => {
     expect(store.save).toHaveBeenCalledWith({
       sessionPath: null,
       tool: "edit",
+      source: "llm",
+      reason: "tool-edit",
       filePath: "/absolute/bar.ts",
       maxSizeKb: 1024,
     });
@@ -67,7 +71,12 @@ describe("wrapWithCheckpoint", () => {
     await wrapped.execute("t3", { command: "rm src/old.js" });
 
     expect(store.save).toHaveBeenCalledWith(
-      expect.objectContaining({ tool: "bash:rm", filePath: "/project/src/old.js" }),
+      expect.objectContaining({
+        tool: "bash:rm",
+        source: "llm",
+        reason: "tool-bash-rm",
+        filePath: "/project/src/old.js",
+      }),
     );
   });
 
@@ -83,7 +92,12 @@ describe("wrapWithCheckpoint", () => {
     await wrapped.execute("t4", { command: "mv src/a.js src/b.js" });
 
     expect(store.save).toHaveBeenCalledWith(
-      expect.objectContaining({ tool: "bash:mv", filePath: "/project/src/a.js" }),
+      expect.objectContaining({
+        tool: "bash:mv",
+        source: "llm",
+        reason: "tool-bash-mv",
+        filePath: "/project/src/a.js",
+      }),
     );
   });
 

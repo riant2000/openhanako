@@ -1802,6 +1802,8 @@
   "action.retry": "Retry",
   "subagentAbort": "Stop",
   "subagentAborted": "Stopped",
+  "preview.markdownPreview": "Preview",
+  "preview.exitMarkdownPreview": "Back to editing",
   "preview.openInNewWindow": "Open in new window",
   "preview.openInNewWindowUnsupported": "Not supported for this type"
 }

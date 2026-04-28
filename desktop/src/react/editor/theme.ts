@@ -21,4 +21,17 @@ export const markdownTheme = EditorView.theme({
   '.cm-activeLine': { backgroundColor: 'transparent' },
   '.cm-activeLineGutter': { backgroundColor: 'transparent' },
   '.cm-cursor': { borderLeftColor: 'var(--text)' },
+  '.cm-md-mark': {
+    backgroundColor: 'var(--cm-md-mark-bg, rgba(255, 248, 143, 0.72))',
+    borderRadius: '2px',
+    padding: '0 1px',
+  },
+  '.cm-math-widget': {
+    fontFamily: 'var(--font-serif)',
+  },
+  '.cm-math-block-widget': {
+    display: 'block',
+    overflowX: 'auto',
+    padding: 'var(--space-xs) 0',
+  },
 });

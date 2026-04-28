@@ -11,6 +11,7 @@ import {
   selectOpenTabs,
   selectActiveTabId,
   selectPinnedViewers,
+  selectMarkdownPreviewIds,
 } from '../../stores/artifact-slice';
 import {
   upsertArtifact,
@@ -22,6 +23,8 @@ import {
   closePreview,
   handleArtifact,
   canSpawnViewer,
+  setMarkdownPreviewActive,
+  toggleMarkdownPreview,
 } from '../../stores/artifact-actions';
 import type { Artifact } from '../../types';
 
@@ -120,6 +123,13 @@ describe('artifact slice (user-level content pool)', () => {
       expect(testStore.getState().activeTabId).toBeNull();
     });
 
+    it('closeTab 同步清理该 tab 的 Markdown 预览状态', () => {
+      openTab('a1');
+      setMarkdownPreviewActive('a1', true);
+      closeTab('a1');
+      expect(selectMarkdownPreviewIds(testStore.getState())).toEqual([]);
+    });
+
     it('setActiveTab 切换激活', () => {
       openTab('a1');
       openTab('a2');
@@ -189,6 +199,28 @@ describe('artifact slice (user-level content pool)', () => {
       expect(selectArtifacts(testStore.getState())).toEqual([]);
       expect(selectOpenTabs(testStore.getState())).toEqual([]);
       expect(selectActiveTabId(testStore.getState())).toBeNull();
+      expect(selectMarkdownPreviewIds(testStore.getState())).toEqual([]);
+    });
+  });
+
+  describe('markdown preview eye state', () => {
+    it('按 artifact id 记录临时阅读预览状态', () => {
+      setMarkdownPreviewActive('file-a', true);
+      expect(selectMarkdownPreviewIds(testStore.getState())).toEqual(['file-a']);
+
+      setMarkdownPreviewActive('file-b', true);
+      expect(selectMarkdownPreviewIds(testStore.getState()).sort()).toEqual(['file-a', 'file-b']);
+
+      setMarkdownPreviewActive('file-a', false);
+      expect(selectMarkdownPreviewIds(testStore.getState())).toEqual(['file-b']);
+    });
+
+    it('toggleMarkdownPreview 翻转指定 artifact 的预览状态', () => {
+      toggleMarkdownPreview('file-a');
+      expect(selectMarkdownPreviewIds(testStore.getState())).toEqual(['file-a']);
+
+      toggleMarkdownPreview('file-a');
+      expect(selectMarkdownPreviewIds(testStore.getState())).toEqual([]);
     });
   });
 

@@ -30,6 +30,7 @@ import { markdownDecoPlugin } from '../editor/md-decorations';
 import { linkClickHandler } from '../editor/link-handler';
 import { tableDecoField } from '../editor/table-field';
 import { csvTableField } from '../editor/csv-field';
+import { requestUserEditCheckpoint, type UserEditCheckpointReason } from '../utils/checkpoints';
 
 /* ── Types ── */
 
@@ -44,6 +45,7 @@ export interface ArtifactEditorProps {
   mode: 'markdown' | 'code' | 'csv' | 'text';
   language?: string | null;
   onSelectionChange?: (view: EditorView) => void;
+  onContentChange?: (content: string) => void;
   /**
    * 只读模式：禁用编辑、不挂 autosave listener、不挂 file watch。
    * 调用方（如派生 viewer 窗口）自己管 watchFile → setContent 即可。
@@ -52,9 +54,17 @@ export interface ArtifactEditorProps {
 }
 
 const SAVE_DELAY = 600;
+const CHECKPOINT_INTERVAL = 5 * 60 * 1000;
 
 function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function showSaveError(prefixKey: string, err: unknown): void {
+  const tFn = window.t ?? ((p: string) => p);
+  window.dispatchEvent(new CustomEvent('hana-inline-notice', {
+    detail: { text: `${tFn(prefixKey)}: ${getErrorMessage(err)}`, type: 'error' },
+  }));
 }
 
 /* ── File change emitter (global singleton) ── */
@@ -73,15 +83,19 @@ function setupFileChangeListener() {
 /* ── Editor Component ── */
 
 export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorProps>(
-  function ArtifactEditor({ content, filePath, mode, language, onSelectionChange, readOnly = false }, ref) {
+  function ArtifactEditor({ content, filePath, mode, language, onSelectionChange, onContentChange, readOnly = false }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedContentRef = useRef<string>(content);
+    const selfWriteContentsRef = useRef<Set<string>>(new Set());
+    const lastCheckpointAtRef = useRef<number>(0);
     const filePathRef = useRef(filePath);
     filePathRef.current = filePath;
     const selectionCbRef = useRef(onSelectionChange);
     selectionCbRef.current = onSelectionChange;
+    const contentCbRef = useRef(onContentChange);
+    contentCbRef.current = onContentChange;
 
     // Per-instance compartments for dynamic reconfiguration
     const cRef = useRef({
@@ -97,18 +111,39 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
       focus: () => viewRef.current?.focus(),
     }));
 
+    const createCheckpointIfDue = useCallback(async (fp: string) => {
+      const now = Date.now();
+      if (lastCheckpointAtRef.current > 0 && now - lastCheckpointAtRef.current < CHECKPOINT_INTERVAL) return;
+      const reason: UserEditCheckpointReason = lastCheckpointAtRef.current > 0
+        ? 'autosave-interval'
+        : 'edit-start';
+      try {
+        await requestUserEditCheckpoint(fp, reason);
+      } catch (err) {
+        console.warn('[ArtifactEditor] checkpoint failed:', err);
+        showSaveError('settings.saveFailed', err);
+      } finally {
+        lastCheckpointAtRef.current = now;
+      }
+    }, []);
+
     const saveToFile = useCallback((text: string) => {
       const fp = filePathRef.current;
       if (!fp) return;
-      lastSavedContentRef.current = text;
-      void window.platform?.writeFile(fp, text).catch((err) => {
+      void (async () => {
+        await createCheckpointIfDue(fp);
+        selfWriteContentsRef.current.add(text);
+        window.setTimeout(() => {
+          selfWriteContentsRef.current.delete(text);
+        }, 5000);
+        const ok = await window.platform?.writeFile(fp, text);
+        if (ok === false) throw new Error('write-file returned false');
+        lastSavedContentRef.current = text;
+      })().catch((err) => {
         console.warn('[ArtifactEditor] write failed:', err);
-        const tFn = window.t ?? ((p: string) => p);
-        window.dispatchEvent(new CustomEvent('hana-inline-notice', {
-          detail: { text: `${tFn('settings.saveFailed')}: ${getErrorMessage(err)}`, type: 'error' },
-        }));
+        showSaveError('settings.saveFailed', err);
       });
-    }, []);
+    }, [createCheckpointIfDue]);
 
     // Create editor
     useEffect(() => {
@@ -130,6 +165,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
               EditorView.updateListener.of((update) => {
                 if (!update.docChanged) return;
                 const text = update.state.doc.toString();
+                contentCbRef.current?.(text);
                 if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
                 saveTimerRef.current = setTimeout(() => {
                   saveTimerRef.current = null;
@@ -165,7 +201,11 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
       viewRef.current = view;
 
       return () => {
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = null;
+          saveToFile(view.state.doc.toString());
+        }
         view.destroy();
         viewRef.current = null;
       };
@@ -196,7 +236,10 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
           .then((newContent) => {
             if (newContent == null) return;
             // Content comparison: same as last write → self-write, ignore
-            if (newContent === lastSavedContentRef.current) return;
+            if (newContent === lastSavedContentRef.current || selfWriteContentsRef.current.has(newContent)) {
+              lastSavedContentRef.current = newContent;
+              return;
+            }
             const view = viewRef.current;
             if (!view) return;
             const current = view.state.doc.toString();
@@ -205,6 +248,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
             view.dispatch({
               changes: { from: 0, to: current.length, insert: newContent },
             });
+            contentCbRef.current?.(newContent);
           })
           .catch((err) => {
             console.warn('[ArtifactEditor] reload watched file failed:', err);

@@ -26,9 +26,12 @@ export interface ArtifactSlice {
   activeTabId: string | null;
   /** 当前派生出的只读 viewer 窗口（按 windowId keyed） */
   pinnedViewers: PinnedViewer[];
+  /** 临时 Markdown 阅读预览状态，按 artifact id keyed */
+  markdownPreviewIds: string[];
   addPinnedViewer: (viewer: PinnedViewer) => void;
   removePinnedViewer: (windowId: number) => void;
   clearPinnedViewers: () => void;
+  setMarkdownPreviewActive: (id: string, active: boolean) => void;
 }
 
 export const createArtifactSlice = (
@@ -38,6 +41,7 @@ export const createArtifactSlice = (
   openTabs: [],
   activeTabId: null,
   pinnedViewers: [],
+  markdownPreviewIds: [],
   addPinnedViewer: (viewer) =>
     set((s) => {
       // 防重：同 windowId 存在则跳过（理论上 Electron 不会复用 id）
@@ -47,6 +51,13 @@ export const createArtifactSlice = (
   removePinnedViewer: (windowId) =>
     set((s) => ({ pinnedViewers: s.pinnedViewers.filter((v) => v.windowId !== windowId) })),
   clearPinnedViewers: () => set({ pinnedViewers: [] }),
+  setMarkdownPreviewActive: (id, active) =>
+    set((s) => {
+      const current = new Set(s.markdownPreviewIds);
+      if (active) current.add(id);
+      else current.delete(id);
+      return { markdownPreviewIds: [...current] };
+    }),
 });
 
 // ── Selectors ──
@@ -55,3 +66,4 @@ export const selectArtifacts = (s: ArtifactSlice): Artifact[] => s.artifacts;
 export const selectOpenTabs = (s: ArtifactSlice): string[] => s.openTabs;
 export const selectActiveTabId = (s: ArtifactSlice): string | null => s.activeTabId;
 export const selectPinnedViewers = (s: ArtifactSlice): PinnedViewer[] => s.pinnedViewers;
+export const selectMarkdownPreviewIds = (s: ArtifactSlice): string[] => s.markdownPreviewIds;

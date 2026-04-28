@@ -6,13 +6,14 @@
  *
  * 架构原则：
  * - 文件系统是 source of truth，编辑器直接对接文件
- * - 文件型 artifact 的 content 不回写 store（避免双源）
+ * - Artifact content 仅作为前端视图快照，给复制/临时渲染预览使用
  * - 独立窗口由下阶段的 viewer spawn 机制负责（单向只读副本），本面板不做 detach/dock
  */
 
 import { useCallback, useEffect } from 'react';
 import { useStore } from '../stores';
-import { selectArtifacts, selectActiveTabId } from '../stores/artifact-slice';
+import { selectArtifacts, selectActiveTabId, selectMarkdownPreviewIds } from '../stores/artifact-slice';
+import { setMarkdownPreviewActive, upsertArtifact } from '../stores/artifact-actions';
 import { ArtifactEditor } from './ArtifactEditor';
 import { ArtifactRenderer } from './preview/ArtifactRenderer';
 import { TabBar } from './preview/TabBar';
@@ -28,6 +29,10 @@ function isEditable(artifact: Artifact | null): boolean {
   return !!artifact.filePath && EDITABLE_TYPES.has(artifact.type);
 }
 
+function isMarkdownFile(artifact: Artifact | null): boolean {
+  return !!artifact?.filePath && artifact.type === 'markdown';
+}
+
 function getEditorMode(artifact: Artifact): 'markdown' | 'code' | 'csv' | 'text' {
   if (artifact.type === 'markdown') return 'markdown';
   if (artifact.type === 'csv') return 'csv';
@@ -38,9 +43,21 @@ export function PreviewPanel() {
   const previewOpen = useStore(s => s.previewOpen);
   const activeTabId = useStore(selectActiveTabId);
   const artifacts = useStore(selectArtifacts);
+  const markdownPreviewIds = useStore(selectMarkdownPreviewIds);
 
   const artifact = artifacts.find(a => a.id === activeTabId) ?? null;
-  const editable = isEditable(artifact);
+  const markdownPreviewActive = !!artifact && markdownPreviewIds.includes(artifact.id);
+  const editable = isEditable(artifact) && !markdownPreviewActive;
+
+  const handleToggleMarkdownPreview = useCallback(() => {
+    if (!artifact || !isMarkdownFile(artifact)) return;
+    setMarkdownPreviewActive(artifact.id, !markdownPreviewActive);
+  }, [artifact, markdownPreviewActive]);
+
+  const handleEditorContentChange = useCallback((content: string) => {
+    if (!artifact) return;
+    upsertArtifact({ ...artifact, content });
+  }, [artifact]);
 
   // DOM 模式选区捕获（非编辑模式下 mouseup 时检测选中文本）
   const handleMouseUp = useCallback(() => {
@@ -62,6 +79,9 @@ export function PreviewPanel() {
           {previewOpen && artifact && (
             <FloatingActions
               content={artifact.content}
+              showMarkdownPreviewToggle={isMarkdownFile(artifact)}
+              markdownPreviewActive={markdownPreviewActive}
+              onToggleMarkdownPreview={handleToggleMarkdownPreview}
             />
           )}
           {previewOpen && artifact && !editable && (
@@ -76,6 +96,7 @@ export function PreviewPanel() {
               onSelectionChange={(view) => {
                 if (artifact) captureSelection(artifact, view);
               }}
+              onContentChange={handleEditorContentChange}
             />
           )}
         </div>

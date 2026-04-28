@@ -499,6 +499,18 @@ export class HanaEngine {
   listCheckpoints() { return this._checkpointStore.list(); }
   restoreCheckpoint(id) { return this._checkpointStore.restore(id); }
   removeCheckpoint(id) { return this._checkpointStore.remove(id); }
+  async createUserEditCheckpoint({ filePath, reason = "edit-start" }) {
+    const cfg = this._prefs.getFileBackup();
+    const id = await this._checkpointStore.save({
+      sessionPath: null,
+      tool: "user-edit",
+      source: "user-edit",
+      reason,
+      filePath,
+      maxSizeKb: cfg.max_file_size_kb || 1024,
+    });
+    return id ? { id, path: filePath, reason } : null;
+  }
   cleanupCheckpoints() {
     const cfg = this._prefs.getFileBackup();
     return this._checkpointStore.cleanup(cfg.retention_days || 1);
