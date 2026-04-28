@@ -13,13 +13,19 @@ import { useStore } from '../../stores';
 const isZh = window.i18n?.locale?.startsWith?.('zh') ?? true;
 
 export const XING_PROMPT = isZh
-  ? `回顾本次对话中我（用户）发送的消息，提取可复用的工作流程、偏好和纠正。
+  ? `回顾本次对话中我（用户）发送的消息，提取可复用的工作流程、纠正和操作经验。
+
+不要把用户的个人画像、审美喜好、兴趣、生活近况写进技能；这些属于记忆系统。
+只把“以后遇到类似任务应该怎么做”的内容写成自学技能。
 
 你必须先查阅 skill-creator 技能，按照其中 "Capture Intent" 和 "Write the SKILL.md" 部分的流程操作。
 只做到创建并安装为止，不需要做 eval、benchmark 或 description optimization。
 
 最终调用 install_skill 工具将技能安装为自学技能（skill_content + skill_name 模式）。`
-  : `Review the messages I (the user) sent in this session and extract reusable workflows, preferences, and corrections.
+  : `Review the messages I (the user) sent in this session and extract reusable workflows, corrections, and operational lessons.
+
+Do not write the user's personal profile, aesthetic tastes, interests, or life/current-state context into a skill; those belong in memory.
+Only turn "how to handle similar tasks in the future" into a learned skill.
 
 You must first consult the skill-creator skill, following its "Capture Intent" and "Write the SKILL.md" sections.
 Only go as far as creating and installing — do not run evals, benchmarks, or description optimization.
