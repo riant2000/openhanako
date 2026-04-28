@@ -13,7 +13,7 @@ import { applyAgentIdentity, loadAgents, loadAvatars } from './stores/agent-acti
 import { loadSessions } from './stores/session-actions';
 import { connectWebSocket, getWebSocket } from './services/websocket';
 import { setStatus, loadModels } from './utils/ui-helpers';
-import { initJian, loadDeskFiles } from './stores/desk-actions';
+import { activateWorkspaceDesk, initJian } from './stores/desk-actions';
 import { loadChannels } from './stores/channel-actions';
 import { initViewerEvents } from './stores/artifact-actions';
 import { updateLayout } from './components/SidebarLayout';
@@ -23,6 +23,8 @@ import { refreshPluginUI } from './stores/plugin-ui-actions';
 import { errorBus as _errorBus } from '../../../shared/error-bus.js';
 // @ts-expect-error — shared JS module
 import { AppError as _AppError } from '../../../shared/errors.js';
+// @ts-expect-error — shared JS module
+import { mergeWorkspaceHistory } from '../../../shared/workspace-history.js';
 
 declare const i18n: {
   locale: string;
@@ -37,6 +39,51 @@ declare function t(key: string, vars?: Record<string, string | number>): string;
 // from earlier switches to overwrite current state. Same pattern as
 // _switchVersion in session-actions.ts.
 let _agentSwitchVersion = 0;
+
+function normalizeWorkspacePath(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function readConfigHomeFolder(config: any): string | null {
+  return normalizeWorkspacePath(config?.desk?.home_folder ?? config?.deskHome);
+}
+
+function readConfigCwdHistory(config: any): string[] {
+  const history = Array.isArray(config?.cwd_history)
+    ? config.cwd_history
+    : Array.isArray(config?.cwdHistory)
+      ? config.cwdHistory
+      : [];
+  return mergeWorkspaceHistory(history, []);
+}
+
+function handleAgentWorkspaceChanged(data: any): void {
+  const state = useStore.getState();
+  if (!data?.agentId || data.agentId !== state.currentAgentId) return;
+
+  const previousHomeFolder = state.homeFolder || null;
+  const previousSelectedFolder = state.selectedFolder || null;
+  const nextHomeFolder = normalizeWorkspacePath(data.homeFolder);
+  const selectedFollowedDefault = !previousSelectedFolder || previousSelectedFolder === previousHomeFolder;
+  const nextSelectedFolder = selectedFollowedDefault ? nextHomeFolder : previousSelectedFolder;
+  const deskWasShowingDefault =
+    state.pendingNewSession ||
+    !state.currentSessionPath ||
+    !state.deskBasePath ||
+    (!!previousHomeFolder && state.deskBasePath === previousHomeFolder);
+
+  useStore.setState({
+    homeFolder: nextHomeFolder,
+    selectedFolder: nextSelectedFolder,
+    workspaceFolders: [],
+  });
+
+  if (deskWasShowingDefault) {
+    void activateWorkspaceDesk(nextHomeFolder);
+  }
+}
 
 // ── __hanaLog：前端日志上报 ──
 window.__hanaLog = function (level: string, module: string, message: string) {
@@ -96,13 +143,13 @@ export async function initApp(): Promise<void> {
     });
 
     // 5. 设置 desk 相关状态
+    const homeFolder = readConfigHomeFolder(configData);
     useStore.setState({
-      homeFolder: configData.desk?.home_folder || null,
-      selectedFolder: configData.desk?.home_folder || null,
+      homeFolder,
+      selectedFolder: homeFolder,
+      workspaceFolders: [],
     });
-    if (Array.isArray(configData.cwd_history)) {
-      useStore.setState({ cwdHistory: configData.cwd_history });
-    }
+    useStore.setState({ cwdHistory: readConfigCwdHistory(configData) });
 
     // 6. 加载头像
     loadAvatars(healthData.avatars);
@@ -187,14 +234,18 @@ export async function initApp(): Promise<void> {
         loadModels();
         useStore.setState({ thinkingLevel: 'auto' });
 
-        // Reload desk files, homeFolder, cwdHistory
+        // Reload workspace defaults and activate the new agent workspace through the
+        // same path used by session switching and the welcome picker.
         hanaFetch('/api/config').then(r => r.json()).then((cfg: any) => {
           if (myVersion !== _agentSwitchVersion) return; // stale
+          const homeFolder = readConfigHomeFolder(cfg);
           useStore.setState({
-            homeFolder: cfg.deskHome || null,
-            cwdHistory: cfg.cwdHistory || [],
+            homeFolder,
+            selectedFolder: homeFolder,
+            workspaceFolders: [],
+            cwdHistory: readConfigCwdHistory(cfg),
           });
-          loadDeskFiles('', cfg.deskHome || undefined);
+          void activateWorkspaceDesk(homeFolder);
         }).catch(() => {});
 
         // Reload automation count and clear activities
@@ -234,6 +285,9 @@ export async function initApp(): Promise<void> {
           agentId: data.agentId,
           ui: { settings: false },
         });
+        break;
+      case 'agent-workspace-changed':
+        handleAgentWorkspaceChanged(data);
         break;
       case 'theme-changed':
         setTheme(data.theme);

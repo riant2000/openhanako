@@ -61,6 +61,23 @@ export function DeskBreadcrumb() {
   );
 }
 
+// ── 手动刷新按钮 ──
+
+export function DeskRefreshButton() {
+  const hasDesk = useStore(s => !!s.deskBasePath);
+  const handleClick = useCallback(() => {
+    if (!useStore.getState().deskBasePath) return;
+    void loadDeskFiles();
+  }, []);
+  const label = (window.t ?? ((p: string) => p))('desk.refresh');
+
+  return (
+    <button className={`${s.sortBtn} ${s.iconBtn}`} onClick={handleClick} title={label} aria-label={label} disabled={!hasDesk}>
+      <span dangerouslySetInnerHTML={{ __html: ICONS.refresh }} />
+    </button>
+  );
+}
+
 // ── 排序按钮 ──
 
 export function DeskSortButton({ sortMode, onSort, onShowMenu }: {

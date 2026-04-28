@@ -21,6 +21,7 @@ import {
 } from "../session-stream-store.js";
 import { AppError } from "../../shared/errors.js";
 import { errorBus } from "../../shared/error-bus.js";
+import { MAX_CHAT_IMAGE_BASE64_CHARS, isAllowedChatImageMime, isChatImageBase64WithinLimit } from "../../shared/image-mime.js";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -153,6 +154,14 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       seq: entry.seq,
     });
     return entry;
+  }
+
+  function finishStreamingState(ss) {
+    if (!ss) return;
+    if (ss.isStreaming) finishSessionStream(ss);
+    ss.thinkTagParser.reset();
+    ss.moodParser.reset();
+    ss.cardParser.reset();
   }
 
   function maybeGenerateFirstTurnTitle(sessionPath, ss) {
@@ -391,10 +400,7 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
           ss.titlePreview = "";
           beginSessionStream(ss);
         } else if (ss.isStreaming) {
-          finishSessionStream(ss);
-          ss.thinkTagParser.reset();
-          ss.moodParser.reset();
-          ss.cardParser.reset();
+          finishStreamingState(ss);
         }
       }
       broadcast({ type: "status", isStreaming: !!event.isStreaming, sessionPath });
@@ -579,8 +585,13 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
               const abortPath = requireSessionPath(msg, ws); if (!abortPath) return;
               const abortSs = getState(abortPath);
               if (abortSs) abortSs.isAborted = true;
+              let abortAccepted = false;
               if (engine.isSessionStreaming(abortPath)) {
-                try { await hub.abort(abortPath); } catch {}
+                try { abortAccepted = !!(await hub.abort(abortPath)); } catch {}
+              }
+              if (!abortAccepted) {
+                finishStreamingState(abortSs);
+                broadcast({ type: "status", isStreaming: false, sessionPath: abortPath });
               }
               return;
             }
@@ -717,19 +728,17 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
             if (msg.type === "prompt" && (msg.text || msg.images?.length)) {
               // 图片校验：最多 10 张，单张 ≤ 20MB，仅允许常见图片 MIME
               if (msg.images?.length) {
-                const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
                 const MAX_IMAGES = 10;
-                const MAX_BYTES = 20 * 1024 * 1024; // 20MB base64 ≈ 15MB 原始
                 if (msg.images.length > MAX_IMAGES) {
                   wsSend(ws, { type: "error", message: t("error.maxImages", { max: MAX_IMAGES }), sessionPath: msg.sessionPath });
                   return;
                 }
                 for (const img of msg.images) {
-                  if (!img?.mimeType || !ALLOWED_MIME.has(img.mimeType)) {
+                  if (!img?.mimeType || !isAllowedChatImageMime(img.mimeType)) {
                     wsSend(ws, { type: "error", message: t("error.unsupportedImageFormat", { mime: img?.mimeType || "unknown" }), sessionPath: msg.sessionPath });
                     return;
                   }
-                  if (img.data && img.data.length > MAX_BYTES) {
+                  if (img.data && !isChatImageBase64WithinLimit(img.data)) {
                     wsSend(ws, { type: "error", message: t("error.imageTooLarge"), sessionPath: msg.sessionPath });
                     return;
                   }

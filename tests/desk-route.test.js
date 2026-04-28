@@ -54,4 +54,65 @@ describe("desk route", () => {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it("allows explicit desk dirs from workspace scope and rejects arbitrary siblings", async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-desk-route-"));
+    try {
+      const cwd = path.join(tempRoot, "workspace");
+      const extra = path.join(tempRoot, "reference");
+      const sibling = path.join(tempRoot, "private");
+      for (const dir of [cwd, extra, sibling]) fs.mkdirSync(dir, { recursive: true });
+
+      const engine = {
+        deskCwd: cwd,
+        homeCwd: cwd,
+        isApprovedWorkspaceDir: vi.fn((dir) => dir === cwd || dir === extra),
+      };
+
+      const { createDeskRoute } = await import("../server/routes/desk.js");
+      const app = new Hono();
+      app.route("/api", createDeskRoute(engine, null));
+
+      const allowed = await app.request(`/api/desk/files?dir=${encodeURIComponent(extra)}`);
+      expect(allowed.status).toBe(200);
+      expect((await allowed.json()).basePath).toBe(extra);
+
+      const blocked = await app.request(`/api/desk/files?dir=${encodeURIComponent(sibling)}`);
+      expect(await blocked.json()).toHaveProperty("error");
+      expect(engine.isApprovedWorkspaceDir).toHaveBeenCalled();
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("allows the app file browser to open persisted workspace history outside the agent sandbox", async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-desk-route-"));
+    try {
+      const agentHome = path.join(tempRoot, "hana");
+      const selectedWorkspace = path.join(tempRoot, "desktop");
+      fs.mkdirSync(agentHome, { recursive: true });
+      fs.mkdirSync(selectedWorkspace, { recursive: true });
+      fs.writeFileSync(path.join(selectedWorkspace, "visible.txt"), "ok");
+
+      const engine = {
+        config: { cwd_history: [selectedWorkspace] },
+        deskCwd: agentHome,
+        homeCwd: agentHome,
+        isApprovedWorkspaceDir: vi.fn(() => false),
+      };
+
+      const { createDeskRoute } = await import("../server/routes/desk.js");
+      const app = new Hono();
+      app.route("/api", createDeskRoute(engine, null));
+
+      const res = await app.request(`/api/desk/files?dir=${encodeURIComponent(selectedWorkspace)}`);
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.basePath).toBe(selectedWorkspace);
+      expect(data.files.map(f => f.name)).toContain("visible.txt");
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

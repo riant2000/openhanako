@@ -1,104 +1,99 @@
 /**
- * patch-pi-sdk.cjs — postinstall 补丁
+ * patch-pi-sdk.cjs — Pi SDK 只读验证
  *
- * Patch 1: createAgentSession() → baseToolsOverride 透传（sdk.js）
+ * 历史上这个脚本会在 postinstall 阶段修改
+ * node_modules/@mariozechner/pi-coding-agent/dist/core/sdk.js，
+ * 为 Hana 的 session-scoped sandbox tools 打通 baseToolsOverride。
  *
- * 注：空 tools 数组剥离（原 patch 2）已迁移至 engine.js 的
- *     before_provider_request extension，不再需要源码补丁。
+ * Pi SDK 0.68+ 已把 createAgentSession({ tools }) 改成工具名 allowlist，
+ * Hana 现在通过 lib/pi-sdk 适配层把本地 Tool[] 转为 customTools + names。
+ * 因此这个脚本只验证版本、SDK 结构和生产 import 边界，不再写 node_modules。
  *
- * 安全机制：
- *   - 版本白名单守卫：未验证版本直接中断 npm install
- *   - 结构验证：patch 后回读确认生效
- *   - 直接引用扫描：检测绕过 adapter 的 SDK 导入
- *
- * See: https://github.com/anthropics/openhanako/issues/221
+ * 文件名（patch-pi-sdk）保留是为了不动 package.json 的 postinstall 钩子，
+ * 避免触发 npm install cache 重算。实际职责已是只读验证（log 前缀 verify-pi-sdk）。
  */
 
 const fs = require("fs");
 const path = require("path");
 
-const sdkRoot = path.join(__dirname, "..", "node_modules", "@mariozechner", "pi-coding-agent");
+const root = path.join(__dirname, "..");
+const sdkRoot = path.join(root, "node_modules", "@mariozechner", "pi-coding-agent");
+const piAiRoot = path.join(root, "node_modules", "@mariozechner", "pi-ai");
+const verifiedVersions = new Set(["0.70.2"]);
+const verifiedPiAiVersions = new Set(["0.70.5"]);
 
-// ── 版本守卫 ──
+function fail(message) {
+  console.error(`[verify-pi-sdk] ${message}`);
+  process.exit(1);
+}
 
-const VERIFIED_VERSIONS = ["0.64.0", "0.66.1"];
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
 
 if (!fs.existsSync(sdkRoot)) {
-  console.log("[patch-pi-sdk] SDK not installed, skipping");
+  console.log("[verify-pi-sdk] SDK not installed, skipping");
   process.exit(0);
 }
 
-const pkg = JSON.parse(fs.readFileSync(path.join(sdkRoot, "package.json"), "utf8"));
-if (!VERIFIED_VERSIONS.includes(pkg.version)) {
-  console.error(
-    `[patch-pi-sdk] SDK 版本 ${pkg.version} 未经验证。\n` +
-    `已验证版本：${VERIFIED_VERSIONS.join(", ")}。\n` +
-    `请先测试 patch 兼容性再添加到 VERIFIED_VERSIONS。`
-  );
-  process.exit(1);
+const pkg = readJson(path.join(sdkRoot, "package.json"));
+if (!verifiedVersions.has(pkg.version)) {
+  fail(`SDK version ${pkg.version} is not verified. Verified versions: ${[...verifiedVersions].join(", ")}`);
 }
 
-// ── Patch 1: baseToolsOverride 透传 ──
+if (!fs.existsSync(piAiRoot)) {
+  fail("@mariozechner/pi-ai is not installed");
+}
+const piAiPkg = readJson(path.join(piAiRoot, "package.json"));
+if (!verifiedPiAiVersions.has(piAiPkg.version)) {
+  fail(`pi-ai version ${piAiPkg.version} is not verified. Verified versions: ${[...verifiedPiAiVersions].join(", ")}`);
+}
 
-const sdkTarget = path.join(sdkRoot, "dist", "core", "sdk.js");
-let sdkCode = fs.readFileSync(sdkTarget, "utf8");
+const sdkIndex = fs.readFileSync(path.join(sdkRoot, "dist", "index.js"), "utf8");
+const expectedExportMarkers = [
+  "createAgentSession",
+  "createReadTool",
+  "createWriteTool",
+  "createEditTool",
+  "createBashTool",
+  "createGrepTool",
+  "createFindTool",
+  "createLsTool",
+  "parseSessionEntries",
+  "buildSessionContext",
+];
 
-if (sdkCode.includes("baseToolsOverride")) {
-  console.log("[patch-pi-sdk] patch 1 already applied, skipping");
-} else {
-  const needle = "        initialActiveToolNames,\n        extensionRunnerRef,";
-  const replacement =
-    "        initialActiveToolNames,\n" +
-    "        baseToolsOverride: options.tools\n" +
-    "            ? Object.fromEntries(options.tools.map(t => [t.name, t]))\n" +
-    "            : undefined,\n" +
-    "        extensionRunnerRef,";
-
-  if (!sdkCode.includes(needle)) {
-    console.error("[patch-pi-sdk] patch 1 needle not found — sdk.js structure changed");
-    process.exit(1);
+for (const marker of expectedExportMarkers) {
+  if (!sdkIndex.includes(marker)) {
+    fail(`expected SDK export marker not found: ${marker}`);
   }
-
-  sdkCode = sdkCode.replace(needle, replacement);
-  fs.writeFileSync(sdkTarget, sdkCode, "utf8");
-  console.log("[patch-pi-sdk] patch 1 applied: baseToolsOverride wired through");
 }
 
-// 验证 patch 1
-const verifiedSdk = fs.readFileSync(sdkTarget, "utf8");
-if (!verifiedSdk.includes("baseToolsOverride")) {
-  console.error("[patch-pi-sdk] patch 1 verification failed: baseToolsOverride not found after patching");
-  process.exit(1);
-}
-
-// ── 直接引用扫描 ──
-// 检测 lib/pi-sdk/ 之外是否有文件直接 import "@mariozechner/"
-
-const SCAN_DIRS = ["core", "server", "lib", "hub"].map(d => path.join(__dirname, "..", d));
-const ADAPTER_DIR = path.join(__dirname, "..", "lib", "pi-sdk");
-const SDK_PATTERN = /@mariozechner\//;
-let leaks = 0;
+const scanDirs = ["core", "server", "lib", "hub"].map(d => path.join(root, d));
+const adapterDir = path.join(root, "lib", "pi-sdk");
+const importPattern = /(?:from\s+["']@mariozechner\/|import\s*\(\s*["']@mariozechner\/|require\s*\(\s*["']@mariozechner\/)/;
+const leaks = [];
 
 function scanDir(dir) {
   if (!fs.existsSync(dir)) return;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (full === ADAPTER_DIR || entry.name === "node_modules") continue;
+      if (full === adapterDir || entry.name === "node_modules") continue;
       scanDir(full);
-    } else if (entry.name.endsWith(".js") || entry.name.endsWith(".mjs")) {
+    } else if (/\.(js|mjs|cjs)$/.test(entry.name)) {
       const content = fs.readFileSync(full, "utf8");
-      if (SDK_PATTERN.test(content)) {
-        console.warn(`[patch-pi-sdk] WARN: direct SDK reference in ${path.relative(path.join(__dirname, ".."), full)}`);
-        leaks++;
+      if (importPattern.test(content)) {
+        leaks.push(path.relative(root, full));
       }
     }
   }
 }
 
-for (const d of SCAN_DIRS) scanDir(d);
-if (leaks > 0) {
-  console.warn(`[patch-pi-sdk] ${leaks} file(s) bypass adapter — migrate to lib/pi-sdk/index.js`);
+for (const dir of scanDirs) scanDir(dir);
+
+if (leaks.length > 0) {
+  fail(`production files bypass lib/pi-sdk: ${leaks.join(", ")}`);
 }
 
-console.log("[patch-pi-sdk] all patches verified ✓");
+console.log("[verify-pi-sdk] all checks passed");

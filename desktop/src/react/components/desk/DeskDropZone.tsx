@@ -1,5 +1,5 @@
 /**
- * DeskDropZone — 书桌区域的拖放包装容器
+ * DeskDropZone — 工作空间区域的拖放包装容器
  */
 
 import { useCallback, useState } from 'react';

@@ -103,7 +103,20 @@ export class BridgeSessionManager {
   async abortSession(sessionKey) {
     const session = this._activeSessions.get(sessionKey);
     if (!session?.isStreaming) return false;
-    await session.abort();
+    this._activeSessions.delete(sessionKey);
+    try {
+      const abortPromise = session.abort?.();
+      Promise.resolve(abortPromise).catch((err) =>
+        console.warn(`[bridge-session] abortSession[${sessionKey}]: abort failed: ${err.message}`),
+      );
+    } catch (err) {
+      console.warn(`[bridge-session] abortSession[${sessionKey}]: abort failed: ${err.message}`);
+    }
+    try {
+      session.dispose?.();
+    } catch (err) {
+      console.warn(`[bridge-session] abortSession[${sessionKey}]: session.dispose failed: ${err.message}`);
+    }
     return true;
   }
 

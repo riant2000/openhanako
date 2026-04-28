@@ -99,6 +99,7 @@
     "user": "User",
     "me": "Me",
     "more": "More",
+    "remove": "Remove",
     "empty": "Empty",
     "edit": "Edit",
     "screenshot": "Screenshot",
@@ -141,6 +142,10 @@
     "selectFolder": "Select folder",
     "workspace": "Workspace: ",
     "selectWorkspace": "Select workspace",
+    "currentWorkspace": "This workspace",
+    "selectOtherFolder": "Choose another folder",
+    "extraFolders": "Extra folders",
+    "addExternalFolder": "Add folder outside workspace",
     "planMode": "Use computer",
     "deskContext": "With desk context",
     "pastedImage": "Pasted image",
@@ -1157,6 +1162,7 @@
   },
   "desk": {
     "title": "Desk",
+    "workspaceTitle": "Workspace",
     "skills": "Skills",
     "cwdSkills": "Project Skills",
     "cwdSkillsEmpty": "No project skills in this folder",
@@ -1174,6 +1180,7 @@
     "goToSettings": "Go to Settings",
     "fileLabel": "file",
     "openWithDefault": "Open with default app",
+    "refresh": "Refresh",
     "newFolder": "New Folder",
     "ctx": {
       "open": "Open",
@@ -1480,6 +1487,8 @@
       "serverStartTimeout": "Server start timed out (60s)",
       "serverKilledBySignal": "Server killed by signal ({signal})",
       "serverExitedWithCode": "Server exited with code {code}",
+      "serverFilesNotReady": "Auto-update just completed; new version files still landing on disk (missing {missing}). Waited {waited}s without success. Please restart Hanako shortly.",
+      "serverModuleMissing": "Server startup failed: cannot find module {module}.\nThis typically happens right after an auto-update, while new files are still being written to disk.\nRecommendation: wait 1-2 minutes and restart Hanako. Report on GitHub if it persists.",
       "installFailedTitle": "Hanako Update",
       "installFailedBody": "Update installation failed:\n{error}\n\nPlease restart Hanako and try again, or check for updates manually in Settings."
     },

@@ -148,6 +148,33 @@
     text-overflow: ellipsis;
 }
 
+.folderHistorySectionLabel {
+    padding: 4px 12px 2px;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    opacity: 0.78;
+}
+
+.folderHistoryRemove {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font: inherit;
+}
+
+.folderHistoryRemove:hover {
+    background: var(--overlay-subtle);
+    color: var(--accent);
+}
+
 .folderHistoryDivider {
     height: 1px;
     background: var(--border);

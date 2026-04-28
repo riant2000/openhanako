@@ -93,6 +93,47 @@ describe("sessions route", () => {
     expect(data.browserUrl).toBe("https://after.example.com"); // per-session URL
   });
 
+  it("passes workspaceFolders when creating a new session and returns the normalized scope", async () => {
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    const app = new Hono();
+    const cwd = path.join(tmpDir, "main");
+    const extra = path.join(tmpDir, "reference");
+
+    const engine = {
+      currentAgentId: "hana",
+      config: {},
+      cwd,
+      memoryEnabled: true,
+      planMode: false,
+      memoryModelUnavailableReason: null,
+      createSession: vi.fn(async () => ({ sessionPath: "/tmp/agents/hana/sessions/new.jsonl", agentId: "hana" })),
+      createSessionForAgent: vi.fn(),
+      persistSessionMeta: vi.fn(),
+      updateConfig: vi.fn(async (patch) => Object.assign(engine.config, patch)),
+      getAgent: vi.fn(() => ({ agentName: "Hana" })),
+      getSessionWorkspaceFolders: vi.fn(() => [extra]),
+    };
+
+    app.route("/api", createSessionsRoute(engine));
+
+    const res = await app.request("/api/sessions/new", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cwd, workspaceFolders: [extra] }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(engine.createSession).toHaveBeenCalledWith(
+      null,
+      cwd,
+      true,
+      undefined,
+      { workspaceFolders: [extra] },
+    );
+    expect(data.workspaceFolders).toEqual([extra]);
+  });
+
   it("infers subagent agent identity from child sessionPath when history details are missing", async () => {
     const { createSessionsRoute } = await import("../server/routes/sessions.js");
     const msgUtils = await import("../core/message-utils.js");

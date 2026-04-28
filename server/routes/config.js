@@ -11,6 +11,7 @@ import { debugLog } from "../../lib/debug-log.js";
 import { getRawConfig, clearConfigCache } from "../../lib/memory/config-loader.js";
 import { FactStore } from "../../lib/memory/fact-store.js";
 import { splitByScope, injectGlobalFields } from '../../shared/config-scope.js';
+import { mergeWorkspaceHistory, normalizeWorkspacePath } from "../../shared/workspace-history.js";
 import { resolveAgent, resolveAgentStrict, AgentNotFoundError } from "../utils/resolve-agent.js";
 import { formatSkillsForPrompt } from "../../lib/pi-sdk/index.js";
 import {
@@ -56,10 +57,28 @@ export function createConfigRoute(engine) {
       injectGlobalFields(config, engine);
       // cwd_history 过滤（agent-scope，但需要 existsSync 验证）
       if (Array.isArray(config.cwd_history)) {
-        config.cwd_history = config.cwd_history.filter(p => existsSync(p));
+        config.cwd_history = mergeWorkspaceHistory(
+          config.cwd_history.filter(p => typeof p === "string" && existsSync(p)),
+          [],
+        );
       }
 
       return c.json(config);
+    } catch (err) {
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  route.post("/config/workspaces/recent", async (c) => {
+    try {
+      const body = await safeJson(c);
+      const folder = normalizeWorkspacePath(body?.path);
+      if (!folder) return c.json({ error: "path must be a non-empty string" }, 400);
+      const stat = await fs.stat(folder).catch(() => null);
+      if (!stat?.isDirectory()) return c.json({ error: "path must be an existing directory" }, 400);
+      const cwdHistory = mergeWorkspaceHistory(engine.config.cwd_history, [folder]);
+      await engine.updateConfig({ cwd_history: cwdHistory });
+      return c.json({ ok: true, cwd_history: cwdHistory });
     } catch (err) {
       return c.json({ error: err.message }, 500);
     }

@@ -3,13 +3,15 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 
-const { createAgentSessionMock, sessionManagerCreateMock } = vi.hoisted(() => ({
+const { createAgentSessionMock, sessionManagerCreateMock, emitSessionShutdownMock } = vi.hoisted(() => ({
   createAgentSessionMock: vi.fn(),
   sessionManagerCreateMock: vi.fn(),
+  emitSessionShutdownMock: vi.fn(),
 }));
 
 vi.mock("../lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
+  emitSessionShutdown: emitSessionShutdownMock,
   SessionManager: {
     create: sessionManagerCreateMock,
     open: vi.fn(),
@@ -36,6 +38,7 @@ describe("SessionCoordinator", () => {
     vi.clearAllMocks();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-session-coordinator-"));
     sessionManagerCreateMock.mockReturnValue({ getCwd: () => "/tmp/workspace" });
+    emitSessionShutdownMock.mockResolvedValue(false);
     createAgentSessionMock.mockResolvedValue({
       session: {
         sessionManager: { getSessionFile: () => "/tmp/session.jsonl" },
@@ -93,6 +96,137 @@ describe("SessionCoordinator", () => {
     expect(agent.setMemoryEnabled).toHaveBeenCalledWith(false);
     expect(createAgentSessionMock).toHaveBeenCalledOnce();
     expect(createAgentSessionMock.mock.calls[0][0].resourceLoader.getSystemPrompt()).toBe("MEMORY OFF");
+  });
+
+  it("builds session tools with sandbox workspace pinned to the effective cwd", async () => {
+    const agent = {
+      id: "hana",
+      agentDir: path.join(tempDir, "agents", "hana"),
+      sessionDir: path.join(tempDir, "agents", "hana", "sessions"),
+      sessionMemoryEnabled: true,
+      memoryMasterEnabled: true,
+      setMemoryEnabled: vi.fn(),
+      buildSystemPrompt: () => "BASE",
+      tools: [{ name: "write" }],
+    };
+    const buildTools = vi.fn((_cwd, customTools) => ({ tools: [], customTools }));
+    const homeCwd = path.join(tempDir, "agent-home");
+    const sessionCwd = path.join(tempDir, "session-cwd");
+
+    const coordinator = new SessionCoordinator({
+      agentsDir: path.join(tempDir, "agents"),
+      getAgent: () => agent,
+      getActiveAgentId: () => "hana",
+      getModels: () => ({
+        currentModel: { name: "test-model" },
+        authStorage: {},
+        modelRegistry: {},
+        resolveThinkingLevel: () => "medium",
+      }),
+      getResourceLoader: () => ({
+        getSystemPrompt: () => "BASE",
+        getAppendSystemPrompt: () => [],
+        getExtensions: () => ({ extensions: [], errors: [] }),
+      }),
+      getSkills: () => null,
+      buildTools,
+      emitEvent: () => {},
+      getHomeCwd: () => homeCwd,
+      agentIdFromSessionPath: () => null,
+      switchAgentOnly: async () => {},
+      getConfig: () => ({}),
+      getPrefs: () => ({ getThinkingLevel: () => "medium" }),
+      getAgents: () => new Map(),
+      getActivityStore: () => null,
+      getAgentById: () => agent,
+      listAgents: () => [],
+    });
+
+    await coordinator.createSession(null, sessionCwd, true);
+
+    expect(buildTools).toHaveBeenCalledWith(
+      sessionCwd,
+      agent.tools,
+      expect.objectContaining({
+        agentDir: agent.agentDir,
+        workspace: sessionCwd,
+      }),
+    );
+  });
+
+  it("threads extra workspace folders into tools, prompt context, and session meta", async () => {
+    const sessionFile = path.join(tempDir, "agents", "hana", "sessions", "scope.jsonl");
+    const agent = {
+      id: "hana",
+      agentDir: path.join(tempDir, "agents", "hana"),
+      sessionDir: path.join(tempDir, "agents", "hana", "sessions"),
+      sessionMemoryEnabled: true,
+      memoryMasterEnabled: true,
+      config: { locale: "zh-CN" },
+      setMemoryEnabled: vi.fn(),
+      buildSystemPrompt: () => "BASE",
+      tools: [{ name: "read" }],
+    };
+    fs.mkdirSync(agent.sessionDir, { recursive: true });
+    createAgentSessionMock.mockResolvedValueOnce({
+      session: {
+        sessionManager: { getSessionFile: () => sessionFile },
+        subscribe: vi.fn(() => vi.fn()),
+        setActiveToolsByName: vi.fn(),
+      },
+    });
+    const buildTools = vi.fn((_cwd, customTools) => ({ tools: [], customTools }));
+    const sessionCwd = path.join(tempDir, "main-workspace");
+    const extra = path.join(tempDir, "reference");
+
+    const coordinator = new SessionCoordinator({
+      agentsDir: path.join(tempDir, "agents"),
+      getAgent: () => agent,
+      getActiveAgentId: () => "hana",
+      getModels: () => ({
+        currentModel: { name: "test-model" },
+        authStorage: {},
+        modelRegistry: {},
+        resolveThinkingLevel: () => "medium",
+      }),
+      getResourceLoader: () => ({
+        getSystemPrompt: () => "BASE",
+        getAppendSystemPrompt: () => [],
+        getExtensions: () => ({ extensions: [], errors: [] }),
+      }),
+      getSkills: () => null,
+      buildTools,
+      emitEvent: () => {},
+      getHomeCwd: () => sessionCwd,
+      agentIdFromSessionPath: () => "hana",
+      switchAgentOnly: async () => {},
+      getConfig: () => ({}),
+      getPrefs: () => ({ getThinkingLevel: () => "medium" }),
+      getAgents: () => new Map(),
+      getActivityStore: () => null,
+      getAgentById: () => agent,
+      listAgents: () => [],
+    });
+
+    await coordinator.createSession(null, sessionCwd, true, null, {
+      workspaceFolders: [extra, sessionCwd, extra],
+    });
+
+    expect(buildTools).toHaveBeenCalledWith(
+      sessionCwd,
+      agent.tools,
+      expect.objectContaining({
+        workspace: sessionCwd,
+        workspaceFolders: [extra],
+      }),
+    );
+    const appendPrompt = createAgentSessionMock.mock.calls[0][0].resourceLoader.getAppendSystemPrompt();
+    expect(appendPrompt.join("\n")).toContain("额外文件夹");
+    expect(appendPrompt.join("\n")).toContain(extra);
+
+    const meta = JSON.parse(fs.readFileSync(path.join(agent.sessionDir, "session-meta.json"), "utf-8"));
+    expect(meta[path.basename(sessionFile)].workspaceFolders).toEqual([extra]);
+    expect(coordinator.getSessionWorkspaceFolders(sessionFile)).toEqual([extra]);
   });
 
   it("fresh session freezes the effective memory state into meta for cache safety", async () => {
@@ -232,6 +366,69 @@ describe("SessionCoordinator", () => {
     expect(fs.existsSync(sessionFile)).toBe(false);
   });
 
+  it("releases a streaming session immediately when the provider abort never settles", async () => {
+    const sessionFile = path.join(tempDir, "stuck-stream.jsonl");
+    const emitEvent = vi.fn();
+    const unsubscribe = vi.fn();
+    const dispose = vi.fn();
+    const abort = vi.fn(() => new Promise(() => {}));
+    const stuckSession = {
+      isStreaming: true,
+      sessionManager: { getSessionFile: () => sessionFile },
+      abort,
+      dispose,
+      extensionRunner: null,
+    };
+
+    const coordinator = new SessionCoordinator({
+      agentsDir: tempDir,
+      getAgent: () => ({
+        id: "hana",
+        agentDir: tempDir,
+        sessionDir: tempDir,
+        _memoryTicker: { notifySessionEnd: vi.fn(() => Promise.resolve()) },
+      }),
+      getActiveAgentId: () => "hana",
+      getModels: () => ({ authStorage: {}, modelRegistry: {}, resolveThinkingLevel: () => "medium" }),
+      getResourceLoader: () => ({ getSystemPrompt: () => "prompt" }),
+      getSkills: () => null,
+      buildTools: () => ({ tools: [], customTools: [] }),
+      emitEvent,
+      getHomeCwd: () => tempDir,
+      agentIdFromSessionPath: () => "hana",
+      switchAgentOnly: async () => {},
+      getConfig: () => ({}),
+      getPrefs: () => ({ getThinkingLevel: () => "medium" }),
+      getAgents: () => new Map(),
+      getActivityStore: () => null,
+      getAgentById: () => null,
+      listAgents: () => [],
+    });
+    coordinator.sessions.set(sessionFile, {
+      session: stuckSession,
+      agentId: "hana",
+      lastTouchedAt: Date.now(),
+      unsub: unsubscribe,
+    });
+    coordinator._session = stuckSession;
+
+    const result = await Promise.race([
+      coordinator.abortSession(sessionFile),
+      new Promise((resolve) => setTimeout(() => resolve("timeout"), 25)),
+    ]);
+
+    expect(result).toBe(true);
+    expect(abort).toHaveBeenCalledOnce();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalled();
+    expect(coordinator.isSessionStreaming(sessionFile)).toBe(false);
+    expect(coordinator.session).toBeNull();
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "session_status", isStreaming: false, aborted: true }),
+      sessionFile,
+    );
+  });
+
   it("executeIsolated builds non-session tools from the master memory switch, not the focused session switch", async () => {
     const sessionFile = path.join(tempDir, "isolated-master-tools.jsonl");
     const builtinTool = { name: "read" };
@@ -305,6 +502,73 @@ describe("SessionCoordinator", () => {
       "search_memory",
     ]);
     expect(createAgentSessionMock.mock.calls[0][0].customTools.map((tool) => tool.name)).toContain("search_memory");
+  });
+
+  it("executeIsolated builds sandboxed tools against the inherited execution cwd", async () => {
+    const sessionFile = path.join(tempDir, "isolated-cwd-tools.jsonl");
+    const buildTools = vi.fn((_cwd, customTools) => ({ tools: [], customTools }));
+    const homeCwd = path.join(tempDir, "agent-home");
+    const inheritedCwd = path.join(tempDir, "inherited-session-cwd");
+    const agent = {
+      id: "hana",
+      agentDir: path.join(tempDir, "agents", "hana"),
+      sessionDir: path.join(tempDir, "agents", "hana", "sessions"),
+      agentName: "hana",
+      memoryMasterEnabled: true,
+      config: { models: { chat: { id: "default-model", provider: "test" } } },
+      tools: [{ name: "write" }],
+    };
+
+    sessionManagerCreateMock.mockReturnValue({
+      getCwd: () => inheritedCwd,
+      getSessionFile: () => sessionFile,
+    });
+    createAgentSessionMock.mockResolvedValue({
+      session: {
+        sessionManager: { getSessionFile: () => sessionFile },
+        subscribe: vi.fn(() => vi.fn()),
+        prompt: vi.fn(async () => {}),
+        abort: vi.fn(),
+      },
+    });
+
+    const coordinator = new SessionCoordinator({
+      agentsDir: path.join(tempDir, "agents"),
+      getAgent: () => agent,
+      getActiveAgentId: () => "hana",
+      getModels: () => ({
+        authStorage: {},
+        modelRegistry: {},
+        defaultModel: { id: "default-model", provider: "test" },
+        availableModels: [{ id: "default-model", provider: "test" }],
+        resolveExecutionModel: (model) => model,
+        resolveThinkingLevel: () => "medium",
+      }),
+      getResourceLoader: () => ({ getSystemPrompt: () => "prompt" }),
+      getSkills: () => ({ getSkillsForAgent: () => [] }),
+      buildTools,
+      emitEvent: () => {},
+      getHomeCwd: () => homeCwd,
+      agentIdFromSessionPath: () => null,
+      switchAgentOnly: async () => {},
+      getConfig: () => ({}),
+      getPrefs: () => ({ getThinkingLevel: () => "medium" }),
+      getAgents: () => new Map(),
+      getActivityStore: () => null,
+      getAgentById: () => agent,
+      listAgents: () => [],
+    });
+
+    await coordinator.executeIsolated("background check", { cwd: inheritedCwd });
+
+    expect(buildTools).toHaveBeenCalledWith(
+      inheritedCwd,
+      agent.tools,
+      expect.objectContaining({
+        agentDir: agent.agentDir,
+        workspace: inheritedCwd,
+      }),
+    );
   });
 
   it("switchSession 拒绝 subagent-sessions/activity/.ephemeral 等旁路路径", async () => {

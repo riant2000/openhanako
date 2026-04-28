@@ -104,7 +104,7 @@ describe('parseUserAttachments', () => {
     expect(result.files[0].isDirectory).toBe(false);
   });
 
-  it('解析书桌上下文', () => {
+  it('解析旧版书桌上下文兼容格式', () => {
     const input = '[当前书桌目录] /home/user/desk\n  file1.txt\n  file2.txt\nSome text';
     const result = parseUserAttachments(input);
     expect(result.deskContext).not.toBeNull();

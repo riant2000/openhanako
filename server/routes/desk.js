@@ -8,7 +8,6 @@
 
 import fs from "fs";
 import path from "path";
-import os from "os";
 import { execSync, execFileSync } from "child_process";
 import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
@@ -34,18 +33,28 @@ function isInsidePath(target, baseDir) {
 
 /** 校验 dir 覆盖：仅允许 engine 已知的根目录（解析 symlink 后比较） */
 function isApprovedDir(dir, engine) {
+  if (typeof engine.isApprovedDeskDir === "function") {
+    return engine.isApprovedDeskDir(dir);
+  }
   const approved = [
     engine.deskCwd,
     engine.homeCwd,
-    os.homedir(),
+    ...(Array.isArray(engine.config?.cwd_history) ? engine.config.cwd_history : []),
   ].filter(Boolean);
   const resolved = realPath(dir);
   if (!resolved) return false;
+  if (typeof engine.isApprovedWorkspaceDir === "function" && engine.isApprovedWorkspaceDir(dir)) {
+    return true;
+  }
   return approved.some(root => {
     const r = realPath(root);
     if (!r) return false;
     return resolved === r || resolved.startsWith(r + path.sep);
   });
+}
+
+function defaultDeskDir(engine) {
+  return engine.defaultDeskCwd || engine.homeCwd || engine.deskCwd;
 }
 
 /** 列出工作空间目录下的文件（异步） */
@@ -295,7 +304,7 @@ export function createDeskRoute(engine, hub) {
 
   /** 扫描工作空间下的项目级技能 */
   route.get("/desk/skills", async (c) => {
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
     if (!dir) return c.json({ skills: [] });
     if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ skills: [] });
 
@@ -334,7 +343,7 @@ export function createDeskRoute(engine, hub) {
   route.post("/desk/install-skill", async (c) => {
     const body = await safeJson(c);
     const { filePath, dir } = body;
-    const cwd = dir || engine.deskCwd;
+    const cwd = dir || defaultDeskDir(engine);
     if (!filePath || !cwd) {
       return c.json({ error: "filePath and active workspace required" }, 400);
     }
@@ -408,7 +417,7 @@ export function createDeskRoute(engine, hub) {
       return c.json({ error: "skillDir is required" }, 400);
     }
     // 安全检查：必须在当前工作区的已知技能目录下
-    const cwd = engine.deskCwd;
+    const cwd = defaultDeskDir(engine);
     if (!cwd) {
       return c.json({ error: "No active workspace" }, 400);
     }
@@ -432,7 +441,7 @@ export function createDeskRoute(engine, hub) {
 
   /** 工作空间路径 */
   route.get("/desk/path", async (c) => {
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
     if (!dir) return c.json({ path: null });
     if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
     fs.mkdirSync(dir, { recursive: true });
@@ -441,7 +450,7 @@ export function createDeskRoute(engine, hub) {
 
   /** 列出工作空间文件（支持 ?subdir=xxx 浏览子目录, ?dir=xxx 覆盖基目录） */
   route.get("/desk/files", async (c) => {
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
     if (!dir) return c.json({ files: [], subdir: "", basePath: null });
     if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
     const subdir = c.req.query("subdir") || "";
@@ -456,7 +465,7 @@ export function createDeskRoute(engine, hub) {
 
   /** 读取指定目录的 jian.md */
   route.get("/desk/jian", async (c) => {
-    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : defaultDeskDir(engine);
     if (!dir) return c.json({ content: null });
     if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
     const subdir = c.req.query("subdir") || "";
@@ -477,7 +486,7 @@ export function createDeskRoute(engine, hub) {
   /** 保存指定目录的 jian.md（自动创建 / 内容为空时删除） */
   route.post("/desk/jian", async (c) => {
     const body = await safeJson(c);
-    const dir = body.dir ? body.dir : engine.deskCwd;
+    const dir = body.dir ? body.dir : defaultDeskDir(engine);
     if (!dir) return c.json({ error: t("error.noWorkspace") });
     if (body.dir && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
     const { subdir, content } = body;
@@ -507,7 +516,7 @@ export function createDeskRoute(engine, hub) {
   /** 工作空间文件操作（支持 subdir + dir override） */
   route.post("/desk/files", async (c) => {
     const body = await safeJson(c);
-    const baseDir = body.dir || engine.deskCwd;
+    const baseDir = body.dir || defaultDeskDir(engine);
     if (!baseDir) return c.json({ error: t("error.noWorkspace") });
     if (body.dir && !isApprovedDir(baseDir, engine)) return c.json({ error: t("error.dirNotAllowed") });
     fs.mkdirSync(baseDir, { recursive: true });

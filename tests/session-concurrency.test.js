@@ -18,16 +18,23 @@ const { createAgentSessionMock, sessionManagerCreateMock } = vi.hoisted(() => ({
   sessionManagerCreateMock: vi.fn(),
 }));
 
-vi.mock("../lib/pi-sdk/index.js", () => ({
-  createAgentSession: createAgentSessionMock,
-  SessionManager: {
-    create: sessionManagerCreateMock,
-    open: vi.fn(),
-  },
-  SettingsManager: {
-    inMemory: vi.fn(() => ({})),
-  },
-}));
+vi.mock("../lib/pi-sdk/index.js", async () => {
+  const { Type } = await import("typebox");
+  const { StringEnum } = await import("@mariozechner/pi-ai");
+  return {
+    createAgentSession: createAgentSessionMock,
+    SessionManager: {
+      create: sessionManagerCreateMock,
+      open: vi.fn(),
+    },
+    SettingsManager: {
+      inMemory: vi.fn(() => ({})),
+    },
+    Type,
+    StringEnum,
+    PI_BUILTIN_TOOL_NAMES: Object.freeze(["read", "write", "edit", "bash", "grep", "find", "ls"]),
+  };
+});
 
 vi.mock("../lib/debug-log.js", () => ({
   createModuleLogger: () => ({

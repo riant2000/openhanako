@@ -39,6 +39,10 @@ interface WarningProps {
   children: React.ReactNode;
 }
 
+function Note({ children }: WarningProps) {
+  return <div className={styles.sectionNote}>{children}</div>;
+}
+
 function Warning({ children }: WarningProps) {
   return <div className={styles.sectionWarning}>{children}</div>;
 }
@@ -69,6 +73,7 @@ function SettingsSectionBase({ title, context, variant = 'default', children, cl
 
 export const SettingsSection = Object.assign(SettingsSectionBase, {
   Footer,
+  Note,
   SubBlock,
   Warning,
 });

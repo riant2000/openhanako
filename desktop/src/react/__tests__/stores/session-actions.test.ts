@@ -10,6 +10,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type MockState = Record<string, unknown>;
 
+const deskActionMocks = vi.hoisted(() => ({
+  loadDeskFiles: vi.fn(),
+  activateWorkspaceDesk: vi.fn(),
+}));
+
 const mockState: MockState = {};
 const initialStateFactory = (): MockState => ({
   currentSessionPath: null,
@@ -42,7 +47,11 @@ const initialStateFactory = (): MockState => ({
   deskCurrentPath: '',
   deskFiles: [] as unknown[],
   deskJianContent: null,
+  workspaceDeskStateByRoot: {} as Record<string, unknown>,
+  homeFolder: null,
   selectedFolder: null,
+  workspaceFolders: [] as string[],
+  cwdHistory: [] as string[],
   selectedAgentId: null,
 });
 
@@ -89,7 +98,8 @@ vi.mock('../../stores/agent-actions', () => ({
 }));
 
 vi.mock('../../stores/desk-actions', () => ({
-  loadDeskFiles: vi.fn(),
+  loadDeskFiles: deskActionMocks.loadDeskFiles,
+  activateWorkspaceDesk: deskActionMocks.activateWorkspaceDesk,
 }));
 
 vi.mock('../../stores/create-keyed-slice', () => ({
@@ -171,18 +181,13 @@ function installStoreMethods() {
   s.setDeskCurrentPath = vi.fn((path: string) => { mockState.deskCurrentPath = path; });
   s.setDeskFiles = vi.fn((files: unknown[]) => { mockState.deskFiles = files; });
   s.setDeskJianContent = vi.fn((content: string | null) => { mockState.deskJianContent = content; });
-  s.getDeskStateForOwner = vi.fn((owner: string) => {
-    const states = (mockState.deskStateByOwner as Record<string, unknown>) || {};
-    return states[owner] || null;
-  });
-  s.restoreDeskStateForOwner = vi.fn();
 }
 
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { clearChat } from '../../stores/agent-actions';
 import { loadDeskFiles } from '../../stores/desk-actions';
 import { bumpMessageLiveVersion, clearMessageLiveVersion } from '../../stores/message-live-version';
-import { archiveSession, loadMessages, switchSession } from '../../stores/session-actions';
+import { archiveSession, createNewSession, ensureSession, loadMessages, switchSession } from '../../stores/session-actions';
 import { snapshotStreamBuffer } from '../../stores/stream-invalidator';
 
 const mockFetch = vi.mocked(hanaFetch);
@@ -198,15 +203,128 @@ describe('session-actions', () => {
   beforeEach(() => {
     Object.keys(mockState).forEach(k => delete mockState[k]);
     Object.assign(mockState, initialStateFactory());
-    Object.assign(mockState, { deskStateByOwner: {} as Record<string, unknown> });
+    Object.assign(mockState, { workspaceDeskStateByRoot: {} as Record<string, unknown> });
     installStoreMethods();
     mockFetch.mockReset();
     mockClearChat.mockReset();
     mockLoadDeskFiles.mockReset();
+    deskActionMocks.activateWorkspaceDesk.mockReset();
+    deskActionMocks.activateWorkspaceDesk.mockImplementation(async (root?: string | null) => {
+      const normalized = root || '';
+      const currentRoot = (mockState.deskBasePath as string) || '';
+      const states = mockState.workspaceDeskStateByRoot as Record<string, any>;
+      if (currentRoot) {
+        states[currentRoot] = {
+          deskCurrentPath: (mockState.deskCurrentPath as string) || '',
+          deskFiles: mockState.deskFiles,
+          deskJianContent: mockState.deskJianContent,
+          cwdSkills: [],
+          cwdSkillsOpen: false,
+          previewOpen: false,
+          openTabs: [],
+          activeTabId: null,
+        };
+      }
+      if (!normalized) {
+        mockState.deskBasePath = '';
+        mockState.deskCurrentPath = '';
+        mockState.deskFiles = [];
+        mockState.deskJianContent = null;
+        return;
+      }
+      const saved = states[normalized] || null;
+      const nextSubdir = currentRoot === normalized
+        ? ((mockState.deskCurrentPath as string) || '')
+        : (saved?.deskCurrentPath || '');
+      mockState.deskBasePath = normalized;
+      mockState.deskCurrentPath = nextSubdir;
+      mockState.deskFiles = [];
+      mockState.deskJianContent = null;
+      deskActionMocks.loadDeskFiles(nextSubdir, normalized);
+    });
     mockSnapshot.mockReset();
     mockSnapshot.mockReturnValue(null);
     clearMessageLiveVersion();
     dispatchedEvents.length = 0;
+  });
+
+  describe('createNewSession cwd draft', () => {
+    it('uses the agent home folder and refreshes the visible desk root', async () => {
+      (mockState as Record<string, unknown>).deskBasePath = '/workspace/Desktop';
+      (mockState as Record<string, unknown>).deskCurrentPath = 'old/subdir';
+      (mockState as Record<string, unknown>).deskFiles = [{ name: 'stale.md' }];
+      (mockState as Record<string, unknown>).deskJianContent = 'stale';
+      (mockState as Record<string, unknown>).homeFolder = '/workspace/AgentHome';
+
+      await createNewSession();
+
+      expect(mockState.selectedFolder).toBe('/workspace/AgentHome');
+      expect(mockState.pendingNewSession).toBe(true);
+      expect(mockState.deskBasePath).toBe('/workspace/AgentHome');
+      expect(mockState.deskCurrentPath).toBe('');
+      expect(mockState.deskFiles).toEqual([]);
+      expect(mockState.deskJianContent).toBeNull();
+      expect(mockLoadDeskFiles).toHaveBeenCalledWith('', '/workspace/AgentHome');
+    });
+
+    it('invalidates an in-flight session switch so the new-session desk stays on the agent home folder', async () => {
+      (mockState as Record<string, unknown>).currentSessionPath = '/session/hana.jsonl';
+      (mockState as Record<string, unknown>).deskBasePath = '/workspace/Desktop/project-hana';
+      (mockState as Record<string, unknown>).homeFolder = '/workspace/Desktop/project-hana';
+
+      let resolveSwitch!: (r: Response) => void;
+      const switchResponse = new Promise<Response>(resolve => { resolveSwitch = resolve; });
+      mockFetch.mockImplementationOnce(() => switchResponse);
+
+      const switching = switchSession('/session/desktop.jsonl');
+      await createNewSession();
+
+      resolveSwitch(jsonResponse({
+        ok: true,
+        path: '/session/desktop.jsonl',
+        cwd: '/workspace/Desktop',
+        workspaceFolders: [],
+      }));
+      await switching;
+
+      expect(mockState.currentSessionPath).toBeNull();
+      expect(mockState.pendingNewSession).toBe(true);
+      expect(mockState.selectedFolder).toBe('/workspace/Desktop/project-hana');
+      expect(mockState.deskBasePath).toBe('/workspace/Desktop/project-hana');
+      expect(deskActionMocks.activateWorkspaceDesk).not.toHaveBeenCalledWith('/workspace/Desktop');
+    });
+
+    it('sends extra workspace folders when creating a pending session', async () => {
+      Object.assign(mockState, {
+        pendingNewSession: true,
+        memoryEnabled: true,
+        selectedFolder: '/workspace-a',
+        workspaceFolders: ['/reference-a'],
+      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        ok: true,
+        path: '/session/new.jsonl',
+        cwd: '/workspace-a',
+        workspaceFolders: ['/reference-a'],
+      }));
+      mockFetch.mockResolvedValueOnce(jsonResponse([]));
+
+      await expect(ensureSession()).resolves.toBe(true);
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/sessions/new',
+        expect.objectContaining({
+          body: JSON.stringify({
+            memoryEnabled: true,
+            cwd: '/workspace-a',
+            workspaceFolders: ['/reference-a'],
+            currentSessionPath: null,
+          }),
+        }),
+      );
+      expect(mockState.workspaceFolders).toEqual(['/reference-a']);
+    });
   });
 
   describe('loadMessages 竞态护栏', () => {
@@ -400,7 +518,7 @@ describe('session-actions', () => {
       expect(calls.filter(u => u.startsWith('/api/sessions/messages'))).toHaveLength(0);
     });
 
-    it('切 session 时重置书桌到目标 cwd 根目录，不携带旧 deskCurrentPath', async () => {
+    it('切 session 时激活目标 cwd 的工作空间面板，不携带旧 deskCurrentPath', async () => {
       (mockState as Record<string, unknown>).deskCurrentPath = 'notes/daily';
       (mockState as Record<string, unknown>).deskBasePath = '/workspace-old';
       (mockState as Record<string, unknown>).deskFiles = [{ name: 'stale.md' }];
@@ -419,10 +537,6 @@ describe('session-actions', () => {
 
       await switchSession('/a');
 
-      const restoreDeskStateForOwnerMock = (mockState as unknown as {
-        restoreDeskStateForOwner: ReturnType<typeof vi.fn>;
-      }).restoreDeskStateForOwner;
-      expect(restoreDeskStateForOwnerMock).not.toHaveBeenCalled();
       expect(mockState.deskBasePath).toBe('/workspace-a');
       expect(mockState.deskCurrentPath).toBe('');
       expect(mockState.deskFiles).toEqual([]);
@@ -445,6 +559,53 @@ describe('session-actions', () => {
       }));
       mockFetch.mockResolvedValueOnce(jsonResponse({
         messages: [{ text: 'history' }], blocks: [], todos: [], hasMore: false,
+      }));
+
+      await switchSession('/a');
+
+      expect(mockState.deskBasePath).toBe('/workspace-a');
+      expect(mockState.deskCurrentPath).toBe('notes/daily');
+      expect(mockState.deskFiles).toEqual([]);
+      expect(mockState.deskJianContent).toBeNull();
+      expect(mockLoadDeskFiles).toHaveBeenCalledWith('notes/daily', '/workspace-a');
+    });
+
+    it('恢复切回 workspace 时该 workspace 上次打开的 desk 子目录', async () => {
+      (mockState as Record<string, unknown>).deskCurrentPath = 'notes/daily';
+      (mockState as Record<string, unknown>).deskBasePath = '/workspace-a';
+      (mockState as Record<string, unknown>).deskFiles = [{ name: 'stale-a.md' }];
+      (mockState as Record<string, unknown>).deskJianContent = 'stale-a';
+
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        agentId: null,
+        cwd: '/workspace-b',
+        currentModelId: null,
+        currentModelName: null,
+        currentModelProvider: null,
+      }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        messages: [{ text: 'workspace b' }], blocks: [], todos: [], hasMore: false,
+      }));
+
+      await switchSession('/b');
+
+      expect(mockState.deskBasePath).toBe('/workspace-b');
+      expect(mockState.deskCurrentPath).toBe('');
+
+      (mockState as Record<string, unknown>).deskCurrentPath = 'src';
+      (mockState as Record<string, unknown>).deskFiles = [{ name: 'stale-b.md' }];
+      (mockState as Record<string, unknown>).deskJianContent = 'stale-b';
+
+      mockLoadDeskFiles.mockClear();
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        agentId: null,
+        cwd: '/workspace-a',
+        currentModelId: null,
+        currentModelName: null,
+        currentModelProvider: null,
+      }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        messages: [{ text: 'workspace a' }], blocks: [], todos: [], hasMore: false,
       }));
 
       await switchSession('/a');

@@ -98,6 +98,7 @@
     "user": "사용자",
     "me": "나",
     "more": "더보기",
+    "remove": "제거",
     "empty": "비어 있음",
     "edit": "편집",
     "screenshot": "스크린샷",
@@ -140,6 +141,10 @@
     "selectFolder": "폴더 선택",
     "workspace": "작업 공간: ",
     "selectWorkspace": "작업 공간 선택",
+    "currentWorkspace": "이번 작업 공간",
+    "selectOtherFolder": "다른 폴더 선택",
+    "extraFolders": "추가 폴더",
+    "addExternalFolder": "작업 공간 외부 폴더 추가",
     "planMode": "컴퓨터 사용",
     "deskContext": "책상 컨텍스트 포함",
     "pastedImage": "붙여넣은 이미지",
@@ -1111,6 +1116,7 @@
   },
   "desk": {
     "title": "책상",
+    "workspaceTitle": "작업 공간",
     "skills": "스킬",
     "cwdSkills": "프로젝트 스킬",
     "cwdSkillsEmpty": "이 폴더에는 프로젝트 스킬이 없어요",
@@ -1128,6 +1134,7 @@
     "goToSettings": "설정으로 이동",
     "fileLabel": "파일",
     "openWithDefault": "기본 앱으로 열기",
+    "refresh": "새로고침",
     "newFolder": "새 폴더",
     "ctx": {
       "open": "열기",
@@ -1432,7 +1439,9 @@
       "serverMultipleCrash": "Hanako v{version}\n\nServer가 여러 번 충돌했어요 ({reason}).\n\n앱을 다시 시작해 주세요.",
       "serverStartTimeout": "Server 시작 시간 초과 (60초)",
       "serverKilledBySignal": "Server가 시그널로 종료되었어요 ({signal})",
-      "serverExitedWithCode": "Server가 종료되었어요. 코드: {code}"
+      "serverExitedWithCode": "Server가 종료되었어요. 코드: {code}",
+      "serverFilesNotReady": "자동 업데이트가 방금 완료되었고, 새 버전 파일이 아직 디스크에 쓰이고 있어요 ({missing} 없음). {waited}초 동안 기다렸지만 준비되지 않았어요. 잠시 후 Hanako를 다시 시작해 주세요.",
+      "serverModuleMissing": "Server 시작 실패: 모듈 {module}을(를) 찾을 수 없어요.\n자동 업데이트가 완료된 직후 파일이 아직 디스크에 쓰이는 중일 때 자주 발생해요.\n권장: 1-2분 기다린 후 Hanako를 다시 시작해 주세요. 반복되면 GitHub에 신고해 주세요."
     },
     "notification": {
       "ready": "알림이 준비되었어요"

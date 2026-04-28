@@ -8,6 +8,17 @@ export interface CwdSkillInfo {
   baseDir: string;
 }
 
+export interface WorkspaceDeskState {
+  deskCurrentPath: string;
+  deskFiles: DeskFile[];
+  deskJianContent: string | null;
+  cwdSkills: CwdSkillInfo[];
+  cwdSkillsOpen: boolean;
+  previewOpen: boolean;
+  openTabs: string[];
+  activeTabId: string | null;
+}
+
 export interface DeskSlice {
   deskFiles: DeskFile[];
   deskBasePath: string;
@@ -17,7 +28,9 @@ export interface DeskSlice {
   cwdSkillsOpen: boolean;
   homeFolder: string | null;
   selectedFolder: string | null;
+  workspaceFolders: string[];
   cwdHistory: string[];
+  workspaceDeskStateByRoot: Record<string, WorkspaceDeskState>;
   setCwdSkills: (skills: CwdSkillInfo[]) => void;
   setCwdSkillsOpen: (open: boolean) => void;
   toggleCwdSkillsOpen: () => void;
@@ -27,7 +40,9 @@ export interface DeskSlice {
   setDeskJianContent: (content: string | null) => void;
   setHomeFolder: (folder: string | null) => void;
   setSelectedFolder: (folder: string | null) => void;
+  setWorkspaceFolders: (folders: string[]) => void;
   setCwdHistory: (history: string[]) => void;
+  setWorkspaceDeskState: (root: string, state: WorkspaceDeskState) => void;
 }
 
 export const createDeskSlice = (
@@ -41,7 +56,9 @@ export const createDeskSlice = (
   cwdSkillsOpen: false,
   homeFolder: null,
   selectedFolder: null,
+  workspaceFolders: [],
   cwdHistory: [],
+  workspaceDeskStateByRoot: {},
   setCwdSkills: (skills) => set({ cwdSkills: skills }),
   setCwdSkillsOpen: (open) => set({ cwdSkillsOpen: open }),
   toggleCwdSkillsOpen: () => set((s) => ({ cwdSkillsOpen: !s.cwdSkillsOpen })),
@@ -51,5 +68,12 @@ export const createDeskSlice = (
   setDeskJianContent: (content) => set({ deskJianContent: content }),
   setHomeFolder: (folder) => set({ homeFolder: folder }),
   setSelectedFolder: (folder) => set({ selectedFolder: folder }),
+  setWorkspaceFolders: (folders) => set({ workspaceFolders: folders }),
   setCwdHistory: (history) => set({ cwdHistory: history }),
+  setWorkspaceDeskState: (root, state) => set((s) => ({
+    workspaceDeskStateByRoot: {
+      ...s.workspaceDeskStateByRoot,
+      [root]: state,
+    },
+  })),
 });

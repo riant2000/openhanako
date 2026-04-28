@@ -98,6 +98,7 @@
     "user": "ユーザー",
     "me": "自分",
     "more": "もっと見る",
+    "remove": "削除",
     "empty": "空",
     "edit": "編集",
     "screenshot": "スクリーンショット",
@@ -140,6 +141,10 @@
     "selectFolder": "フォルダを選択",
     "workspace": "ワークスペース：",
     "selectWorkspace": "ワークスペースを選択",
+    "currentWorkspace": "今回のワークスペース",
+    "selectOtherFolder": "別のフォルダを選択",
+    "extraFolders": "追加フォルダ",
+    "addExternalFolder": "ワークスペース外のフォルダを追加",
     "planMode": "コンピュータを使う",
     "deskContext": "デスクのコンテキスト付き",
     "pastedImage": "貼り付け画像",
@@ -1111,6 +1116,7 @@
   },
   "desk": {
     "title": "デスク",
+    "workspaceTitle": "ワークスペース",
     "skills": "スキル",
     "cwdSkills": "プロジェクトスキル",
     "cwdSkillsEmpty": "このフォルダにプロジェクトスキルはありません",
@@ -1128,6 +1134,7 @@
     "goToSettings": "設定へ",
     "fileLabel": "ファイル",
     "openWithDefault": "デフォルトアプリで開く",
+    "refresh": "再読み込み",
     "newFolder": "新しいフォルダ",
     "ctx": {
       "open": "開く",
@@ -1432,7 +1439,9 @@
       "serverMultipleCrash": "Hanako v{version}\n\nServer が複数回クラッシュしました ({reason})。\n\nアプリケーションを再起動してください。",
       "serverStartTimeout": "Server の起動がタイムアウトしました（60秒）",
       "serverKilledBySignal": "Server がシグナルで終了しました ({signal})",
-      "serverExitedWithCode": "Server が終了しました。コード: {code}"
+      "serverExitedWithCode": "Server が終了しました。コード: {code}",
+      "serverFilesNotReady": "自動アップデートが完了したばかりで、新バージョンのファイルがまだディスクに書き込まれていません（{missing} が見つかりません）。{waited} 秒待機しましたが完了しませんでした。しばらくしてから Hanako を再起動してください。",
+      "serverModuleMissing": "Server 起動失敗：モジュール {module} が見つかりません。\n通常、自動アップデート完了直後にファイルがまだディスクに書き込み中の場合に発生します。\n推奨：1〜2 分待ってから Hanako を再起動してください。問題が続く場合は GitHub で報告してください。"
     },
     "notification": {
       "ready": "通知が有効になりました"

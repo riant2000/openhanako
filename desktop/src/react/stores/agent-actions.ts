@@ -24,8 +24,8 @@ export function clearChat(): void {
     s.clearSession?.(sessionPath);
   }
 
-  // 注：预览面板是 user-level flat state，不随 clearChat 清空
-  // （清对话不应连带清全局预览；只收起面板即可）
+  // Artifact 内容池不随 clearChat 清空；可见的 preview/tabs 由 workspace
+  // 激活流程保存和恢复。清对话只收起当前可见面板。
 
   useStore.setState({
     welcomeVisible: true,

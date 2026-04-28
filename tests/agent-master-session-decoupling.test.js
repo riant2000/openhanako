@@ -146,4 +146,23 @@ describe("agent.systemPrompt: master / per-session 解耦", () => {
 
     await agent.dispose();
   });
+
+  it("系统 prompt 用一句话把工作空间定义为 cwd", async () => {
+    const agent = makeAgent(agentsDir, tmpDir);
+    await agent.init(() => {});
+    agent._config.locale = "zh-CN";
+
+    const prompt = agent.buildSystemPrompt({
+      forceMemoryEnabled: false,
+      cwdOverride: "/workspace/Desktop/project-hana",
+    });
+
+    expect(prompt).toContain("## 工作空间");
+    expect(prompt).toContain("用户所说的「工作空间」指的是当前工作目录（cwd）。");
+    expect(prompt).toContain("当前工作目录：/workspace/Desktop/project-hana");
+    expect(prompt).not.toContain("## 书桌");
+    expect(prompt).not.toContain("系统桌面");
+
+    await agent.dispose();
+  });
 });

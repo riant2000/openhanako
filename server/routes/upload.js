@@ -17,8 +17,32 @@ import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
 import { isSensitivePath } from "../utils/path-security.js";
+import {
+  MAX_CHAT_IMAGE_BASE64_CHARS,
+  extensionFromChatImageMime,
+  isAllowedChatImageMime,
+  isChatImageBase64WithinLimit,
+} from "../../shared/image-mime.js";
 
 const MAX_FILES = 9;
+
+function extFromMime(mimeType) {
+  return extensionFromChatImageMime(mimeType);
+}
+
+function sanitizeBlobName(name, mimeType) {
+  const fallback = `pasted${extFromMime(mimeType) || ".png"}`;
+  if (!name || typeof name !== "string") return fallback;
+  // 去掉路径分隔符、控制字符；只保留 basename
+  const base = path.basename(name).replace(/[\x00-\x1f/\\]/g, "").trim();
+  if (!base) return fallback;
+  // 强制扩展名匹配 mimeType（防止 .exe 假装 image/png）
+  const want = extFromMime(mimeType);
+  if (want && path.extname(base).toLowerCase() !== want) {
+    return path.basename(base, path.extname(base)) + want;
+  }
+  return base;
+}
 
 class UploadPathError extends Error {
   constructor(message) {
@@ -163,6 +187,70 @@ export function createUploadRoute(engine) {
           continue;
         }
         results.push({ src: srcPath, error: err.message });
+      }
+    }
+
+    return c.json({ uploads: results, uploadsDir });
+  });
+
+  // POST /api/upload-blob
+  // Body: { blobs: [{ name, base64Data, mimeType }, ...] }  (also accepts singular { name, base64Data, mimeType })
+  // 把内存中的 base64 数据落到与 /api/upload 同一个 uploads 目录，输出形态保持一致
+  route.post("/upload-blob", async (c) => {
+    const body = await safeJson(c);
+    let blobs = body?.blobs;
+    if (!Array.isArray(blobs)) {
+      if (body?.base64Data) blobs = [{ name: body.name, base64Data: body.base64Data, mimeType: body.mimeType }];
+      else return c.json({ error: t("error.pathsRequired") }, 400);
+    }
+    if (blobs.length === 0) return c.json({ error: t("error.pathsRequired") }, 400);
+
+    const uploadsDir = path.join(engine.hanakoHome, "uploads");
+    await fs.mkdir(uploadsDir, { recursive: true });
+    cleanOldUploads(uploadsDir).catch(() => {});
+
+    const results = [];
+    for (let i = 0; i < blobs.length; i++) {
+      if (i >= MAX_FILES) {
+        results.push({ error: t("error.tooManyFiles", { max: MAX_FILES, n: blobs.length }) });
+        continue;
+      }
+      const { name, base64Data, mimeType } = blobs[i] || {};
+      try {
+        if (typeof base64Data !== "string" || !base64Data) {
+          results.push({ error: "base64Data required" });
+          continue;
+        }
+        if (typeof mimeType !== "string" || !isAllowedChatImageMime(mimeType)) {
+          results.push({ error: "unsupported mimeType" });
+          continue;
+        }
+        if (!isChatImageBase64WithinLimit(base64Data)) {
+          results.push({ error: `blob too large (max ${MAX_CHAT_IMAGE_BASE64_CHARS} bytes)` });
+          continue;
+        }
+        const buf = Buffer.from(base64Data, "base64");
+        if (buf.length === 0) {
+          results.push({ error: "empty blob" });
+          continue;
+        }
+
+        const safeName = sanitizeBlobName(name, mimeType);
+        const ext = path.extname(safeName);
+        const base = path.basename(safeName, ext);
+        const timestamp = Date.now().toString(36);
+        const destName = `${base}_${timestamp}${ext}`;
+        const destPath = path.join(uploadsDir, destName);
+
+        await fs.writeFile(destPath, buf);
+
+        results.push({
+          dest: destPath,
+          name: safeName,
+          isDirectory: false,
+        });
+      } catch (err) {
+        results.push({ error: err?.message || String(err) });
       }
     }
 

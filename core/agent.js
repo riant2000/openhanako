@@ -700,7 +700,7 @@ export class Agent {
    * @param {boolean} [options.forSubagent] - 为 subagent 构造的轻量 prompt：
    *   跳过记忆三段（规则 + pinned.md + memory.md）和团队 agent 名单。
    *   Subagent 是一次性隔离任务，不需要长期记忆和多 agent 协作上下文。
-   * @param {string} [options.cwdOverride] - 覆盖 prompt 中“书桌”章节展示的 cwd。
+   * @param {string} [options.cwdOverride] - 覆盖 prompt 中“工作空间”章节展示的 cwd。
    *   用于新建隔离 session 时，让 prompt 快照和实际执行目录保持一致。
    */
   buildSystemPrompt(options = {}) {
@@ -966,17 +966,17 @@ export class Agent {
       }
     }
 
-    // 书桌 = 当前工作目录（注入实际路径）
+    // 工作空间 = 当前工作目录（注入实际路径）
     const cwdPath = cwdOverride !== null ? cwdOverride : (this._cb?.getCwd?.() || "");
     parts.push(isZh
-      ? `\n## 书桌\n\n` +
-        `用户所说的「书桌」「工作空间」指的是你当前的工作目录（cwd），不是系统桌面（~/Desktop）。` +
+      ? `\n## 工作空间\n\n` +
+        `用户所说的「工作空间」指的是当前工作目录（cwd）。` +
         (cwdPath ? `\n当前工作目录：${cwdPath}` : "") +
-        `\n用户提到的文件、目录默认在当前工作目录下查找。找不到时再尝试主目录及其他常见位置。`
-      : `\n## Desk\n\n` +
-        `When the user says "desk" (书桌) or "workspace", they mean your current working directory (cwd), NOT the system Desktop (~/Desktop).` +
+        `\n用户提到的文件、目录默认在当前工作目录下查找。`
+      : `\n## Workspace\n\n` +
+        `When the user says "workspace", they mean the current working directory (cwd).` +
         (cwdPath ? `\nCurrent working directory: ${cwdPath}` : "") +
-        `\nFiles and directories mentioned by the user should be searched in the current working directory first. Only look in the home directory or other common locations if not found.`
+        `\nFiles and directories mentioned by the user should be searched in the current working directory first.`
     );
 
     // 日期时间（尊重用户时区偏好，fallback 到系统时区）

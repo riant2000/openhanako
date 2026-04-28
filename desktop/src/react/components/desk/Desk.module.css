@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════
-   书桌（Desk）CSS Module
+   工作空间（Desk）CSS Module
    从 styles.css 迁移的 desk 专属样式
    ═══════════════════════════════════════ */
 
-/* ── 书桌区：延伸到底 ── */
+/* ── 工作空间区：延伸到底 ── */
 .section {
     align-self: stretch;
     flex: 1;
@@ -22,7 +22,7 @@
     padding-left: var(--space-md);
 }
 
-/* 书桌未设置 overlay */
+/* 工作空间未设置 overlay */
 .emptyOverlay {
     position: absolute;
     inset: 0;
@@ -70,7 +70,7 @@
     opacity: 0.8;
 }
 
-/* 书桌标题行 */
+/* 工作空间标题行 */
 .header {
     position: relative;
 }
@@ -210,6 +210,13 @@
     min-height: 24px;
 }
 
+.toolbarActions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+}
+
 .sortBtn {
     display: inline-flex;
     align-items: center;
@@ -224,7 +231,6 @@
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
     white-space: nowrap;
-    margin-left: auto;
 }
 
 .sortBtn:hover {
@@ -232,8 +238,22 @@
     color: var(--text);
 }
 
+.sortBtn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.sortBtn:disabled:hover {
+    background: none;
+    color: var(--text-muted);
+}
+
 .sortBtn svg {
     opacity: 0.6;
+}
+
+.iconBtn {
+    padding: 2px 5px;
 }
 
 /* 项目技能按钮（卡片式） */
@@ -646,4 +666,3 @@
     opacity: 1 !important;
     color: var(--danger, #c44);
 }
-

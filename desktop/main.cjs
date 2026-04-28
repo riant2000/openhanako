@@ -302,6 +302,12 @@ function migrateSetupComplete() {
 // 收集 server 的 stdout/stderr 用于崩溃诊断
 let _serverLogs = [];
 
+// Server 启动前的就绪性校验：处理自动更新文件落地竞态
+const {
+  ensureServerFilesReady,
+  isModuleResolutionError,
+} = require("./src/shared/server-readiness.cjs");
+
 /**
  * 轮询 server-info.json 等待 server 就绪
  */
@@ -313,11 +319,15 @@ function pollServerInfo(infoPath, { timeout = 60000, interval = 200, process: pr
     if (proc) {
       proc.on("exit", (code, signal) => {
         exited = true;
-        reject(new Error(
+        const err = new Error(
           signal
             ? mt("dialog.serverKilledBySignal", { signal })
             : mt("dialog.serverExitedWithCode", { code })
-        ));
+        );
+        // 把 exit code/signal 挂在 error 上，给上层判定 retryable 用
+        err.exitCode = code;
+        err.exitSignal = signal;
+        reject(err);
       });
     }
 
@@ -397,7 +407,62 @@ async function startServer() {
     try { fs.unlinkSync(serverInfoPath); } catch {}
   }
 
-  // ── 2. 启动新 server ──
+  // ── 2. 打包模式：先校验关键 external 文件是否齐全 ──
+  // 自动更新（NSIS overlay + Defender 扫描锁）会让新版本文件落地有几秒到几分钟延迟。
+  // 这里事先做退避检查，避免后续 spawn 出 ERR_MODULE_NOT_FOUND。
+  const bundledServerRoot = path.join(process.resourcesPath || "", "server");
+  const isBundledMode =
+    fs.existsSync(path.join(bundledServerRoot, "hana-server")) ||
+    fs.existsSync(path.join(bundledServerRoot, "hana-server.exe"));
+  if (isBundledMode) {
+    const ready = await ensureServerFilesReady(bundledServerRoot);
+    if (!ready.ok) {
+      throw new Error(mt("dialog.serverFilesNotReady", {
+        missing: ready.missing.join(", "),
+        waited: Math.round(ready.waitedMs / 1000),
+      }));
+    }
+  }
+
+  // ── 3. spawn server，对模块解析错误做一次智能重试 ──
+  // 重试条件：stderr 含 ERR_MODULE_NOT_FOUND 或 "Cannot find package/module"。
+  // 文件已通过完整性检查仍报模块缺失，说明 transitive 依赖在更新落地中尚未完成；
+  // 再退避一次，给 NSIS/AV 更多收尾时间。
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await _spawnServerOnce(serverInfoPath);
+      return;
+    } catch (err) {
+      lastErr = err;
+      const missingModule = isModuleResolutionError(_serverLogs);
+      const canRetry = missingModule && attempt === 0;
+      if (!canRetry) {
+        if (missingModule) {
+          // 已经重试过仍然报模块缺失：替换为更友好的错误消息
+          const friendly = new Error(mt("dialog.serverModuleMissing", { module: missingModule }));
+          friendly.cause = err;
+          throw friendly;
+        }
+        throw err;
+      }
+      console.warn(`[desktop] Server 启动报 ERR_MODULE_NOT_FOUND (${missingModule})，疑似自动更新落地竞态，2s 后重试`);
+      // 再扫一遍文件：很可能这次能补齐
+      if (isBundledMode) {
+        await ensureServerFilesReady(bundledServerRoot).catch(() => {});
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  // 理论不可达（attempt < 2 的循环里 try 块要么 return 要么 throw），保险起见
+  throw lastErr || new Error("startServer: unknown failure");
+}
+
+/**
+ * 实际执行 spawn + 等待 server-info.json 的内部函数。
+ * 失败由 startServer 决定是否重试；本函数只负责单次启动。
+ */
+async function _spawnServerOnce(serverInfoPath) {
   _serverLogs = [];
 
   const serverEnv = { ...process.env, HANA_HOME: hanakoHome };

@@ -1,8 +1,8 @@
 /**
  * artifact-actions.ts — Artifact 预览管理
  *
- * 预览面板状态是 user-level flat state，跨所有 session 共享。
- * 切换 / 新建 / 切回 session 都不影响 artifacts / openTabs / activeTabId。
+ * artifacts 内容池仍是 user-level flat state；可见的 previewOpen / openTabs /
+ * activeTabId 会随 workspace desk 状态保存和恢复。
  */
 
 import { useStore } from './index';

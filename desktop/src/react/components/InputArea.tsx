@@ -26,12 +26,14 @@ import { InputControlBar } from './input/InputControlBar';
 import { SkillBadge } from './input/extensions/skill-badge';
 import { serializeEditor } from '../utils/editor-serializer';
 import { useSkillSlashItems } from '../hooks/use-slash-items';
+import { notifyPasteUploadFailure } from '../utils/paste-upload-feedback';
 import {
   XING_PROMPT, executeDiary, executeCompact, buildSlashCommands, getSlashMatches,
   resolveSlashSubmitSelection,
   type SlashItem,
 } from './input/slash-commands';
 import { attachFilesFromPaths } from '../MainContent';
+import { hanaFetch } from '../hooks/use-hana-fetch';
 import styles from './input/InputArea.module.css';
 import type { TodoItem } from '../types';
 
@@ -314,33 +316,48 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
   const canSend = hasContent && connected && !isStreaming && !modelSwitching;
 
   // ── Paste image ──
+  // 与拖拽对齐：剪贴板图片同样落盘到 uploads 目录，入 store 的形态和拖拽完全一致
+  // （只有 path/name/isDirectory，没有 base64Data）。是否走 vision 桥由发送阶段的
+  // visionAuxiliary 标记统一决定，handlePaste 不再做能力判断。
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     for (const item of items) {
       if (!item.type.startsWith('image/')) continue;
-      if (!supportsVision) { e.preventDefault(); return; }
       e.preventDefault();
       const file = item.getAsFile();
       if (!file) continue;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const dataUrl = reader.result as string;
         const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
         if (!match) return;
         const [, mimeType, base64Data] = match;
-        const ext = mimeType.split('/')[1] || 'png';
-        addAttachedFile({
-          path: `clipboard-${Date.now()}.${ext}`,
-          name: `${t('input.pastedImage')}.${ext}`,
-          base64Data,
-          mimeType,
-        });
+        const ext = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : (mimeType.split('/')[1] || 'png');
+        const name = `${t('input.pastedImage')}.${ext}`;
+        try {
+          const res = await hanaFetch('/api/upload-blob', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, base64Data, mimeType }),
+          });
+          const data = await res.json();
+          const upload = data?.uploads?.[0];
+          if (upload?.dest) {
+            addAttachedFile({ path: upload.dest, name: upload.name || name, isDirectory: false });
+          } else {
+            notifyPasteUploadFailure(t, upload?.error);
+            console.warn('[paste] upload-blob failed', upload?.error || data);
+          }
+        } catch (err) {
+          notifyPasteUploadFailure(t, err);
+          console.warn('[paste] upload-blob error', err);
+        }
       };
       reader.readAsDataURL(file);
       break;
     }
-  }, [addAttachedFile, t, supportsVision]);
+  }, [addAttachedFile, t]);
 
   // ── Load thinking level once server port is ready + listen for plan mode sync ──
   const serverPort = useStore(s => s.serverPort);

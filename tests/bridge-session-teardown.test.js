@@ -116,6 +116,29 @@ describe("BridgeSessionManager teardown", () => {
     expect(manager.activeSessions.has("bridge-k1")).toBe(false);
   });
 
+  it("abortSession releases a bridge session immediately when provider abort never settles", async () => {
+    const agent = makeAgent(rootDir);
+    const manager = new BridgeSessionManager(makeDeps(agent));
+    const abort = vi.fn(() => new Promise(() => {}));
+    const dispose = vi.fn();
+
+    manager.activeSessions.set("bridge-k1", {
+      isStreaming: true,
+      abort,
+      dispose,
+    });
+
+    const result = await Promise.race([
+      manager.abortSession("bridge-k1"),
+      new Promise((resolve) => setTimeout(() => resolve("timeout"), 25)),
+    ]);
+
+    expect(result).toBe(true);
+    expect(abort).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalled();
+    expect(manager.activeSessions.has("bridge-k1")).toBe(false);
+  });
+
   it("owner bridge session prompt snapshot uses the same home cwd as execution", async () => {
     const agent = makeAgent(rootDir);
     agent.buildSystemPrompt = vi.fn(({ cwdOverride } = {}) => `system prompt @ ${cwdOverride ?? "missing"}`);

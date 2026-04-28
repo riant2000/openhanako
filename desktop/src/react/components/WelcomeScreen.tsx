@@ -11,11 +11,12 @@ import { useStore } from '../stores';
 import { hanaUrl, hanaFetch } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
 import { loadModels } from '../utils/ui-helpers';
-import { loadDeskFiles } from '../stores/desk-actions';
-import { clearChat } from '../stores/agent-actions';
+import { addWorkspaceFolder, applyFolder, removeWorkspaceFolder } from '../stores/desk-actions';
 import type { Agent } from '../types';
 import { yuanFallbackAvatar } from '../utils/agent-helpers';
 import styles from './Welcome.module.css';
+// @ts-expect-error — shared JS module
+import { buildWorkspacePickerItems } from '../../../../shared/workspace-history.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- store setState 回调 (s: any) */
 
@@ -53,8 +54,9 @@ function WelcomeInner() {
   const selectedAgentId = useStore(s => s.selectedAgentId);
   const memoryEnabled = useStore(s => s.memoryEnabled);
   const selectedFolder = useStore(s => s.selectedFolder);
+  const homeFolder = useStore(s => s.homeFolder);
+  const workspaceFolders = useStore(s => s.workspaceFolders);
   const cwdHistory = useStore(s => s.cwdHistory);
-  const pendingNewSession = useStore(s => s.pendingNewSession);
 
   // Determine the displayed agent
   const displayAgent = useMemo(() => {
@@ -105,8 +107,9 @@ function WelcomeInner() {
       )}
       <FolderPicker
         selectedFolder={selectedFolder}
+        homeFolder={homeFolder}
+        workspaceFolders={workspaceFolders}
         cwdHistory={cwdHistory}
-        pendingNewSession={pendingNewSession}
       />
       <MemoryToggle enabled={memoryEnabled} t={t} />
     </div>
@@ -223,10 +226,11 @@ function AgentChip({ agent, isSelected, onClick }: {
 
 // ── Folder Picker ──
 
-function FolderPicker({ selectedFolder, cwdHistory, pendingNewSession }: {
+function FolderPicker({ selectedFolder, homeFolder, workspaceFolders, cwdHistory }: {
   selectedFolder: string | null;
+  homeFolder: string | null;
+  workspaceFolders: string[];
   cwdHistory: string[];
-  pendingNewSession: boolean;
 }) {
   const { t } = useI18n();
   const [showHistory, setShowHistory] = useState(false);
@@ -251,21 +255,27 @@ function FolderPicker({ selectedFolder, cwdHistory, pendingNewSession }: {
     setShowHistory(false);
     const folder = await window.platform?.selectFolder?.();
     if (!folder) return;
-    applyFolderAction(folder, pendingNewSession);
-  }, [pendingNewSession]);
+    applyFolder(folder);
+  }, []);
+
+  const handleAddWorkspaceFolder = useCallback(async () => {
+    const folder = await window.platform?.selectFolder?.();
+    if (!folder) return;
+    addWorkspaceFolder(folder);
+  }, []);
 
   const handleButtonClick = useCallback(() => {
-    if (cwdHistory.length > 0) {
+    if (selectedFolder || cwdHistory.length > 0 || workspaceFolders.length > 0) {
       setShowHistory(prev => !prev);
     } else {
       handleBrowse();
     }
-  }, [cwdHistory.length, handleBrowse]);
+  }, [cwdHistory.length, handleBrowse, selectedFolder, workspaceFolders.length]);
 
   const handleSelectHistory = useCallback((folder: string) => {
     setShowHistory(false);
-    applyFolderAction(folder, pendingNewSession);
-  }, [pendingNewSession]);
+    applyFolder(folder);
+  }, []);
 
   const folderName = selectedFolder ? selectedFolder.split('/').pop() || selectedFolder : null;
   const label = folderName
@@ -296,23 +306,36 @@ function FolderPicker({ selectedFolder, cwdHistory, pendingNewSession }: {
         <FolderHistory
           cwdHistory={cwdHistory}
           selectedFolder={selectedFolder}
+          homeFolder={homeFolder}
+          workspaceFolders={workspaceFolders}
           onSelect={handleSelectHistory}
           onBrowse={handleBrowse}
+          onAddWorkspaceFolder={handleAddWorkspaceFolder}
+          onRemoveWorkspaceFolder={removeWorkspaceFolder}
         />
       )}
     </div>
   );
 }
 
-function FolderHistory({ cwdHistory, selectedFolder, onSelect, onBrowse }: {
+function FolderHistory({ cwdHistory, selectedFolder, homeFolder, workspaceFolders, onSelect, onBrowse, onAddWorkspaceFolder, onRemoveWorkspaceFolder }: {
   cwdHistory: string[];
   selectedFolder: string | null;
+  homeFolder: string | null;
+  workspaceFolders: string[];
   onSelect: (folder: string) => void;
   onBrowse: () => void;
+  onAddWorkspaceFolder: () => void;
+  onRemoveWorkspaceFolder: (folder: string) => void;
 }) {
+  const primaryItems: string[] = buildWorkspacePickerItems({ selectedFolder, homeFolder, cwdHistory });
+  const t = window.t ?? ((p: string) => p);
   return (
     <div className={styles.folderHistory}>
-      {cwdHistory.map(p => {
+      <div className={styles.folderHistorySectionLabel}>
+        {t('input.currentWorkspace')}
+      </div>
+      {primaryItems.map(p => {
         const name = p.split('/').pop() || p;
         const isActive = p === selectedFolder;
         return (
@@ -340,27 +363,52 @@ function FolderHistory({ cwdHistory, selectedFolder, onSelect, onBrowse }: {
             <line x1="9" y1="14" x2="15" y2="14"></line>
           </svg>
         </span>
-        <span>{(window.t ?? ((p: string) => p))('input.selectFolder')}...</span>
+        <span>{t('input.selectOtherFolder')}</span>
+      </div>
+      <div className={styles.folderHistoryDivider} />
+      <div className={styles.folderHistorySectionLabel}>
+        {t('input.extraFolders')}
+      </div>
+      {workspaceFolders.map(p => {
+        const name = p.split('/').pop() || p;
+        return (
+          <div
+            key={p}
+            className={styles.folderHistoryItem}
+            title={p}
+            onClick={(e) => { e.stopPropagation(); }}
+          >
+            <span className={styles.folderHistoryItemIcon}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </span>
+            <span className={styles.folderHistoryItemName}>{name}</span>
+            <button
+              type="button"
+              className={styles.folderHistoryRemove}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveWorkspaceFolder(p);
+              }}
+              title={(window.t ?? ((key: string) => key))('common.remove')}
+            >
+              x
+            </button>
+          </div>
+        );
+      })}
+      <div className={styles.folderHistoryBrowse} onClick={(e) => { e.stopPropagation(); onAddWorkspaceFolder(); }}>
+        <span className={styles.folderHistoryItemIcon}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </span>
+        <span>{t('input.addExternalFolder')}</span>
       </div>
     </div>
   );
-}
-
-/** Apply folder selection — core logic preserved from bridge.ts desk shim */
-function applyFolderAction(folder: string, pendingNewSession: boolean): void {
-  useStore.setState({ selectedFolder: folder });
-
-  if (!pendingNewSession) {
-    useStore.setState({
-      currentSessionPath: null,
-      pendingNewSession: true,
-    });
-    clearChat();
-    useStore.getState().requestInputFocus();
-  }
-
-  // Load desk files for the new folder
-  loadDeskFiles('', folder);
 }
 
 // ── Memory Toggle ──

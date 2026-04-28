@@ -206,7 +206,8 @@ class StreamBufferManager {
 
       case 'thinking_delta':
         buf.thinkingAcc += msg.delta || '';
-        // thinking 内容不频繁 flush，等 end 或下一个 text_delta
+        // 与 text/mood 共用时间节流，避免思考流只能在结束后显示。
+        this.scheduleFlush(buf);
         break;
 
       case 'thinking_end':

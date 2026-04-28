@@ -4,7 +4,7 @@ import styles from './settings-components.module.css';
 type HintVariant = 'default' | 'warn';
 type Layout = 'inline' | 'stacked';
 
-interface SettingsRowProps {
+interface SettingsRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
   label: React.ReactNode;
   hint?: React.ReactNode;
   hintVariant?: HintVariant;
@@ -20,6 +20,7 @@ export function SettingsRow({
   control,
   layout = 'inline',
   className,
+  ...rootProps
 }: SettingsRowProps) {
   const rootClass = [
     styles.row,
@@ -33,7 +34,7 @@ export function SettingsRow({
   ].filter(Boolean).join(' ');
 
   return (
-    <div className={rootClass}>
+    <div {...rootProps} className={rootClass}>
       <div className={styles.rowText}>
         <div className={styles.rowLabel}>{label}</div>
         {hint && <div className={hintClass}>{hint}</div>}

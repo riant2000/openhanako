@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { t, autoSaveConfig } from "../../helpers";
 import { Toggle } from "../../widgets/Toggle";
 import { SettingsSection } from "../../components/SettingsSection";
-import styles from "../../Settings.module.css";
+import { SettingsRow } from "../../components/SettingsRow";
 
 // Local copy of OPTIONAL_TOOL_NAMES. Frontend intentionally does NOT import
 // from shared/tool-categories.js to keep the desktop bundle independent of
@@ -61,41 +61,21 @@ export function AgentToolsSection({ availableTools, disabled }: Props) {
 
   return (
     <SettingsSection title={t("settings.agent.tools.title")}>
-      <div style={{ padding: 'var(--space-sm) var(--space-md)' }}>
-        <p style={{
-          fontSize: '0.7rem',
-          color: 'var(--text-muted)',
-          lineHeight: 1.4,
-          margin: '0 0 var(--space-md)',
-        }}>
-          {t("settings.agent.tools.description")}
-        </p>
-        <div className={styles["skills-list-block"]}>
-          {renderable.map((name) => {
-            const isOn = !disabled.includes(name);
-            return (
-              <div
-                className={styles["skills-list-item"]}
-                key={name}
-                data-tool-name={name}
-                style={{ cursor: "default" }}
-              >
-                <div className={styles["skills-list-info"]}>
-                  <span className={styles["skills-list-name"]}>
-                    {t(`settings.agent.tools.items.${name}.label`)}
-                  </span>
-                  <span className={styles["skills-list-desc"]}>
-                    {t(`settings.agent.tools.items.${name}.summary`)}
-                  </span>
-                </div>
-                <div className={styles["skills-list-actions"]}>
-                  <Toggle on={isOn} onChange={() => toggleTool(name)} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <SettingsSection.Note>
+        {t("settings.agent.tools.description")}
+      </SettingsSection.Note>
+      {renderable.map((name) => {
+        const isOn = !disabled.includes(name);
+        return (
+          <SettingsRow
+            key={name}
+            data-tool-name={name}
+            label={t(`settings.agent.tools.items.${name}.label`)}
+            hint={t(`settings.agent.tools.items.${name}.summary`)}
+            control={<Toggle on={isOn} onChange={() => toggleTool(name)} />}
+          />
+        );
+      })}
     </SettingsSection>
   );
 }

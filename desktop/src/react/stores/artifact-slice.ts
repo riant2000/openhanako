@@ -20,9 +20,9 @@ export interface PinnedViewer {
 export interface ArtifactSlice {
   /** 全局 artifact 池（user-level），所有 session 共享 */
   artifacts: Artifact[];
-  /** 当前打开的 tab id 列表（user-level） */
+  /** 当前可见 workspace 打开的 tab id 列表 */
   openTabs: string[];
-  /** 当前激活的 tab id */
+  /** 当前可见 workspace 激活的 tab id */
   activeTabId: string | null;
   /** 当前派生出的只读 viewer 窗口（按 windowId keyed） */
   pinnedViewers: PinnedViewer[];

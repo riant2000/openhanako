@@ -1,5 +1,5 @@
 /**
- * desk-actions.ts — 书桌文件操作（纯函数，不依赖 DOM）
+ * desk-actions.ts — 工作空间文件操作（纯函数，不依赖 DOM）
  *
  * 从 desk-shim.ts 提取，供 React 组件直接调用。
  */
@@ -7,6 +7,9 @@
 import { useStore } from './index';
 import { hanaFetch } from '../hooks/use-hana-fetch';
 import { clearChat } from './agent-actions';
+import type { WorkspaceDeskState } from './desk-slice';
+// @ts-expect-error — shared JS module
+import { mergeWorkspaceHistory, normalizeWorkspacePath } from '../../../../shared/workspace-history.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- store setState 回调及 IPC callback data */
 
@@ -15,6 +18,93 @@ const t = (key: string, vars?: Record<string, string | number>) => window.t?.(ke
 let _deskLoadVersion = 0;
 
 // ── 路径工具 ──
+
+function normalizeFolder(value: string | null | undefined): string | null {
+  return normalizeWorkspacePath(value);
+}
+
+function defaultDeskRoot(s: ReturnType<typeof useStore.getState>): string | undefined {
+  return normalizeFolder(s.deskBasePath)
+    || normalizeFolder(s.selectedFolder)
+    || normalizeFolder(s.homeFolder)
+    || undefined;
+}
+
+function buildWorkspaceDeskState(s: ReturnType<typeof useStore.getState>): WorkspaceDeskState {
+  return {
+    deskCurrentPath: s.deskCurrentPath || '',
+    deskFiles: [...(s.deskFiles || [])],
+    deskJianContent: s.deskJianContent ?? null,
+    cwdSkills: [...(s.cwdSkills || [])],
+    cwdSkillsOpen: !!s.cwdSkillsOpen,
+    previewOpen: !!s.previewOpen,
+    openTabs: [...(s.openTabs || [])],
+    activeTabId: s.activeTabId ?? null,
+  };
+}
+
+export function captureCurrentWorkspaceDeskState(root?: string | null): void {
+  const s = useStore.getState();
+  const key = normalizeFolder(root ?? s.deskBasePath);
+  if (!key) return;
+  s.setWorkspaceDeskState(key, buildWorkspaceDeskState(s));
+}
+
+export async function activateWorkspaceDesk(root: string | null | undefined, options: {
+  reload?: boolean;
+} = {}): Promise<void> {
+  // Any workspace activation owns the visible desk state. Invalidate older file
+  // loads even when the caller delays the reload until after another step
+  // such as persisting workspace history.
+  _deskLoadVersion += 1;
+
+  const normalized = normalizeFolder(root);
+  const s = useStore.getState();
+  const currentRoot = normalizeFolder(s.deskBasePath);
+
+  if (currentRoot) {
+    captureCurrentWorkspaceDeskState(currentRoot);
+  }
+
+  if (!normalized) {
+    useStore.setState({
+      deskBasePath: '',
+      deskCurrentPath: '',
+      deskFiles: [],
+      deskJianContent: null,
+      cwdSkills: [],
+      cwdSkillsOpen: false,
+      previewOpen: false,
+      openTabs: [],
+      activeTabId: null,
+    });
+    updateDeskContextBtn();
+    return;
+  }
+
+  const latest = useStore.getState();
+  const saved = latest.workspaceDeskStateByRoot?.[normalized] || null;
+  const sameRoot = currentRoot === normalized;
+  const nextSubdir = sameRoot
+    ? (latest.deskCurrentPath || '')
+    : (saved?.deskCurrentPath || '');
+
+  useStore.setState({
+    deskBasePath: normalized,
+    deskCurrentPath: nextSubdir,
+    deskFiles: [],
+    deskJianContent: null,
+    cwdSkills: saved?.cwdSkills || [],
+    cwdSkillsOpen: saved?.cwdSkillsOpen || false,
+    previewOpen: saved?.previewOpen || false,
+    openTabs: saved?.openTabs || [],
+    activeTabId: saved?.activeTabId ?? null,
+  });
+  updateDeskContextBtn();
+
+  if (options.reload === false) return;
+  await loadDeskFiles(nextSubdir, normalized);
+}
 
 export function deskFullPath(name: string): string | null {
   const s = useStore.getState();
@@ -34,16 +124,18 @@ export function deskCurrentDir(): string | null {
 
 // ── 文件操作 ──
 
-export async function loadDeskFiles(subdir?: string, overrideDir?: string): Promise<void> {
+export async function loadDeskFiles(subdir?: string, overrideDir?: string | null): Promise<void> {
   const s = useStore.getState();
   if (!s.serverPort) return;
   if (subdir !== undefined) s.setDeskCurrentPath(subdir);
   const myVersion = ++_deskLoadVersion;
   try {
     const params = new URLSearchParams();
-    // 优先用 overrideDir，其次用 store 中已有的 deskBasePath 兜底。
-    // 避免 pendingNewSession 期间后端 engine.deskCwd 仍指向旧 session 的问题。
-    const dir = overrideDir || s.deskBasePath || undefined;
+    // overrideDir 是显式调用契约：string 表示指定根目录，null 表示不复用旧 deskBasePath。
+    // undefined 才走 store 中已有 deskBasePath，避免普通刷新丢失当前根目录。
+    const dir = overrideDir !== undefined
+      ? (overrideDir || undefined)
+      : defaultDeskRoot(s);
     if (dir) params.set('dir', dir);
     const curPath = subdir !== undefined ? subdir : s.deskCurrentPath;
     if (curPath) params.set('subdir', curPath);
@@ -222,15 +314,61 @@ export function toggleMemory(): void {
   useStore.setState((s: any) => ({ memoryEnabled: !s.memoryEnabled }));
 }
 
-export function applyFolder(folder: string): void {
-  useStore.setState({ selectedFolder: folder });
+export async function applyFolder(folder: string): Promise<void> {
+  const normalized = normalizeFolder(folder);
+  if (!normalized) return;
+  useStore.setState((s: any) => ({
+    selectedFolder: normalized,
+    cwdHistory: mergeWorkspaceHistory(s.cwdHistory, [normalized]),
+    workspaceFolders: (s.workspaceFolders || []).filter((p: string) => normalizeFolder(p) !== normalized),
+  }));
+  void activateWorkspaceDesk(normalized, { reload: false });
   const s = useStore.getState();
   if (!s.pendingNewSession) {
     useStore.setState({ currentSessionPath: null, pendingNewSession: true });
     clearChat();
     useStore.getState().requestInputFocus();
   }
-  loadDeskFiles('', folder);
+  await persistWorkspaceHistory(normalized);
+  await loadDeskFiles(useStore.getState().deskCurrentPath || '', normalized);
+}
+
+async function persistWorkspaceHistory(folder: string): Promise<void> {
+  const s = useStore.getState();
+  if (!s.serverPort) return;
+  try {
+    const res = await hanaFetch('/api/config/workspaces/recent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: folder }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(String(data.error));
+    if (Array.isArray(data.cwd_history)) {
+      useStore.setState({ cwdHistory: mergeWorkspaceHistory(data.cwd_history, []) });
+    }
+  } catch (err) {
+    console.error('[workspace] persist history failed:', err);
+  }
+}
+
+export function addWorkspaceFolder(folder: string): void {
+  const normalized = normalizeFolder(folder);
+  if (!normalized) return;
+  useStore.setState((s: any) => {
+    const primary = normalizeFolder(s.selectedFolder) || normalizeFolder(s.homeFolder);
+    if (normalized === primary) return {};
+    if ((s.workspaceFolders || []).includes(normalized)) return {};
+    return { workspaceFolders: [...(s.workspaceFolders || []), normalized] };
+  });
+}
+
+export function removeWorkspaceFolder(folder: string): void {
+  const normalized = normalizeFolder(folder);
+  if (!normalized) return;
+  useStore.setState((s: any) => ({
+    workspaceFolders: (s.workspaceFolders || []).filter((p: string) => p !== normalized),
+  }));
 }
 
 export function updateDeskContextBtn(): void {
@@ -256,5 +394,5 @@ export function initJian(): void {
   const savedJian = localStorage.getItem('hana-jian-chat');
   if (savedJian !== null) useStore.getState().setJianOpen(savedJian !== 'closed');
   const s = useStore.getState();
-  loadDeskFiles('', s.selectedFolder || s.homeFolder || undefined);
+  void activateWorkspaceDesk(s.selectedFolder || s.homeFolder || null);
 }

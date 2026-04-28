@@ -20,6 +20,7 @@ import { findModel } from "../shared/model-ref.js";
 import { computeToolSnapshot, DEFAULT_DISABLED_TOOL_NAMES } from "../shared/tool-categories.js";
 import { buildUiContextReminder, injectReminderIntoLastUserMessage } from "./ui-context-reminder.js";
 import { isActiveSessionPath } from "./message-utils.js";
+import { formatWorkspaceScopePrompt, normalizeWorkspaceScope } from "../shared/workspace-scope.js";
 
 const log = createModuleLogger("session");
 
@@ -86,6 +87,7 @@ export class SessionCoordinator {
     agent: explicitAgent = null,
     agentId: explicitAgentId = null,
     preserveAgentMemoryState = false,
+    workspaceFolders = [],
   } = {}) {
     const t0 = Date.now();
     const agent = explicitAgent
@@ -110,6 +112,22 @@ export class SessionCoordinator {
 
     if (!sessionMgr) {
       sessionMgr = SessionManager.create(effectiveCwd, agent.sessionDir);
+    }
+    const sessionPathForMeta = sessionMgr.getSessionFile?.() || null;
+    let workspaceScope = normalizeWorkspaceScope({
+      primaryCwd: effectiveCwd,
+      workspaceFolders,
+    });
+    if (restore && sessionPathForMeta) {
+      try {
+        const metaPath = path.join(agent.sessionDir, "session-meta.json");
+        const meta = await this._readMetaCached(metaPath);
+        const restoredFolders = meta[path.basename(sessionPathForMeta)]?.workspaceFolders;
+        workspaceScope = normalizeWorkspaceScope({
+          primaryCwd: effectiveCwd,
+          workspaceFolders: restoredFolders,
+        });
+      } catch {}
     }
 
     // 冻结当前 session 的有效记忆参与态。
@@ -240,6 +258,13 @@ After dispatching subagent or other background tasks:
             );
           }
 
+          const workspacePrompt = formatWorkspaceScopePrompt({
+            primaryCwd: workspaceScope.primaryCwd,
+            workspaceFolders: workspaceScope.workspaceFolders,
+            locale: agent.config?.locale || getLocale(),
+          });
+          if (workspacePrompt) parts.push(workspacePrompt);
+
           return parts;
         },
       },
@@ -258,7 +283,7 @@ After dispatching subagent or other background tasks:
     const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(
       effectiveCwd,
       agentToolsSnapshot,
-      { workspace: this._d.getHomeCwd(agent.id), agentDir: agent.agentDir },
+      { workspace: effectiveCwd, workspaceFolders: workspaceScope.workspaceFolders, agentDir: agent.agentDir },
     );
     const sessionOpts = {
       cwd: effectiveCwd,
@@ -358,6 +383,7 @@ After dispatching subagent or other background tasks:
       memoryEnabled: frozenMemoryEnabled,
       modelId: resolvedModel?.id || effectiveModel?.id || null,
       modelProvider: resolvedModel?.provider || effectiveModel?.provider || null,
+      workspaceFolders: workspaceScope.workspaceFolders,
       toolNames: snapshotToolNames,  // null for legacy sessions (Case B), array otherwise
       lastTouchedAt: Date.now(),
       unsub,
@@ -390,7 +416,10 @@ After dispatching subagent or other background tasks:
     // "upgrade is zero-noise"). writeSessionMeta is serialized and never
     // rejects; awaiting gives createSession a clean post-return state.
     if (!restore && sessionPath) {
-      const metaPatch = { memoryEnabled: frozenMemoryEnabled };
+      const metaPatch = {
+        memoryEnabled: frozenMemoryEnabled,
+        workspaceFolders: workspaceScope.workspaceFolders,
+      };
       if (snapshotToolNames !== null) metaPatch.toolNames = snapshotToolNames;
       await this.writeSessionMeta(sessionPath, metaPatch);
     }
@@ -415,6 +444,12 @@ After dispatching subagent or other background tasks:
     }
 
     return { session, sessionPath: sessionPath || mapKey, agentId: creatingAgentId };
+  }
+
+  getSessionWorkspaceFolders(sessionPath = this.currentSessionPath) {
+    if (!sessionPath) return [];
+    const entry = this._sessions.get(sessionPath);
+    return Array.isArray(entry?.workspaceFolders) ? [...entry.workspaceFolders] : [];
   }
 
   async switchSession(sessionPath) {
@@ -530,9 +565,20 @@ After dispatching subagent or other background tasks:
   }
 
   async abort() {
-    if (this._session?.isStreaming) {
-      await this._session.abort();
+    const sessionPath = this.currentSessionPath;
+    if (sessionPath) return this.abortSession(sessionPath);
+    if (!this._session?.isStreaming) return false;
+
+    try {
+      this._session.abort()?.catch?.((err) =>
+        log.warn(`abort focus session: abort failed: ${err.message}`),
+      );
+    } catch (err) {
+      log.warn(`abort focus session: abort failed: ${err.message}`);
     }
+    this._session = null;
+    this._sessionStarted = false;
+    return true;
   }
 
   steer(text) {
@@ -587,8 +633,7 @@ After dispatching subagent or other background tasks:
   async abortSession(sessionPath) {
     const entry = this._sessions.get(sessionPath);
     if (!entry?.session.isStreaming) return false;
-    await entry.session.abort();
-    return true;
+    return this._forceReleaseStreamingSession(entry, sessionPath, "abort");
   }
 
   // ── Mid-session model switch ──
@@ -797,7 +842,7 @@ After dispatching subagent or other background tasks:
   }
 
   /** Set plan mode for the current (focused) session */
-  setPlanMode(enabled, allBuiltInTools) {
+  setPlanMode(enabled, allBuiltInToolNames) {
     const sp = this.currentSessionPath;
 
     // No session yet (welcome page) — store for when session is created
@@ -813,7 +858,6 @@ After dispatching subagent or other background tasks:
 
     entry.planMode = !!enabled;
     const agent = this._d.getAgent();
-    const allBuiltInNames = allBuiltInTools.map((t) => t.name);
 
     // Respect the session's tool snapshot so toggling plan mode preserves the
     // user's disabled-tool choice. Strip SDK built-in names from the snapshot
@@ -821,13 +865,13 @@ After dispatching subagent or other background tasks:
     // full built-in list (plan OFF). Legacy sessions (Case B) have
     // toolNames = null and fall back to the unfiltered agent.tools list.
     const customBase = entry.toolNames != null
-      ? entry.toolNames.filter((n) => !allBuiltInNames.includes(n))
+      ? entry.toolNames.filter((n) => !allBuiltInToolNames.includes(n))
       : (agent.tools || []).map((t) => t.name).filter(Boolean);
 
     if (entry.planMode) {
       entry.session.setActiveToolsByName([...READ_ONLY_BUILTIN_TOOLS, ...customBase]);
     } else {
-      entry.session.setActiveToolsByName([...allBuiltInNames, ...customBase]);
+      entry.session.setActiveToolsByName([...allBuiltInToolNames, ...customBase]);
     }
 
     this._d.emitEvent({ type: "plan_mode", enabled: entry.planMode }, sp);
@@ -851,21 +895,79 @@ After dispatching subagent or other background tasks:
 
   /** 中断所有正在 streaming 的 session */
   async abortAllStreaming() {
-    const tasks = [];
+    let count = 0;
     for (const [sp, entry] of this._sessions) {
       if (entry.session.isStreaming) {
-        tasks.push(
-          entry.session.abort().catch((err) =>
-            log.warn(`abortAllStreaming ${path.basename(sp)}: abort failed: ${err.message}`),
-          ),
-        );
+        if (this._forceReleaseStreamingSession(entry, sp, "abort_all")) count++;
       }
     }
-    await Promise.all(tasks);
-    return tasks.length;
+    return count;
   }
 
   // ── Lifecycle teardown (统一入口) ──
+
+  /**
+   * 强制释放一个卡在 streaming 状态的 session。
+   *
+   * 停止按钮属于控制平面，不能等待 provider stream 自己收尾。这里先把
+   * Hanako 侧的 sessionPath 控制权释放出来，再把 SDK abort 和资源清理
+   * 丢到后台继续做。旧 session 的事件订阅和 SDK agent 连接会先断开，
+   * 避免它之后恢复时把过期 delta 写回同一个前端会话或历史文件。
+   *
+   * @param {object} entry
+   * @param {string} sessionPath
+   * @param {string} reason
+   * @returns {boolean}
+   * @private
+   */
+  _forceReleaseStreamingSession(entry, sessionPath, reason) {
+    if (!entry?.session?.isStreaming) return false;
+
+    const session = entry.session;
+    const spShort = sessionPath ? path.basename(sessionPath) : "(anon)";
+    entry.lastTouchedAt = Date.now();
+
+    this._sessions.delete(sessionPath);
+    if (this._session === session || this.currentSessionPath === sessionPath) {
+      this._session = null;
+      this._sessionStarted = false;
+    }
+
+    const unsub = entry.unsub;
+    entry.unsub = null;
+    try {
+      unsub?.();
+    } catch (err) {
+      log.warn(`forceRelease[${reason}] ${spShort}: unsub failed: ${err.message}`);
+    }
+
+    this._d.emitEvent?.({
+      type: "session_status",
+      isStreaming: false,
+      aborted: true,
+      reason,
+    }, sessionPath);
+
+    try {
+      const abortPromise = session.abort?.();
+      Promise.resolve(abortPromise).catch((err) =>
+        log.warn(`forceRelease[${reason}] ${spShort}: abort failed: ${err.message}`),
+      );
+    } catch (err) {
+      log.warn(`forceRelease[${reason}] ${spShort}: abort failed: ${err.message}`);
+    }
+
+    try {
+      session.dispose?.();
+    } catch (err) {
+      log.warn(`forceRelease[${reason}] ${spShort}: session.dispose failed: ${err.message}`);
+    }
+
+    this._teardownSessionEntry(entry, sessionPath, reason).catch((err) =>
+      log.warn(`forceRelease[${reason}] ${spShort}: teardown failed: ${err.message}`),
+    );
+    return true;
+  }
 
   /**
    * 释放一个 sessionEntry 的所有资源。
@@ -907,11 +1009,11 @@ After dispatching subagent or other background tasks:
         log.warn(`closeSession ${path.basename(sessionPath)}: notifySessionEnd failed: ${err.message}`),
       );
       if (entry.session.isStreaming) {
-        try { await entry.session.abort(); }
-        catch (err) { log.warn(`closeSession ${path.basename(sessionPath)}: abort failed: ${err.message}`); }
+        this._forceReleaseStreamingSession(entry, sessionPath, "close");
+      } else {
+        await this._teardownSessionEntry(entry, sessionPath, "close");
+        this._sessions.delete(sessionPath);
       }
-      await this._teardownSessionEntry(entry, sessionPath, "close");
-      this._sessions.delete(sessionPath);
 
       // 清理该 session 的 pending confirmation
       this._d.getConfirmStore?.()?.abortBySession(sessionPath);
@@ -926,10 +1028,10 @@ After dispatching subagent or other background tasks:
     // abort all streaming sessions + teardown（记忆收尾由 disposeAll 带超时处理）
     for (const [sessionPath, entry] of this._sessions) {
       if (entry.session.isStreaming) {
-        try { await entry.session.abort(); }
-        catch (err) { log.warn(`closeAllSessions ${path.basename(sessionPath)}: abort failed: ${err.message}`); }
+        this._forceReleaseStreamingSession(entry, sessionPath, "close_all");
+      } else {
+        await this._teardownSessionEntry(entry, sessionPath, "close_all");
       }
-      await this._teardownSessionEntry(entry, sessionPath, "close_all");
       // sidecar cleanup: 与 closeSession 保持语义一致
       // pending confirmation 必须 abort, pending deferred task 必须 clear
       this._d.getConfirmStore?.()?.abortBySession(sessionPath);
@@ -1042,10 +1144,7 @@ After dispatching subagent or other background tasks:
   }
 
   async abortSessionByPath(sessionPath) {
-    const session = this.getSessionByPath(sessionPath);
-    if (!session?.isStreaming) return false;
-    await session.abort();
-    return true;
+    return this.abortSession(sessionPath);
   }
 
   async listSessions() {
@@ -1406,6 +1505,13 @@ After dispatching subagent or other background tasks:
       fs.mkdirSync(sessionDir, { recursive: true });
 
       const execCwd = opts.cwd || this._d.getHomeCwd(targetAgent.id) || process.cwd();
+      const inheritedWorkspaceFolders = Array.isArray(opts.workspaceFolders)
+        ? opts.workspaceFolders
+        : this.getSessionWorkspaceFolders(this.currentSessionPath);
+      const execWorkspaceScope = normalizeWorkspaceScope({
+        primaryCwd: execCwd,
+        workspaceFolders: inheritedWorkspaceFolders,
+      });
       const models = this._d.getModels();
       // migration #5 之后 models.chat 必为 {id, provider}；旧裸字符串/缺 provider 对象视为未配置
       const agentPreferredRef = targetAgent.config?.models?.chat;
@@ -1436,7 +1542,11 @@ After dispatching subagent or other background tasks:
       const { tools: allBuiltinTools, customTools: allCustomTools } = this._d.buildTools(
         execCwd,
         targetAgentToolsSnapshot,
-        { agentDir: targetAgent.agentDir, workspace: this._d.getHomeCwd(targetAgent.id) },
+        {
+          agentDir: targetAgent.agentDir,
+          workspace: execCwd,
+          workspaceFolders: execWorkspaceScope.workspaceFolders,
+        },
       );
 
       const patrolAllowed = opts.toolFilter
@@ -1467,14 +1577,24 @@ After dispatching subagent or other background tasks:
         // per-session 开关只管该 session 自己的对话窗口，不影响这里。
         isolatedPrompt = targetAgent.systemPrompt;
       }
-      const execResourceLoader = (targetAgent === agent)
-        ? Object.create(resourceLoader, {
-            getSystemPrompt: { value: () => isolatedPrompt },
-          })
-        : Object.create(resourceLoader, {
-            getSystemPrompt: { value: () => isolatedPrompt },
-            getSkills: { value: () => skills.getSkillsForAgent(targetAgent) },
-          });
+      const execResourceLoaderProps = {
+        getSystemPrompt: { value: () => isolatedPrompt },
+        getAppendSystemPrompt: {
+          value: () => {
+            const base = resourceLoader.getAppendSystemPrompt?.() || [];
+            const workspacePrompt = formatWorkspaceScopePrompt({
+              primaryCwd: execWorkspaceScope.primaryCwd,
+              workspaceFolders: execWorkspaceScope.workspaceFolders,
+              locale: targetAgent.config?.locale || getLocale(),
+            });
+            return workspacePrompt ? [...base, workspacePrompt] : base;
+          },
+        },
+      };
+      if (targetAgent !== agent) {
+        execResourceLoaderProps.getSkills = { value: () => skills.getSkillsForAgent(targetAgent) };
+      }
+      const execResourceLoader = Object.create(resourceLoader, execResourceLoaderProps);
 
       const { session } = await createAgentSession({
         cwd: execCwd,

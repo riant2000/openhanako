@@ -20,6 +20,7 @@ import {
   isActiveSessionPath,
 } from "../../core/message-utils.js";
 import { loadLatestTodosFromSessionFile } from "../../lib/tools/todo-compat.js";
+import { mergeWorkspaceHistory } from "../../shared/workspace-history.js";
 
 function rcPlatformFromSessionKey(sessionKey) {
   const match = /^([a-z]+)_/i.exec(sessionKey || "");
@@ -291,6 +292,9 @@ export function createSessionsRoute(engine) {
     try {
       const body = await safeJson(c);
       const { cwd, memoryEnabled, agentId, currentSessionPath: oldSessionPath } = body;
+      const workspaceFolders = Array.isArray(body.workspaceFolders)
+        ? body.workspaceFolders.filter(p => typeof p === "string" && p.trim())
+        : [];
       const memFlag = memoryEnabled !== false; // 默认 true
       console.log("[sessions] 新建 session", {
         hasCwd: !!cwd,
@@ -306,19 +310,27 @@ export function createSessionsRoute(engine) {
 
       let newSessionPath, newAgentId;
       if (agentId && agentId !== (body.currentAgentId || engine.currentAgentId)) {
-        ({ sessionPath: newSessionPath, agentId: newAgentId } = await engine.createSessionForAgent(agentId, cwd || undefined, memFlag));
+        ({ sessionPath: newSessionPath, agentId: newAgentId } = await engine.createSessionForAgent(
+          agentId,
+          cwd || undefined,
+          memFlag,
+          undefined,
+          { workspaceFolders },
+        ));
       } else {
-        ({ sessionPath: newSessionPath, agentId: newAgentId } = await engine.createSession(null, cwd || undefined, memFlag));
+        ({ sessionPath: newSessionPath, agentId: newAgentId } = await engine.createSession(
+          null,
+          cwd || undefined,
+          memFlag,
+          undefined,
+          { workspaceFolders },
+        ));
       }
       engine.persistSessionMeta();
 
       // 记住工作目录 + 更新历史
       if (cwd) {
-        const history = Array.isArray(engine.config.cwd_history)
-          ? engine.config.cwd_history.filter(p => p !== cwd)
-          : [];
-        history.unshift(cwd);
-        if (history.length > 10) history.length = 10;  // 保留最近 10 条
+        const history = mergeWorkspaceHistory(engine.config.cwd_history, [cwd]);
         await engine.updateConfig({ last_cwd: cwd, cwd_history: history });
       }
 
@@ -327,6 +339,7 @@ export function createSessionsRoute(engine) {
         ok: true,
         path: newSessionPath,
         cwd: engine.cwd,
+        workspaceFolders: engine.getSessionWorkspaceFolders?.(newSessionPath) || [],
         agentId: newAgentId,
         agentName: engine.getAgent(newAgentId)?.agentName || engine.agentName,
         planMode: engine.planMode,
@@ -385,6 +398,7 @@ export function createSessionsRoute(engine) {
         planMode: engine.planMode,
         memoryModelUnavailableReason: engine.memoryModelUnavailableReason || null,
         cwd: engine.cwd,
+        workspaceFolders: engine.getSessionWorkspaceFolders?.(sessionPath) || [],
         agentId: switchedAgentId,
         agentName: switchedAgent?.agentName || switchedAgentId,
         browserRunning: bm.isRunning(sessionPath),

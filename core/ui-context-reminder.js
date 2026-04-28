@@ -13,7 +13,7 @@
  *
  * 去冗余规则：
  * - `current_folder` 仅当 `currentViewed !== session.cwd` 时写
- *   （避免跟 agent.js 的 system prompt「书桌」章节重复）
+ *   （避免跟 agent.js 的 system prompt「工作空间」章节重复）
  * - `active_file` 和 `active_artifact` 二选一（前者优先：有 filePath 走 active_file）
  * - `pinned_files` 空数组则省略整段
  * - 所有字段都空 → 返回 null，hook 啥也不改

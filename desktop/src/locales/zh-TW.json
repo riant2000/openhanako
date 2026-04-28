@@ -98,6 +98,7 @@
     "user": "使用者",
     "me": "我",
     "more": "更多",
+    "remove": "移除",
     "empty": "空",
     "edit": "編輯",
     "screenshot": "截圖",
@@ -140,6 +141,10 @@
     "selectFolder": "選擇工作資料夾",
     "workspace": "工作空間：",
     "selectWorkspace": "選擇工作空間",
+    "currentWorkspace": "本次工作空間",
+    "selectOtherFolder": "選擇其他資料夾",
+    "extraFolders": "額外資料夾",
+    "addExternalFolder": "加入工作區以外的資料夾",
     "planMode": "操作電腦",
     "deskContext": "看著書桌說",
     "pastedImage": "貼上圖片",
@@ -855,7 +860,7 @@
       "cronAutoApproveOn": "已開啟",
       "cronAutoApproveOff": "已關閉",
       "cronAutoApproveDesc": "允許助手直接建立定時任務，無需手動確認",
-      "homeFolder": "書桌目錄",
+      "homeFolder": "工作空間",
       "homeFolderDesc": "新建對話預設使用的工作目錄，巡檢和定時任務也在這裡執行",
       "homeFolderPlaceholder": "未設定（每次手動選擇）",
       "homeFolderClear": "清除",
@@ -1111,6 +1116,7 @@
   },
   "desk": {
     "title": "書桌",
+    "workspaceTitle": "工作空間",
     "skills": "技能",
     "cwdSkills": "專案技能",
     "cwdSkillsEmpty": "目前資料夾沒有專案技能",
@@ -1128,6 +1134,7 @@
     "goToSettings": "前往設定",
     "fileLabel": "檔案",
     "openWithDefault": "用預設應用程式打開",
+    "refresh": "重新整理",
     "newFolder": "新建資料夾",
     "ctx": {
       "open": "打開",
@@ -1432,7 +1439,9 @@
       "serverMultipleCrash": "Hanako v{version}\n\nServer 多次崩潰 ({reason})。\n\n請重新啟動應用程式。",
       "serverStartTimeout": "Server 啟動逾時（60秒）",
       "serverKilledBySignal": "Server 被訊號終止 ({signal})",
-      "serverExitedWithCode": "Server 已結束，code: {code}"
+      "serverExitedWithCode": "Server 已結束，code: {code}",
+      "serverFilesNotReady": "自動更新剛完成，新版本檔案仍在寫入磁碟（缺少 {missing}），已等待 {waited} 秒仍未就緒。請稍後重新啟動 Hanako。",
+      "serverModuleMissing": "Server 啟動失敗：找不到模組 {module}。\n通常是自動更新剛完成、新版本檔案仍在寫入磁碟所致。\n建議：等待 1-2 分鐘後重新啟動 Hanako；若反覆出現，請至 GitHub 回報。"
     },
     "notification": {
       "ready": "通知已就緒"

@@ -1,5 +1,5 @@
 /**
- * DeskFileItem — 书桌中的单个文件/文件夹条目
+ * DeskFileItem — 工作空间中的单个文件/文件夹条目
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

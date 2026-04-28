@@ -8,14 +8,14 @@
  *      绑定回同一条 assistant message，而不是靠"最后一条消息"猜目标
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { streamBufferManager } from '../../hooks/use-stream-buffer';
 import {
   snapshotStreamBuffer,
   invalidateStreamBuffer,
 } from '../../stores/stream-invalidator';
 import { useStore } from '../../stores';
-import type { ChatListItem } from '../../stores/chat-types';
+import type { ChatListItem, ChatMessage } from '../../stores/chat-types';
 
 const PATH = '/test/session.jsonl';
 
@@ -31,6 +31,15 @@ function lastRole(): string | undefined {
   const items = getItems();
   const last = items[items.length - 1];
   return last?.type === 'message' ? last.data.role : undefined;
+}
+
+function getAssistantMessage(): ChatMessage | null {
+  const item = getItems().find((entry) => entry.type === 'message' && entry.data.role === 'assistant');
+  return item?.type === 'message' ? item.data : null;
+}
+
+function getThinkingBlock() {
+  return getAssistantMessage()?.blocks?.find((block) => block.type === 'thinking') ?? null;
 }
 
 describe('streamBufferManager.snapshot', () => {
@@ -83,6 +92,36 @@ describe('streamBufferManager.snapshot', () => {
 
     invalidateStreamBuffer(PATH);
     expect(snapshotStreamBuffer(PATH)).toBeNull();
+  });
+});
+
+describe('streamBufferManager.thinking 流式刷新', () => {
+  beforeEach(() => {
+    streamBufferManager.clearAll();
+    useStore.getState().clearSession(PATH);
+    useStore.getState().initSession(PATH, [userItem('u1', 'hi')], false);
+  });
+
+  it('thinking_delta 按既有时间节流刷新，未 thinking_end 也能显示内容', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-04-28T00:00:00.000Z'));
+
+      streamBufferManager.handle({ type: 'thinking_start', sessionPath: PATH });
+      streamBufferManager.handle({ type: 'thinking_delta', sessionPath: PATH, delta: '第一段思考' });
+
+      const beforeFlush = getThinkingBlock();
+      expect(beforeFlush).toEqual({ type: 'thinking', content: '', sealed: false });
+
+      vi.advanceTimersByTime(199);
+      expect(getThinkingBlock()).toEqual({ type: 'thinking', content: '', sealed: false });
+
+      vi.advanceTimersByTime(1);
+      expect(getThinkingBlock()).toEqual({ type: 'thinking', content: '第一段思考', sealed: false });
+    } finally {
+      streamBufferManager.clearAll();
+      vi.useRealTimers();
+    }
   });
 });
 

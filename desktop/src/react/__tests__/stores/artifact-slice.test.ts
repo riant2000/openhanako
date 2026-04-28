@@ -1,7 +1,7 @@
 /**
  * artifact-slice + artifact-actions 行为测试
  *
- * 预览面板是 user-level flat state，跨 session 共享。
+ * Artifact 内容池是 user-level flat state；可见 preview/tabs 由 workspace 激活流程恢复。
  * 覆盖：tab 操作、upsert / clear、openPreview / closePreview、handleArtifact。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -73,7 +73,7 @@ function makeArtifact(id: string, title?: string): Artifact {
   return { id, type: 'code', title: title ?? id, content: `content-${id}` };
 }
 
-describe('artifact slice (user-level flat state)', () => {
+describe('artifact slice (user-level content pool)', () => {
   beforeEach(() => {
     testStore = createTestStore();
   });
@@ -151,7 +151,7 @@ describe('artifact slice (user-level flat state)', () => {
     });
   });
 
-  describe('跨 session 共享（user-level 关键行为）', () => {
+  describe('内容池不从 currentSessionPath 推导归属', () => {
     it('切换 currentSessionPath 不影响预览面板状态', () => {
       openTab('file-1');
       upsertArtifact(makeArtifact('file-1'));

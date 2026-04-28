@@ -12,7 +12,7 @@ import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { buildItemsFromHistory } from '../utils/history-builder';
 import { migrateLegacyTodos } from '../utils/todo-compat';
 import { loadAvatars as loadAvatarsAction, clearChat as clearChatAction } from './agent-actions';
-import { loadDeskFiles } from './desk-actions';
+import { activateWorkspaceDesk } from './desk-actions';
 import { loadModels } from '../utils/ui-helpers';
 import { updateKeyed } from './create-keyed-slice';
 import { snapshotStreamBuffer, type StreamBufferSnapshot } from './stream-invalidator';
@@ -24,21 +24,14 @@ import { readMessageLiveVersion } from './message-live-version';
 
 let _switchVersion = 0;
 
-function resetDeskForSessionCwd(cwd?: string | null): void {
-  const state = useStore.getState();
-  const nextBasePath = cwd || '';
-  const currentBasePath = state.deskBasePath || '';
-  const nextSubdir = nextBasePath && currentBasePath === nextBasePath
-    ? (state.deskCurrentPath || '')
-    : '';
-  // Session 切换后的 cwd 以服务端显式返回值为准；旧 session 的相对子目录
-  // 不得隐式带入新 workspace，否则会把上一个工作区的视图假设泄漏过来。
-  state.setDeskBasePath(nextBasePath);
-  state.setDeskCurrentPath(nextSubdir);
-  state.setDeskFiles([]);
-  state.setDeskJianContent(null);
-  if (!cwd) return;
-  void loadDeskFiles(nextSubdir, cwd);
+function invalidateSessionSwitches(): void {
+  _switchVersion += 1;
+}
+
+async function resetDeskForSessionCwd(cwd?: string | null): Promise<void> {
+  // Session 切换后的 cwd 以服务端显式返回值为准；右侧 desk 视图归 workspace/CWD 所有。
+  // 切到同一 workspace 时保留当前子目录；切到不同 workspace 时恢复该 workspace 的上次子目录。
+  await activateWorkspaceDesk(cwd || null);
 }
 
 function clearSessionRuntimeCaches(path: string): void {
@@ -255,11 +248,12 @@ export async function switchSession(path: string): Promise<void> {
       }));
     }
 
-    // 批量更新 store（切 currentSessionPath 切换对话内容；desk/preview 是 user-level，不随 session 切换）
+    // 批量更新 store（切 currentSessionPath 切换对话内容；可见 desk/preview 状态由 workspace 激活流程恢复）
     useStore.setState({
       currentSessionPath: path,
       pendingNewSession: false,
       selectedFolder: null,
+      workspaceFolders: Array.isArray(data.workspaceFolders) ? data.workspaceFolders : [],
       selectedAgentId: null,
       welcomeVisible: false,
       memoryEnabled: data.memoryEnabled !== false,
@@ -270,9 +264,7 @@ export async function switchSession(path: string): Promise<void> {
       ...agentPatch,
     });
 
-    resetDeskForSessionCwd(data.cwd || null);
-
-    // desk / preview 状态是 user-level，但 workspace root 以切入 session 的 cwd 为准
+    await resetDeskForSessionCwd(data.cwd || null);
 
     // 同步浏览器状态到 keyed store（服务端返回当前 session 的 browser 状态）
     if (path) {
@@ -329,6 +321,10 @@ export async function switchSession(path: string): Promise<void> {
 // ══════════════════════════════════════════════════════
 
 export async function createNewSession(): Promise<void> {
+  // Entering the pending new-session workspace is a navigation boundary.
+  // Any in-flight switchSession response now belongs to the previous view.
+  invalidateSessionSwitches();
+
   // 关闭浮动面板
   if (useStore.getState().activePanel === 'activity') {
     useStore.getState().setActivePanel(null);
@@ -339,8 +335,10 @@ export async function createNewSession(): Promise<void> {
   useStore.setState({
     welcomeVisible: true,
     currentSessionPath: null,
-    // 用当前 desk 视图作为新 session 的 cwd 草稿（保持视觉连续）
-    selectedFolder: s.deskBasePath || s.homeFolder || null,
+    // 新 session 的默认 cwd 归 Agent home 所有；当前 deskBasePath 只是视图状态，
+    // 不能反向污染下一次会话的执行目录和沙箱边界。
+    selectedFolder: s.homeFolder || null,
+    workspaceFolders: [],
     selectedAgentId: null,
     pendingNewSession: true,
     attachedFiles: [],
@@ -348,10 +346,10 @@ export async function createNewSession(): Promise<void> {
     docContextAttached: false,
   });
 
+  await activateWorkspaceDesk(s.homeFolder || null);
+
   // 重置 context ring
   useStore.setState({ contextTokens: null, contextWindow: null, contextPercent: null });
-
-  // desk / preview 视图保持不变（user-level state，切 session 不清）
 
   // pending 状态下刷新 model 列表，让 ModelSelector 显示 agent Chat 默认 model
   loadModels();
@@ -371,6 +369,9 @@ export async function ensureSession(): Promise<boolean> {
     const body: Record<string, any> = { memoryEnabled: s.memoryEnabled };
     if (s.selectedFolder) {
       body.cwd = s.selectedFolder;
+    }
+    if (s.workspaceFolders?.length) {
+      body.workspaceFolders = s.workspaceFolders;
     }
     if (s.selectedAgentId && s.selectedAgentId !== s.currentAgentId) {
       body.agentId = s.selectedAgentId;
@@ -394,6 +395,7 @@ export async function ensureSession(): Promise<boolean> {
     const patch: Record<string, any> = {
       pendingNewSession: false,
       selectedFolder: null,
+      workspaceFolders: Array.isArray(data.workspaceFolders) ? data.workspaceFolders : [],
       selectedAgentId: null,
     };
 
@@ -423,7 +425,7 @@ export async function ensureSession(): Promise<boolean> {
 
     useStore.setState(patch);
 
-    resetDeskForSessionCwd(data.cwd || null);
+    await resetDeskForSessionCwd(data.cwd || null);
 
     // New session defaults to plan mode OFF
     window.dispatchEvent(new CustomEvent('hana-plan-mode', { detail: { enabled: data.planMode ?? false } }));

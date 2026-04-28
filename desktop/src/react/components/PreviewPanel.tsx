@@ -1,7 +1,7 @@
 /**
  * PreviewPanel — Artifact 预览/编辑面板
  *
- * 从 Zustand store 读取 user-level flat 的 artifacts / activeTabId / previewOpen 状态。
+ * 从 Zustand store 读取 artifact 内容池，以及当前 workspace 恢复出的 activeTabId / previewOpen 状态。
  * 可编辑类型（有 filePath 的 markdown/code/csv）使用 CodeMirror 编辑器。
  *
  * 架构原则：

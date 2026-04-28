@@ -9,8 +9,6 @@ import { SettingsRow } from '../components/SettingsRow';
 import { NumberInput } from '../components/NumberInput';
 import styles from '../Settings.module.css';
 
-const platform = window.platform;
-
 type AgentDeskConfig = {
   home_folder: string;
   heartbeat_enabled: boolean;
@@ -70,9 +68,15 @@ export function WorkTab() {
     await autoSaveConfig({ desk: { cron_auto_approve: on } });
   };
 
-  const saveAgentConfig = async (patch: Record<string, any>) => {
-    const agentId = selectedAgentIdRef.current;
-    if (!agentId) return;
+  const emitAgentWorkspaceChanged = (agentId: string, homeFolder: string | null) => {
+    window.platform?.settingsChanged?.('agent-workspace-changed', {
+      agentId,
+      homeFolder,
+    });
+  };
+
+  const saveAgentConfig = async (agentId: string, patch: Record<string, any>): Promise<boolean> => {
+    if (!agentId) return false;
     try {
       const res = await hanaFetch(`/api/agents/${agentId}/config`, {
         method: 'PUT',
@@ -84,37 +88,71 @@ export function WorkTab() {
       if (selectedAgentIdRef.current === agentId) {
         showToast(t('settings.autoSaved'), 'success');
       }
+      return true;
     } catch (err: any) {
       showToast(t('settings.saveFailed') + ': ' + err.message, 'error');
+      return false;
     }
   };
 
   const togglePerAgentHeartbeat = async (on: boolean) => {
     if (!agentDesk) return;
+    const agentId = selectedAgentIdRef.current;
+    if (!agentId) return;
+    const previous = agentDesk;
     setAgentDesk({ ...agentDesk, heartbeat_enabled: on });
-    await saveAgentConfig({ desk: { heartbeat_enabled: on } });
+    const saved = await saveAgentConfig(agentId, { desk: { heartbeat_enabled: on } });
+    if (!saved && selectedAgentIdRef.current === agentId) {
+      setAgentDesk(previous);
+    }
   };
 
   const pickHomeFolder = async () => {
     if (!agentDesk) return;
-    const folder = await platform?.selectFolder?.();
+    const agentId = selectedAgentIdRef.current;
+    if (!agentId) return;
+    const previous = agentDesk;
+    const folder = await window.platform?.selectFolder?.();
     if (!folder) return;
-    setAgentDesk({ ...agentDesk, home_folder: folder });
-    await saveAgentConfig({ desk: { home_folder: folder } });
+    if (selectedAgentIdRef.current === agentId) {
+      setAgentDesk({ ...agentDesk, home_folder: folder });
+    }
+    const saved = await saveAgentConfig(agentId, { desk: { home_folder: folder } });
+    if (saved) {
+      emitAgentWorkspaceChanged(agentId, folder);
+    } else if (selectedAgentIdRef.current === agentId) {
+      setAgentDesk(previous);
+    }
   };
 
   const clearHomeFolder = async () => {
     if (!agentDesk) return;
+    const agentId = selectedAgentIdRef.current;
+    if (!agentId) return;
+    const previous = agentDesk;
     setAgentDesk({ ...agentDesk, home_folder: '' });
-    await saveAgentConfig({ desk: { home_folder: '' } });
+    const saved = await saveAgentConfig(agentId, { desk: { home_folder: '' } });
+    if (saved) {
+      emitAgentWorkspaceChanged(agentId, null);
+    } else if (selectedAgentIdRef.current === agentId) {
+      setAgentDesk(previous);
+    }
   };
 
   const saveInterval = async () => {
     if (hbIntervalDraft == null || !agentDesk) return;
+    const agentId = selectedAgentIdRef.current;
+    if (!agentId) return;
+    const previous = agentDesk;
+    const previousDraft = hbIntervalDraft;
     const interval = Math.max(1, Math.min(120, hbIntervalDraft));
     setAgentDesk({ ...agentDesk, heartbeat_interval: interval });
     setHbIntervalDraft(interval);
-    await saveAgentConfig({ desk: { heartbeat_interval: interval } });
+    const saved = await saveAgentConfig(agentId, { desk: { heartbeat_interval: interval } });
+    if (!saved && selectedAgentIdRef.current === agentId) {
+      setAgentDesk(previous);
+      setHbIntervalDraft(previousDraft);
+    }
   };
 
   return (

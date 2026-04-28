@@ -21,7 +21,7 @@ import { runMigrations } from "./migrations.js";
 import { findModel } from "../shared/model-ref.js";
 import { resolveWorkspaceSkillPaths } from "../shared/workspace-skill-paths.js";
 import { PluginManager } from "./plugin-manager.js";
-import { DefaultResourceLoader, codingTools, grepTool, findTool, lsTool } from "../lib/pi-sdk/index.js";
+import { DefaultResourceLoader, PI_BUILTIN_TOOL_NAMES, SettingsManager } from "../lib/pi-sdk/index.js";
 
 /** 已知的外部 AI 工具技能目录（相对 $HOME） */
 const WELL_KNOWN_SKILL_PATHS = [
@@ -32,7 +32,7 @@ const WELL_KNOWN_SKILL_PATHS = [
   { suffix: ".agents/skills",     label: "Agents" },
 ];
 
-const allBuiltInTools = [...codingTools, grepTool, findTool, lsTool];
+const allBuiltInToolNames = PI_BUILTIN_TOOL_NAMES;
 
 function findUniqueModelById(models, id) {
   if (!id || !Array.isArray(models)) return null;
@@ -323,8 +323,8 @@ export class HanaEngine {
   async deleteAgent(agentId) { return this._agentMgr.deleteAgent(agentId); }
   setPrimaryAgent(agentId) { return this._agentMgr.setPrimaryAgent(agentId); }
   agentIdFromSessionPath(p) { return this._agentMgr.agentIdFromSessionPath(p); }
-  async createSessionForAgent(agentId, cwd, mem) {
-    return this._agentMgr.createSessionForAgent(agentId, cwd, mem);
+  async createSessionForAgent(agentId, cwd, mem, model, opts = {}) {
+    return this._agentMgr.createSessionForAgent(agentId, cwd, mem, model, opts);
   }
 
   // 向后兼容：agent 属性代理
@@ -349,8 +349,8 @@ export class HanaEngine {
   get cwd() { return this._sessionCoord.session?.sessionManager?.getCwd?.() ?? process.cwd(); }
   get deskCwd() { return this._sessionCoord.session?.sessionManager?.getCwd?.() || this.homeCwd || null; }
 
-  async createSession(mgr, cwd, mem, model) {
-    return this._sessionCoord.createSession(mgr, cwd, mem, model);
+  async createSession(mgr, cwd, mem, model, opts = {}) {
+    return this._sessionCoord.createSession(mgr, cwd, mem, model, opts);
   }
   async switchSession(p) {
     const result = await this._sessionCoord.switchSession(p);
@@ -370,6 +370,9 @@ export class HanaEngine {
   async abortSession(p) { return this._sessionCoord.abortSession(p); }
   get focusSessionPath() { return this._sessionCoord.currentSessionPath; }
   getMessages(p) { return this._sessionCoord.getSessionByPath(p)?.messages ?? []; }
+  getSessionWorkspaceFolders(p = this.currentSessionPath) {
+    return this._sessionCoord.getSessionWorkspaceFolders(p);
+  }
 
   async abortAllStreaming() { return this._sessionCoord.abortAllStreaming(); }
   isBridgeSessionStreaming(key) { return this._bridge?.isSessionStreaming(key) ?? false; }
@@ -417,6 +420,29 @@ export class HanaEngine {
 
   getHomeCwd(agentId) {
     return this._configCoord.getHomeFolder(agentId) || null;
+  }
+  _createResourceLoaderOptions(skillsDir) {
+    const cwd = this.getHomeCwd(this.currentAgentId) || this.hanakoHome;
+    const agentDir = this.agent?.agentDir || this.agentDir;
+    if (!cwd || typeof cwd !== "string") {
+      throw new Error("ResourceLoader init: cwd is required");
+    }
+    if (!agentDir || typeof agentDir !== "string") {
+      throw new Error("ResourceLoader init: agentDir is required");
+    }
+    return {
+      cwd,
+      agentDir,
+      settingsManager: SettingsManager.inMemory(),
+      systemPromptOverride: () => this.agent.systemPrompt,
+      agentsFilesOverride: () => ({ agentsFiles: [] }),
+      noContextFiles: true,
+      noExtensions: true,
+      noSkills: true,
+      noPromptTemplates: true,
+      noThemes: true,
+      additionalSkillPaths: [skillsDir],
+    };
   }
   get authStorage() { return this._models.authStorage; }
   get modelRegistry() { return this._models.modelRegistry; }
@@ -490,7 +516,7 @@ export class HanaEngine {
   setMemoryEnabled(v) { return this._configCoord.setMemoryEnabled(v); }
   setMemoryMasterEnabled(id, v) { return this._configCoord.setMemoryMasterEnabled(id, v); }
   persistSessionMeta() { return this._configCoord.persistSessionMeta(); }
-  setPlanMode(enabled) { return this._sessionCoord.setPlanMode(enabled, allBuiltInTools); }
+  setPlanMode(enabled) { return this._sessionCoord.setPlanMode(enabled, allBuiltInToolNames); }
   async updateConfig(p, opts) { return this._configCoord.updateConfig(p, opts); }
 
   getPreferences() { return this._readPreferences(); }
@@ -751,13 +777,7 @@ export class HanaEngine {
 
     this._skills = new SkillManager({ skillsDir, externalPaths });
     this._resourceLoader = new DefaultResourceLoader({
-      systemPromptOverride: () => this.agent.systemPrompt,
-      agentsFilesOverride: () => ({ agentsFiles: [] }),
-      noExtensions: true,
-      noSkills: true,
-      noPromptTemplates: true,
-      noThemes: true,
-      additionalSkillPaths: [skillsDir],
+      ...this._createResourceLoaderOptions(skillsDir),
       extensionFactories: this._extensionFactories = [
         /**
          * Provider payload 兼容化（chat 路径）。与 callText 共享 core/provider-compat.js，
@@ -1016,6 +1036,7 @@ export class HanaEngine {
     let result = createSandboxedTools(cwd, allTools, {
       agentDir: effectiveAgentDir,
       workspace: effectiveWorkspace,
+      workspaceFolders: opts.workspaceFolders || [],
       hanakoHome: this.hanakoHome,
       getSandboxEnabled: () => this._readPreferences().sandbox !== false,
     });
@@ -1193,6 +1214,54 @@ export class HanaEngine {
     } catch {
       return [];
     }
+  }
+
+  get defaultDeskCwd() {
+    return this.homeCwd || null;
+  }
+
+  _realPathForWorkspaceCheck(p) {
+    if (!p || typeof p !== "string") return null;
+    try {
+      return fs.realpathSync(p);
+    } catch {
+      try {
+        return fs.realpathSync(path.dirname(p));
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  isApprovedWorkspaceDir(dir) {
+    const resolved = this._realPathForWorkspaceCheck(dir);
+    if (!resolved) return false;
+    const roots = [
+      this.homeCwd,
+      this.deskCwd,
+      ...this.getSessionWorkspaceFolders(this.currentSessionPath),
+    ].filter(Boolean);
+    return roots.some((root) => {
+      const base = this._realPathForWorkspaceCheck(root);
+      if (!base) return false;
+      return resolved === base || resolved.startsWith(base + path.sep);
+    });
+  }
+
+  isApprovedDeskDir(dir) {
+    const resolved = this._realPathForWorkspaceCheck(dir);
+    if (!resolved) return false;
+    const roots = [
+      this.homeCwd,
+      this.deskCwd,
+      ...this.getSessionWorkspaceFolders(this.currentSessionPath),
+      ...(Array.isArray(this.config?.cwd_history) ? this.config.cwd_history : []),
+    ].filter(Boolean);
+    return roots.some((root) => {
+      const base = this._realPathForWorkspaceCheck(root);
+      if (!base) return false;
+      return resolved === base || resolved.startsWith(base + path.sep);
+    });
   }
 
   // ════════════════════════════

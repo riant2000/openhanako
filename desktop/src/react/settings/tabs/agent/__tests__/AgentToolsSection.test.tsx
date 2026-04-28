@@ -106,11 +106,12 @@ describe("AgentToolsSection", () => {
     });
   });
 
-  it("renders the section description using the i18n key", () => {
+  it("renders the section note and tool summaries", () => {
     const { container } = render(
       <AgentToolsSection availableTools={["browser"]} disabled={[]} />
     );
     expect(container.textContent).toContain("settings.agent.tools.description");
+    expect(container.textContent).toContain("settings.agent.tools.items.browser.summary");
   });
 
   it("two rapid clicks on different toggles both reach autoSaveConfig (P2 race regression)", () => {

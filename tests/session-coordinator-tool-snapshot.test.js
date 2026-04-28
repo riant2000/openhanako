@@ -291,7 +291,7 @@ describe("session-coordinator tool snapshot (createSession)", () => {
     expect(activeToolsSpy).toHaveBeenCalledTimes(1); // initial snapshot apply
 
     // Now toggle plan mode ON
-    coord.setPlanMode(true, SDK_BUILTIN_OBJS);
+    coord.setPlanMode(true, SDK_BUILTIN_OBJS.map((t) => t.name));
 
     // Second setActiveToolsByName call from plan mode
     expect(activeToolsSpy).toHaveBeenCalledTimes(2);
@@ -314,8 +314,8 @@ describe("session-coordinator tool snapshot (createSession)", () => {
   it("setPlanMode OFF after plan-on restores the snapshot (not raw agent.tools)", async () => {
     currentAgentConfig = { tools: { disabled: ["browser"] } };
     await coord.createSession(null, tmpDir, true);
-    coord.setPlanMode(true, SDK_BUILTIN_OBJS);
-    coord.setPlanMode(false, SDK_BUILTIN_OBJS);
+    coord.setPlanMode(true, SDK_BUILTIN_OBJS.map((t) => t.name));
+    coord.setPlanMode(false, SDK_BUILTIN_OBJS.map((t) => t.name));
 
     const planOffList = activeToolsSpy.mock.calls[2][0];
     // All SDK built-ins back
@@ -337,7 +337,7 @@ describe("session-coordinator tool snapshot (createSession)", () => {
     // Case B: no initial snapshot applied
     expect(activeToolsSpy).not.toHaveBeenCalled();
 
-    coord.setPlanMode(true, SDK_BUILTIN_OBJS);
+    coord.setPlanMode(true, SDK_BUILTIN_OBJS.map((t) => t.name));
 
     // Plan mode still applies read-only SDK + full agent.tools (legacy fallback)
     const planList = activeToolsSpy.mock.calls[0][0];

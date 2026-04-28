@@ -111,6 +111,14 @@
     position: relative;
 }
 
+.sectionNote {
+    padding: var(--space-sm) var(--space-md);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    position: relative;
+}
+
 /* ─── SubBlock ─── */
 
 .subBlock {
@@ -138,7 +146,8 @@
 /* 内部分隔线：row/warning 之间的线，贴卡片左右 border（到底，不留白）
  * row 自己承担左右 padding，伪元素从 row edge 到 edge = 卡片内宽全宽 */
 .row + .row::before,
-.row + .sectionWarning::before {
+.row + .sectionWarning::before,
+.sectionNote + .row::before {
     content: '';
     position: absolute;
     top: 0;

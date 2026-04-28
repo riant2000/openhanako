@@ -14,7 +14,12 @@ const mockGetWebSocket = vi.fn(() => null);
 const mockSetStatus = vi.fn();
 const mockLoadModels = vi.fn(async () => {});
 const mockInitJian = vi.fn();
-const mockLoadDeskFiles = vi.fn();
+const mockActivateWorkspaceDesk = vi.fn(async (root: string | null) => {
+  mockState.deskBasePath = root || '';
+  mockState.deskCurrentPath = '';
+  mockState.deskFiles = [];
+  mockState.deskJianContent = null;
+});
 const mockLoadChannels = vi.fn();
 const mockInitViewerEvents = vi.fn();
 const mockUpdateLayout = vi.fn();
@@ -57,7 +62,7 @@ vi.mock('../utils/ui-helpers', () => ({
 
 vi.mock('../stores/desk-actions', () => ({
   initJian: mockInitJian,
-  loadDeskFiles: mockLoadDeskFiles,
+  activateWorkspaceDesk: mockActivateWorkspaceDesk,
 }));
 
 vi.mock('../stores/channel-actions', () => ({
@@ -105,7 +110,13 @@ describe('initApp bridge indicator', () => {
     mockSetStatus.mockReset();
     mockLoadModels.mockReset();
     mockInitJian.mockReset();
-    mockLoadDeskFiles.mockReset();
+    mockActivateWorkspaceDesk.mockReset();
+    mockActivateWorkspaceDesk.mockImplementation(async (root: string | null) => {
+      mockState.deskBasePath = root || '';
+      mockState.deskCurrentPath = '';
+      mockState.deskFiles = [];
+      mockState.deskJianContent = null;
+    });
     mockLoadChannels.mockReset();
     mockInitViewerEvents.mockReset();
     mockUpdateLayout.mockReset();
@@ -155,5 +166,230 @@ describe('initApp bridge indicator', () => {
     await initApp();
 
     expect(mockState.bridgeDotConnected).toBe(true);
+  });
+
+  it('initializes the pending workspace from agent home even when cwd history points elsewhere', async () => {
+    (globalThis as Record<string, unknown>).window = {
+      addEventListener: vi.fn(),
+      platform: {
+        getServerPort: vi.fn(async () => 62950),
+        getServerToken: vi.fn(async () => 'token'),
+        appReady: vi.fn(),
+        onSettingsChanged: vi.fn(),
+        openSettings: vi.fn(),
+      },
+      dispatchEvent: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).document = {
+      addEventListener: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).i18n = {
+      locale: 'zh-CN',
+      defaultName: 'Hanako',
+      load: vi.fn(async () => {}),
+    };
+    (globalThis as Record<string, unknown>).t = vi.fn((key: string) => key);
+
+    mockHanaFetch
+      .mockResolvedValueOnce(jsonResponse({ agent: 'Hanako', user: 'User', avatars: {} }))
+      .mockResolvedValueOnce(jsonResponse({
+        locale: 'zh-CN',
+        desk: { home_folder: '/agent-home' },
+        cwd_history: ['/desktop'],
+      }))
+      .mockResolvedValueOnce(jsonResponse({ jobs: [] }))
+      .mockResolvedValueOnce(jsonResponse({
+        telegram: { status: 'disconnected' },
+        feishu: { status: 'disconnected' },
+        qq: { status: 'disconnected' },
+        wechat: { status: 'disconnected' },
+      }));
+
+    const { initApp } = await import('../app-init');
+    await initApp();
+
+    expect(mockState.homeFolder).toBe('/agent-home');
+    expect(mockState.selectedFolder).toBe('/agent-home');
+    expect(mockState.cwdHistory).toEqual(['/desktop']);
+    expect(mockState.workspaceFolders).toEqual([]);
+    expect(mockInitJian).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes the desk default workspace when settings change the current agent workspace', async () => {
+    let settingsHandler: ((type: string, data: any) => void) | null = null;
+    (globalThis as Record<string, unknown>).window = {
+      addEventListener: vi.fn(),
+      platform: {
+        getServerPort: vi.fn(async () => 62950),
+        getServerToken: vi.fn(async () => 'token'),
+        appReady: vi.fn(),
+        onSettingsChanged: vi.fn((cb: (type: string, data: any) => void) => {
+          settingsHandler = cb;
+        }),
+        openSettings: vi.fn(),
+      },
+      dispatchEvent: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).document = {
+      addEventListener: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).i18n = {
+      locale: 'zh-CN',
+      defaultName: 'Hanako',
+      load: vi.fn(async () => {}),
+    };
+    (globalThis as Record<string, unknown>).t = vi.fn((key: string) => key);
+
+    mockHanaFetch
+      .mockResolvedValueOnce(jsonResponse({ agent: 'Hanako', user: 'User', avatars: {} }))
+      .mockResolvedValueOnce(jsonResponse({ locale: 'zh-CN', desk: { home_folder: '/old-home' }, cwd_history: [] }))
+      .mockResolvedValueOnce(jsonResponse({ jobs: [] }))
+      .mockResolvedValueOnce(jsonResponse({
+        telegram: { status: 'disconnected' },
+        feishu: { status: 'disconnected' },
+        qq: { status: 'disconnected' },
+        wechat: { status: 'disconnected' },
+      }));
+
+    const { initApp } = await import('../app-init');
+    await initApp();
+
+    Object.assign(mockState, {
+      currentAgentId: 'agent-a',
+      homeFolder: '/old-home',
+      selectedFolder: '/old-home',
+      deskBasePath: '/old-home',
+      pendingNewSession: true,
+      currentSessionPath: null,
+    });
+    mockActivateWorkspaceDesk.mockClear();
+
+    (settingsHandler as unknown as (type: string, data: any) => void)('agent-workspace-changed', {
+      agentId: 'agent-a',
+      homeFolder: '/new-home',
+    });
+
+    expect(mockState.homeFolder).toBe('/new-home');
+    expect(mockState.selectedFolder).toBe('/new-home');
+    expect(mockActivateWorkspaceDesk).toHaveBeenCalledWith('/new-home');
+  });
+
+  it('ignores workspace changes for non-current agents', async () => {
+    let settingsHandler: ((type: string, data: any) => void) | null = null;
+    (globalThis as Record<string, unknown>).window = {
+      addEventListener: vi.fn(),
+      platform: {
+        getServerPort: vi.fn(async () => 62950),
+        getServerToken: vi.fn(async () => 'token'),
+        appReady: vi.fn(),
+        onSettingsChanged: vi.fn((cb: (type: string, data: any) => void) => {
+          settingsHandler = cb;
+        }),
+        openSettings: vi.fn(),
+      },
+      dispatchEvent: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).document = {
+      addEventListener: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).i18n = {
+      locale: 'zh-CN',
+      defaultName: 'Hanako',
+      load: vi.fn(async () => {}),
+    };
+    (globalThis as Record<string, unknown>).t = vi.fn((key: string) => key);
+
+    mockHanaFetch
+      .mockResolvedValueOnce(jsonResponse({ agent: 'Hanako', user: 'User', avatars: {} }))
+      .mockResolvedValueOnce(jsonResponse({ locale: 'zh-CN', desk: { home_folder: '/old-home' }, cwd_history: [] }))
+      .mockResolvedValueOnce(jsonResponse({ jobs: [] }))
+      .mockResolvedValueOnce(jsonResponse({
+        telegram: { status: 'disconnected' },
+        feishu: { status: 'disconnected' },
+        qq: { status: 'disconnected' },
+        wechat: { status: 'disconnected' },
+      }));
+
+    const { initApp } = await import('../app-init');
+    await initApp();
+
+    Object.assign(mockState, {
+      currentAgentId: 'agent-a',
+      homeFolder: '/old-home',
+      selectedFolder: '/old-home',
+      deskBasePath: '/old-home',
+      pendingNewSession: true,
+      currentSessionPath: null,
+    });
+    mockActivateWorkspaceDesk.mockClear();
+
+    (settingsHandler as unknown as (type: string, data: any) => void)('agent-workspace-changed', {
+      agentId: 'agent-b',
+      homeFolder: '/other-home',
+    });
+
+    expect(mockState.homeFolder).toBe('/old-home');
+    expect(mockState.selectedFolder).toBe('/old-home');
+    expect(mockActivateWorkspaceDesk).not.toHaveBeenCalled();
+  });
+
+  it('clears the previous default desk root when settings clear the current agent workspace', async () => {
+    let settingsHandler: ((type: string, data: any) => void) | null = null;
+    (globalThis as Record<string, unknown>).window = {
+      addEventListener: vi.fn(),
+      platform: {
+        getServerPort: vi.fn(async () => 62950),
+        getServerToken: vi.fn(async () => 'token'),
+        appReady: vi.fn(),
+        onSettingsChanged: vi.fn((cb: (type: string, data: any) => void) => {
+          settingsHandler = cb;
+        }),
+        openSettings: vi.fn(),
+      },
+      dispatchEvent: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).document = {
+      addEventListener: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).i18n = {
+      locale: 'zh-CN',
+      defaultName: 'Hanako',
+      load: vi.fn(async () => {}),
+    };
+    (globalThis as Record<string, unknown>).t = vi.fn((key: string) => key);
+
+    mockHanaFetch
+      .mockResolvedValueOnce(jsonResponse({ agent: 'Hanako', user: 'User', avatars: {} }))
+      .mockResolvedValueOnce(jsonResponse({ locale: 'zh-CN', desk: { home_folder: '/old-home' }, cwd_history: [] }))
+      .mockResolvedValueOnce(jsonResponse({ jobs: [] }))
+      .mockResolvedValueOnce(jsonResponse({
+        telegram: { status: 'disconnected' },
+        feishu: { status: 'disconnected' },
+        qq: { status: 'disconnected' },
+        wechat: { status: 'disconnected' },
+      }));
+
+    const { initApp } = await import('../app-init');
+    await initApp();
+
+    Object.assign(mockState, {
+      currentAgentId: 'agent-a',
+      homeFolder: '/old-home',
+      selectedFolder: '/old-home',
+      deskBasePath: '/old-home',
+      pendingNewSession: true,
+      currentSessionPath: null,
+    });
+    mockActivateWorkspaceDesk.mockClear();
+
+    (settingsHandler as unknown as (type: string, data: any) => void)('agent-workspace-changed', {
+      agentId: 'agent-a',
+      homeFolder: null,
+    });
+
+    expect(mockState.homeFolder).toBeNull();
+    expect(mockState.selectedFolder).toBeNull();
+    expect(mockState.deskBasePath).toBe('');
+    expect(mockActivateWorkspaceDesk).toHaveBeenCalledWith(null);
   });
 });

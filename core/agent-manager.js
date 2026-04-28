@@ -499,11 +499,11 @@ export class AgentManager {
     }
   }
 
-  async createSessionForAgent(agentId, cwd, memoryEnabled = true) {
+  async createSessionForAgent(agentId, cwd, memoryEnabled = true, model = null, opts = {}) {
     if (agentId && agentId !== this._activeAgentId) {
       await this.switchAgentOnly(agentId);
     }
-    return this._d.getSessionCoordinator().createSession(null, cwd, memoryEnabled);
+    return this._d.getSessionCoordinator().createSession(null, cwd, memoryEnabled, model, opts);
   }
 
   // ── Delete ──

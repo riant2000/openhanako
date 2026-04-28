@@ -292,8 +292,9 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-// ── 6. PI SDK patch ──
-// package.json 没有 postinstall，手动跑补丁
+// ── 6. PI SDK verification ──
+// 精简 package.json 安装 external deps 后没有 root postinstall，
+// 这里手动跑同一个只读验证脚本，确保打包产物里的 Pi SDK 版本和结构也受保护。
 const patchScript = path.join(ROOT, "scripts", "patch-pi-sdk.cjs");
 if (fs.existsSync(patchScript)) {
   fs.mkdirSync(path.join(outDir, "scripts"), { recursive: true });
