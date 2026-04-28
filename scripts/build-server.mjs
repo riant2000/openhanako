@@ -23,6 +23,7 @@
  *         hub-XXXX.js
  *     lib/                    ← 数据文件（非源码，运行时 fromRoot() 读取）
  *       known-models.json
+ *       known-model-fallbacks.json
  *       default-models.json
  *       config.example.yaml
  *       identity.example.md
@@ -153,6 +154,7 @@ console.log("[build-server] Vite bundle copied to bundle/");
 // lib/ 下的数据文件（json, yaml, md）
 const LIB_DATA_GLOBS = [
   "known-models.json",
+  "known-model-fallbacks.json",
   "default-models.json",
   "config.example.yaml",
   "identity.example.md",

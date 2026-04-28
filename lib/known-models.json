@@ -31,6 +31,36 @@
         "enable_thinking"
       ]
     },
+    "qwen3.6-plus": {
+      "name": "Qwen 3.6 Plus",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "image": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.6-flash": {
+      "name": "Qwen 3.6 Flash",
+      "context": 131072,
+      "maxOutput": 8192,
+      "image": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.6-max-preview": {
+      "name": "Qwen 3.6 Max Preview",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "image": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
     "qwen3-plus": {
       "name": "Qwen 3 Plus",
       "context": 131072,
@@ -481,7 +511,14 @@
     },
     "gpt-5.4": {
       "name": "GPT-5.4",
-      "context": 272000,
+      "context": 1050000,
+      "maxOutput": 128000,
+      "image": true,
+      "reasoning": true
+    },
+    "gpt-5.5": {
+      "name": "GPT-5.5",
+      "context": 1050000,
       "maxOutput": 128000,
       "image": true,
       "reasoning": true
@@ -824,14 +861,14 @@
     },
     "gpt-5.4-mini": {
       "name": "Gpt 5.4 Mini",
-      "context": 272000,
+      "context": 400000,
       "maxOutput": 128000,
       "image": true,
       "reasoning": true
     },
     "gpt-5.4-nano": {
       "name": "Gpt 5.4 Nano",
-      "context": 272000,
+      "context": 400000,
       "maxOutput": 128000,
       "image": true,
       "reasoning": true
@@ -983,6 +1020,13 @@
     }
   },
   "anthropic": {
+    "claude-opus-4-7": {
+      "name": "Claude Opus 4.7",
+      "context": 1000000,
+      "maxOutput": 128000,
+      "image": true,
+      "reasoning": true
+    },
     "claude-opus-4-6": {
       "name": "Claude Opus 4.6",
       "context": 200000,
@@ -1677,6 +1721,13 @@
     }
   },
   "zhipu": {
+    "glm-5.1": {
+      "name": "GLM-5.1",
+      "context": 200000,
+      "maxOutput": 128000,
+      "image": false,
+      "reasoning": true
+    },
     "glm-5": {
       "name": "GLM-5",
       "context": 200000,
@@ -1689,6 +1740,13 @@
       "context": 205000,
       "maxOutput": 131072,
       "image": false,
+      "reasoning": true
+    },
+    "glm-5v-turbo": {
+      "name": "GLM-5V Turbo",
+      "context": 200000,
+      "maxOutput": 128000,
+      "image": true,
       "reasoning": true
     },
     "glm-4-plus": {
@@ -3523,6 +3581,18 @@
       "maxOutput": 131072,
       "image": true
     },
+    "mistral-small-2603": {
+      "name": "Mistral Small 4 2603",
+      "context": 256000,
+      "maxOutput": 256000,
+      "reasoning": true
+    },
+    "labs-leanstral-2603": {
+      "name": "Labs Leanstral 2603",
+      "context": 256000,
+      "maxOutput": 256000,
+      "reasoning": true
+    },
     "ministral-3-3b-2512": {
       "name": "Ministral 3.3b 2512",
       "context": 131072,
@@ -3865,6 +3935,13 @@
       "image": true,
       "reasoning": true
     },
+    "grok-4.20-multi-agent": {
+      "name": "Grok 4.20 Multi Agent",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "image": true,
+      "reasoning": true
+    },
     "grok-4.20-beta-0309-reasoning": {
       "name": "Grok 4.20 Beta 0309 Reasoning",
       "context": 2000000,
@@ -3872,8 +3949,21 @@
       "image": true,
       "reasoning": true
     },
+    "grok-4.20-reasoning": {
+      "name": "Grok 4.20 Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "image": true,
+      "reasoning": true
+    },
     "grok-4.20-beta-0309-non-reasoning": {
       "name": "Grok 4.20 Beta 0309 Non Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "image": true
+    },
+    "grok-4.20-non-reasoning": {
+      "name": "Grok 4.20 Non Reasoning",
       "context": 2000000,
       "maxOutput": 2000000,
       "image": true
@@ -4866,6 +4956,13 @@
       "name": "o4 Mini",
       "context": 200000,
       "maxOutput": 100000,
+      "image": true,
+      "reasoning": true
+    },
+    "gpt-5.5": {
+      "name": "GPT-5.5",
+      "context": 400000,
+      "maxOutput": 128000,
       "image": true,
       "reasoning": true
     }

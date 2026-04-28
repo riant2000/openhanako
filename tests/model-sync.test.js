@@ -9,7 +9,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-// mock known-models 词典查询：provider + model 二级结构
+// mock known-models 词典查询：provider + model 二级结构，未命中时再查通用 fallback
 const KNOWN_MODELS = {
   dashscope: {
     "qwen3.5-flash": { name: "Qwen3.5 Flash", context: 131072, maxOutput: 8192, image: true, reasoning: true, quirks: ["enable_thinking"] },
@@ -33,12 +33,17 @@ const KNOWN_MODELS = {
   },
 };
 
+const GENERIC_MODEL_FALLBACKS = {
+  "kimi-k2.6": { name: "Kimi K2.6", context: 262144, maxOutput: 98304, image: true, reasoning: true },
+};
+
 vi.mock("../shared/known-models.js", () => ({
   lookupKnown(provider, modelId) {
     if (provider && KNOWN_MODELS[provider]?.[modelId]) return KNOWN_MODELS[provider][modelId];
-    for (const models of Object.values(KNOWN_MODELS)) {
-      if (models[modelId]) return models[modelId];
-    }
+    const bare = modelId.includes("/") ? modelId.split("/").pop() : null;
+    if (bare && provider && KNOWN_MODELS[provider]?.[bare]) return KNOWN_MODELS[provider][bare];
+    if (GENERIC_MODEL_FALLBACKS[modelId]) return GENERIC_MODEL_FALLBACKS[modelId];
+    if (bare && GENERIC_MODEL_FALLBACKS[bare]) return GENERIC_MODEL_FALLBACKS[bare];
     return null;
   },
 }));
@@ -170,6 +175,29 @@ describe("syncModels", () => {
     expect(model.reasoning).toBe(true);
     expect(model.quirks).toEqual(["enable_thinking"]);
     expect(model.compat.thinkingFormat).toBe("qwen");
+  });
+
+  it("enriches provider models from generic fallbacks when provider-specific metadata is missing", async () => {
+    const syncModels = await loadSync();
+
+    const providers = {
+      volcengine: {
+        base_url: "https://ark.cn-beijing.volces.com/api/v3",
+        api: "openai-completions",
+        api_key: "sk-test",
+        models: ["kimi-k2.6"],
+      },
+    };
+
+    syncModels(providers, { modelsJsonPath });
+
+    const result = JSON.parse(fs.readFileSync(modelsJsonPath, "utf-8"));
+    const model = result.providers.volcengine.models[0];
+    expect(model.name).toBe("Kimi K2.6");
+    expect(model.contextWindow).toBe(262144);
+    expect(model.maxTokens).toBe(98304);
+    expect(model.input).toEqual(["text", "image"]);
+    expect(model.reasoning).toBe(true);
   });
 
   it("marks Anthropic-compatible reasoning models with anthropic thinking format", async () => {
