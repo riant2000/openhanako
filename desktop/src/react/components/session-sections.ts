@@ -1,7 +1,7 @@
 import type { Session } from '../types';
 
 export type SessionViewMode = 'time';
-export type DateGroup = 'today' | 'yesterday' | 'thisWeek' | 'earlier';
+export type DateGroup = 'today' | 'thisWeek' | 'earlier';
 
 export type SessionSection =
   | {
@@ -23,19 +23,16 @@ interface BuildSessionSectionsOptions {
   now?: Date;
 }
 
-const DATE_GROUP_ORDER: DateGroup[] = ['today', 'yesterday', 'thisWeek', 'earlier'];
+const DATE_GROUP_ORDER: DateGroup[] = ['today', 'thisWeek', 'earlier'];
 
 function getSessionDateGroup(isoStr: string | null, now: Date): DateGroup {
   if (!isoStr) return 'earlier';
   const date = new Date(isoStr);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
   const weekAgo = new Date(today);
   weekAgo.setDate(today.getDate() - 7);
 
   if (date >= today) return 'today';
-  if (date >= yesterday) return 'yesterday';
   if (date >= weekAgo) return 'thisWeek';
   return 'earlier';
 }
@@ -64,19 +61,16 @@ export function buildSessionSections(
   const regular = sessions.filter(session => !isPinnedSession(session));
 
   const sections: SessionSection[] = [];
-  if (pinned.length > 0) {
-    sections.push({
-      id: 'pinned',
-      kind: 'pinned',
-      titleKey: 'sidebar.pinned',
-      items: pinned,
-    });
-  }
+  sections.push({
+    id: 'pinned',
+    kind: 'pinned',
+    titleKey: 'sidebar.pinned',
+    items: pinned,
+  });
 
   const now = options.now ?? new Date();
   const dateGroups: Record<DateGroup, Session[]> = {
     today: [],
-    yesterday: [],
     thisWeek: [],
     earlier: [],
   };

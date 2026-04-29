@@ -69,7 +69,15 @@ function SessionListInner() {
         if (section.kind === 'pinned') {
           return (
             <section key={section.id} className={styles.pinnedSection}>
-              <div className={styles.sessionSectionTitle}>{t(section.titleKey)}</div>
+              <div className={`${styles.sessionSectionTitle} ${styles.pinnedSectionTitle}`}>
+                <span>{t(section.titleKey)}</span>
+                <svg className={styles.pinnedTitleIcon} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 17v5" />
+                  <path d="M5 17h14" />
+                  <path d="M7 3h10l-2 9H9L7 3z" />
+                  <path d="M9 12l-2 5h10l-2-5" />
+                </svg>
+              </div>
               {items}
             </section>
           );

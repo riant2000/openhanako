@@ -57,7 +57,7 @@ describe('buildSessionSections', () => {
     expect(sections[1].items.map(item => item.path)).toEqual(['/sessions/today.jsonl']);
   });
 
-  it('omits the pinned section when no sessions are pinned', () => {
+  it('keeps the pinned section visible when no sessions are pinned and rolls yesterday into this week', () => {
     const sections = buildSessionSections([
       makeSession({
         path: '/sessions/yesterday.jsonl',
@@ -68,10 +68,15 @@ describe('buildSessionSections', () => {
       now: new Date('2026-04-29T12:00:00.000Z'),
     });
 
-    expect(sections).toHaveLength(1);
+    expect(sections).toHaveLength(2);
     expect(sections[0]).toMatchObject({
+      kind: 'pinned',
+      titleKey: 'sidebar.pinned',
+      items: [],
+    });
+    expect(sections[1]).toMatchObject({
       kind: 'date',
-      titleKey: 'time.yesterday',
+      titleKey: 'time.thisWeek',
     });
   });
 });
