@@ -196,7 +196,6 @@ beforeEach(() => {
   // Force locale=en so the nameHints translate effect is skipped and no spurious
   // POST /api/skills/translate appears in fetchMock call log.
   (window as unknown as { i18n: { locale: string } }).i18n = { locale: 'en' };
-  // `platform?.notifyMainWindow` is optional-chained in SkillsTab; leave undefined.
 });
 
 afterEach(() => {

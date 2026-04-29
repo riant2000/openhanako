@@ -16,8 +16,6 @@ import {
   ExperienceBlock, putExperience,
 } from './agent/AgentExperience';
 
-const platform = window.platform;
-
 export function AgentTab() {
   const store = useSettingsStore();
   const {
@@ -133,10 +131,6 @@ export function AgentTab() {
       showToast(t('settings.saved'), 'success');
       if (isActive && (configPartial as { agent?: { name: string } })?.agent?.name) {
         store.set({ agentName: (configPartial as { agent: { name: string } }).agent.name });
-        platform?.settingsChanged?.('agent-updated', {
-          agentName: (configPartial as { agent: { name: string } }).agent.name,
-          agentId,
-        });
       }
       await loadSettingsConfig();
     } catch (err: unknown) {
@@ -199,10 +193,7 @@ export function AgentTab() {
                 }
                 const provider = refKey.slice(0, slashIdx);
                 const id = refKey.slice(slashIdx + 1);
-                await autoSaveConfig(
-                  { models: { chat: { id, provider } } },
-                  { refreshModels: true },
-                );
+                await autoSaveConfig({ models: { chat: { id, provider } } });
               }}
               placeholder={t('settings.api.selectModel')}
             />
@@ -228,7 +219,6 @@ export function AgentTab() {
                   body: JSON.stringify({ agent: { yuan: key } }),
                 });
                 if (agentId === currentAgentId) store.set({ agentYuan: key });
-                platform?.settingsChanged?.('agent-updated', { agentId, yuan: key });
                 await loadSettingsConfig();
                 await loadAgents();
               } catch (err) {

@@ -23,8 +23,8 @@ vi.mock('../../stores/artifact-actions', () => ({
   handleArtifact: vi.fn(),
 }));
 
-vi.mock('../../services/websocket', () => ({
-  getWebSocket: () => null,
+vi.mock('../../services/app-event-actions', () => ({
+  handleAppEvent: vi.fn(),
 }));
 
 vi.mock('../../services/stream-resume', () => ({
@@ -40,8 +40,9 @@ vi.mock('../../services/stream-key-dispatcher', () => ({
 
 import { streamBufferManager } from '../../hooks/use-stream-buffer';
 import { useStore } from '../../stores';
-import { applyStreamingStatus, handleServerMessage } from '../../services/ws-message-handler';
+import { applyStreamingStatus, configureWsMessageHandler, handleServerMessage } from '../../services/ws-message-handler';
 import { dispatchStreamKey } from '../../services/stream-key-dispatcher';
+import { handleAppEvent } from '../../services/app-event-actions';
 
 describe('ws-message-handler applyStreamingStatus', () => {
   beforeEach(() => {
@@ -200,5 +201,58 @@ describe('ws-message-handler background chat stream routing', () => {
 
     expect(streamBufferManager.handle).toHaveBeenCalledWith(msg);
     expect(dispatchStreamKey).toHaveBeenCalledWith('/session/b.jsonl', msg);
+  });
+});
+
+describe('ws-message-handler app events', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    configureWsMessageHandler({});
+  });
+
+  it('app_event 消息会 route 到 handleAppEvent', () => {
+    handleServerMessage({
+      type: 'app_event',
+      event: {
+        type: 'models-changed',
+        payload: { reason: 'provider' },
+      },
+    });
+
+    expect(handleAppEvent).toHaveBeenCalledWith('models-changed', { reason: 'provider' });
+  });
+});
+
+describe('ws-message-handler turn_end side effects', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useStore.setState({
+      currentSessionPath: '/session/a.jsonl',
+      pendingNewSession: false,
+      sessions: [{
+        path: '/session/a.jsonl',
+        title: 'A',
+        firstMessage: 'hello',
+        modified: '2026-04-24T10:00:00.000Z',
+        messageCount: 1,
+        agentId: 'a1',
+        agentName: 'Hana',
+        cwd: null,
+      }],
+      chatSessions: {},
+      streamingSessions: [],
+    } as never);
+  });
+
+  it('turn_end requests context usage through the injected callback', () => {
+    const requestContextUsage = vi.fn();
+    configureWsMessageHandler({ requestContextUsage });
+
+    handleServerMessage({
+      type: 'turn_end',
+      sessionPath: '/session/a.jsonl',
+    });
+
+    expect(requestContextUsage).toHaveBeenCalledWith('/session/a.jsonl');
   });
 });

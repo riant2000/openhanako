@@ -6,8 +6,6 @@ import { ComboInput } from '../../widgets/ComboInput';
 import { Toggle } from '../../widgets/Toggle';
 import styles from '../../Settings.module.css';
 
-const platform = window.platform;
-
 export function ModelEditPanel({ modelId, providerId, anchorEl, onClose, onRefresh }: {
   modelId: string;
   providerId: string;
@@ -57,7 +55,6 @@ export function ModelEditPanel({ modelId, providerId, anchorEl, onClose, onRefre
         body: JSON.stringify(entry),
       });
       showToast(t('settings.saved'), 'success');
-      platform?.settingsChanged?.('models-changed');
       await onRefresh?.();
       onClose();
     } catch (err: any) {

@@ -6,6 +6,7 @@
  */
 
 import { Hono } from "hono";
+import { emitAppEvent } from "../app-events.js";
 import { safeJson } from "../hono-helpers.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { normalizeSharedModelsPatch } from "../../core/config-coordinator.js";
@@ -85,12 +86,13 @@ export function createPreferencesRoute(engine) {
       }
 
       if (needsModelSync) {
-        try { await engine.syncModelsAndRefresh(); } catch (e) {
-          debugLog()?.warn("api", `syncModelsAndRefresh after preferences change: ${e.message}`);
-        }
+        await engine.syncModelsAndRefresh();
       }
 
       debugLog()?.log("api", `PUT /api/preferences/models sections=[${sections.join(",")}]`);
+      if (sections.length > 0) {
+        emitAppEvent(engine, "models-changed", { agentId: engine.currentAgentId || null });
+      }
       return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/preferences/models failed: ${err.message}`);

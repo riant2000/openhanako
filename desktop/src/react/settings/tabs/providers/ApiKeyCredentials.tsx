@@ -8,8 +8,6 @@ import { KeyInput } from '../../widgets/KeyInput';
 import { getApiKeySavePlan } from './api-key-save-plan';
 import styles from '../../Settings.module.css';
 
-const platform = window.platform;
-
 export function ApiKeyCredentials({ providerId, summary, providerConfig, isPresetSetup, presetInfo, onRefresh }: {
   providerId: string;
   summary: ProviderSummary;
@@ -75,7 +73,6 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
       setKeyEdited(false);
       if (urlEdited) setUrlEdited(false);
       await onRefresh();
-      platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       showToast(t('settings.saveFailed') + ': ' + msg, 'error');

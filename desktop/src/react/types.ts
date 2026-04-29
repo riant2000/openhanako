@@ -233,8 +233,5 @@ export interface PlatformApi {
   // ── Skill viewer overlay ──
   onShowSkillViewer?(callback: (data: unknown) => void): void;
 
-  // ── Inter-window communication ──
-  notifyMainWindow?(event: string, payload?: unknown): void;
-
   [key: string]: unknown;
 }

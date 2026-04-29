@@ -5,7 +5,6 @@ import { useSettingsStore } from './store';
 import { hanaFetch, hanaUrl } from './api';
 import { t } from './helpers';
 
-const platform = window.platform;
 let _settingsConfigLoadVersion = 0;
 let _settingsConfigAbortController: AbortController | null = null;
 
@@ -147,10 +146,6 @@ export async function switchToAgent(agentId: string) {
       settingsAgentId: null,
       currentAgentId: data.agent.id,
       agentName: data.agent.name,
-    });
-    platform?.settingsChanged?.('agent-switched', {
-      agentName: data.agent.name,
-      agentId: data.agent.id,
     });
     await loadSettingsConfig();
     await loadAgents();

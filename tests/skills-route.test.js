@@ -4,6 +4,17 @@ import path from "path";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+function expectAppEvent(emitEvent, type, payload) {
+  expect(emitEvent).toHaveBeenCalledWith({
+    type: "app_event",
+    event: {
+      type,
+      payload,
+      source: "server",
+    },
+  }, null);
+}
+
 describe("skills route", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-skills-route-"));
 
@@ -52,6 +63,86 @@ describe("skills route", () => {
       ],
     });
     expect(getRuntimeSkills).toHaveBeenCalledWith(agentId);
+  });
+
+  it("emits skills-changed after updating an agent's enabled skills", async () => {
+    const agentId = "hana";
+    const agentDir = path.join(tempRoot, agentId);
+    fs.mkdirSync(agentDir, { recursive: true });
+    fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
+
+    const { createSkillsRoute } = await import("../server/routes/skills.js");
+    const app = new Hono();
+    const engine = {
+      agentsDir: tempRoot,
+      getAllSkills: vi.fn(() => [
+        { name: "writer" },
+        { name: "reader" },
+      ]),
+      getAgent: vi.fn(() => ({ id: agentId })),
+      updateConfig: vi.fn().mockResolvedValue(undefined),
+      emitEvent: vi.fn(),
+    };
+
+    app.route("/api", createSkillsRoute(engine));
+
+    const res = await app.request(`/api/agents/${agentId}/skills`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: ["writer", "unknown"] }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, enabled: ["writer"] });
+    expect(engine.updateConfig).toHaveBeenCalledWith({
+      skills: { enabled: ["writer"] },
+    }, { agentId });
+    expectAppEvent(engine.emitEvent, "skills-changed", { agentId });
+  });
+
+  it("does not emit skills-changed when enabled skills validation fails", async () => {
+    const agentId = "hana";
+    const agentDir = path.join(tempRoot, agentId);
+    fs.mkdirSync(agentDir, { recursive: true });
+    fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
+
+    const { createSkillsRoute } = await import("../server/routes/skills.js");
+    const app = new Hono();
+    const engine = {
+      agentsDir: tempRoot,
+      getAllSkills: vi.fn(),
+      updateConfig: vi.fn(),
+      emitEvent: vi.fn(),
+    };
+
+    app.route("/api", createSkillsRoute(engine));
+
+    const res = await app.request(`/api/agents/${agentId}/skills`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: "writer" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(engine.updateConfig).not.toHaveBeenCalled();
+    expect(engine.emitEvent).not.toHaveBeenCalled();
+  });
+
+  it("emits global skills-changed after reloading skills", async () => {
+    const { createSkillsRoute } = await import("../server/routes/skills.js");
+    const app = new Hono();
+    const engine = {
+      reloadSkills: vi.fn().mockResolvedValue(undefined),
+      emitEvent: vi.fn(),
+    };
+
+    app.route("/api", createSkillsRoute(engine));
+
+    const res = await app.request("/api/skills/reload", { method: "POST" });
+
+    expect(res.status).toBe(200);
+    expect(engine.reloadSkills).toHaveBeenCalledTimes(1);
+    expectAppEvent(engine.emitEvent, "skills-changed", { agentId: null });
   });
 });
 

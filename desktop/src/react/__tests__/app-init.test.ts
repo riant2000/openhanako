@@ -10,7 +10,7 @@ const mockLoadAgents = vi.fn(async () => {});
 const mockLoadAvatars = vi.fn();
 const mockLoadSessions = vi.fn(async () => {});
 const mockConnectWebSocket = vi.fn();
-const mockGetWebSocket = vi.fn(() => null);
+const mockGetWebSocket = vi.fn<() => WebSocket | null>(() => null);
 const mockSetStatus = vi.fn();
 const mockLoadModels = vi.fn(async () => {});
 const mockInitJian = vi.fn();
@@ -391,5 +391,71 @@ describe('initApp bridge indicator', () => {
     expect(mockState.selectedFolder).toBeNull();
     expect(mockState.deskBasePath).toBe('');
     expect(mockActivateWorkspaceDesk).toHaveBeenCalledWith(null);
+  });
+
+  it('configures context usage requests before settings and websocket handlers dispatch app events', async () => {
+    let settingsHandler: ((type: string, data: any) => void) | null = null;
+    const send = vi.fn();
+    (globalThis as Record<string, unknown>).window = {
+      addEventListener: vi.fn(),
+      platform: {
+        getServerPort: vi.fn(async () => 62950),
+        getServerToken: vi.fn(async () => 'token'),
+        appReady: vi.fn(),
+        onSettingsChanged: vi.fn((cb: (type: string, data: any) => void) => {
+          settingsHandler = cb;
+        }),
+        openSettings: vi.fn(),
+      },
+      dispatchEvent: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).document = {
+      addEventListener: vi.fn(),
+    };
+    (globalThis as Record<string, unknown>).i18n = {
+      locale: 'zh-CN',
+      defaultName: 'Hanako',
+      load: vi.fn(async () => {}),
+    };
+    (globalThis as Record<string, unknown>).t = vi.fn((key: string) => key);
+    (globalThis as Record<string, unknown>).WebSocket = { OPEN: 1 };
+
+    mockGetWebSocket.mockReturnValue({ readyState: 1, send } as unknown as WebSocket);
+    mockHanaFetch
+      .mockResolvedValueOnce(jsonResponse({ agent: 'Hanako', user: 'User', avatars: {} }))
+      .mockResolvedValueOnce(jsonResponse({ locale: 'zh-CN', desk: { home_folder: null }, cwd_history: [] }))
+      .mockResolvedValueOnce(jsonResponse({ jobs: [] }))
+      .mockResolvedValueOnce(jsonResponse({
+        telegram: { status: 'disconnected' },
+        feishu: { status: 'disconnected' },
+        qq: { status: 'disconnected' },
+        wechat: { status: 'disconnected' },
+      }));
+
+    const { initApp } = await import('../app-init');
+    await initApp();
+
+    Object.assign(mockState, {
+      currentSessionPath: '/session/a.jsonl',
+      chatSessions: {},
+    });
+    (settingsHandler as unknown as (type: string, data: any) => void)('models-changed', {});
+
+    expect(send).toHaveBeenCalledWith(JSON.stringify({
+      type: 'context_usage',
+      sessionPath: '/session/a.jsonl',
+    }));
+
+    send.mockClear();
+    const { handleServerMessage } = await import('../services/ws-message-handler');
+    handleServerMessage({
+      type: 'turn_end',
+      sessionPath: '/session/a.jsonl',
+    });
+
+    expect(send).toHaveBeenCalledWith(JSON.stringify({
+      type: 'context_usage',
+      sessionPath: '/session/a.jsonl',
+    }));
   });
 });

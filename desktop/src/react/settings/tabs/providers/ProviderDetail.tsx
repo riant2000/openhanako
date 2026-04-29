@@ -8,8 +8,6 @@ import { ApiKeyCredentials } from './ApiKeyCredentials';
 import { ProviderModelList } from './ProviderModelList';
 import styles from '../../Settings.module.css';
 
-const platform = window.platform;
-
 export function ProviderDetail({ providerId, summary, providerConfig, isPresetSetup, presetInfo, onRefresh }: {
   providerId: string;
   summary: ProviderSummary;
@@ -61,7 +59,6 @@ function ProviderDeleteButton({ providerId, onRefresh }: { providerId: string; o
       useSettingsStore.setState({ selectedProviderId: null });
       setConfirming(false);
       await onRefresh();
-      platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       showToast(t('settings.saveFailed') + ': ' + msg, 'error');

@@ -13,6 +13,17 @@ vi.mock("../core/llm-client.js", () => ({
   callText,
 }));
 
+function expectAppEvent(emitEvent, type, payload) {
+  expect(emitEvent).toHaveBeenCalledWith({
+    type: "app_event",
+    event: {
+      type,
+      payload,
+      source: "server",
+    },
+  }, null);
+}
+
 /** 从 providerRegistry.getCredentials 构造 engine.resolveProviderCredentials（与 ModelManager 行为一致） */
 function withResolveCreds(engine) {
   engine.resolveProviderCredentials = (provider) => {
@@ -41,10 +52,12 @@ describe("model sync related routes", () => {
     const reload = vi.fn();
     const engine = {
       config: {},
+      currentAgentId: "hana",
       setHomeFolder: vi.fn(),
       updateConfig: vi.fn().mockResolvedValue(undefined),
       onProviderChanged: vi.fn().mockResolvedValue(undefined),
       providerRegistry: { saveProvider, removeProvider: vi.fn(), reload },
+      emitEvent: vi.fn(),
     };
 
     app.route("/api", createConfigRoute(engine));
@@ -75,6 +88,44 @@ describe("model sync related routes", () => {
     expect(clearConfigCache).toHaveBeenCalledTimes(1);
     expect(engine.updateConfig).toHaveBeenCalledWith({});
     expect(engine.onProviderChanged).toHaveBeenCalledTimes(1);
+    expectAppEvent(engine.emitEvent, "models-changed", { agentId: "hana" });
+  });
+
+  it("provider-only config updates return an error and emit no event when provider refresh fails", async () => {
+    const { createConfigRoute } = await import("../server/routes/config.js");
+    const app = new Hono();
+    const engine = {
+      config: {},
+      currentAgentId: "hana",
+      updateConfig: vi.fn().mockResolvedValue(undefined),
+      onProviderChanged: vi.fn().mockRejectedValue(new Error("registry refresh failed")),
+      providerRegistry: {
+        saveProvider: vi.fn(),
+        removeProvider: vi.fn(),
+      },
+      emitEvent: vi.fn(),
+    };
+
+    app.route("/api", createConfigRoute(engine));
+
+    const res = await app.request("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        providers: {
+          dashscope: {
+            api: "openai-completions",
+            models: ["qwen-plus"],
+          },
+        },
+      }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(data.error).toContain("registry refresh failed");
+    expect(engine.updateConfig).not.toHaveBeenCalled();
+    expect(engine.emitEvent).not.toHaveBeenCalled();
   });
 
   it("shared model preference updates trigger model registry sync", async () => {
@@ -88,6 +139,8 @@ describe("model sync related routes", () => {
       setSearchConfig: vi.fn(),
       setUtilityApi: vi.fn(),
       syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
+      currentAgentId: "hana",
+      emitEvent: vi.fn(),
     };
 
     app.route("/api", createPreferencesRoute(engine));
@@ -107,6 +160,43 @@ describe("model sync related routes", () => {
       utility: { id: "test-model", provider: "test-provider" },
     });
     expect(engine.syncModelsAndRefresh).toHaveBeenCalledTimes(1);
+    expectAppEvent(engine.emitEvent, "models-changed", { agentId: "hana" });
+  });
+
+  it("shared model preference updates return an error and emit no event when model refresh fails", async () => {
+    const { createPreferencesRoute } = await import("../server/routes/preferences.js");
+    const app = new Hono();
+    const engine = {
+      getSharedModels: vi.fn(() => ({})),
+      getSearchConfig: vi.fn(() => ({ provider: null, api_key: null })),
+      getUtilityApi: vi.fn(() => ({ provider: null, base_url: null, api_key: null })),
+      setSharedModels: vi.fn(),
+      setSearchConfig: vi.fn(),
+      setUtilityApi: vi.fn(),
+      syncModelsAndRefresh: vi.fn().mockRejectedValue(new Error("model refresh failed")),
+      currentAgentId: "hana",
+      emitEvent: vi.fn(),
+    };
+
+    app.route("/api", createPreferencesRoute(engine));
+
+    const res = await app.request("/api/preferences/models", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        models: {
+          utility: { id: "test-model", provider: "test-provider" },
+        },
+      }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(data.error).toContain("model refresh failed");
+    expect(engine.setSharedModels).toHaveBeenCalledWith({
+      utility: { id: "test-model", provider: "test-provider" },
+    });
+    expect(engine.emitEvent).not.toHaveBeenCalled();
   });
 
   it("shared model preference updates reject providerless refs before saving", async () => {
@@ -120,6 +210,7 @@ describe("model sync related routes", () => {
       setSearchConfig: vi.fn(),
       setUtilityApi: vi.fn(),
       syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
+      emitEvent: vi.fn(),
     };
 
     app.route("/api", createPreferencesRoute(engine));
@@ -139,6 +230,7 @@ describe("model sync related routes", () => {
     expect(data.error).toContain("provider");
     expect(engine.setSharedModels).not.toHaveBeenCalled();
     expect(engine.syncModelsAndRefresh).not.toHaveBeenCalled();
+    expect(engine.emitEvent).not.toHaveBeenCalled();
   });
 
   it("shared vision model preference updates are provider-aware and image-capable", async () => {
@@ -159,6 +251,8 @@ describe("model sync related routes", () => {
       setSearchConfig: vi.fn(),
       setUtilityApi: vi.fn(),
       syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
+      currentAgentId: "hana",
+      emitEvent: vi.fn(),
     };
 
     app.route("/api", createPreferencesRoute(engine));
@@ -179,6 +273,7 @@ describe("model sync related routes", () => {
     expect(engine.setSharedModels).toHaveBeenCalledWith({
       vision: { id: "qwen-vl", provider: "dashscope" },
     });
+    expectAppEvent(engine.emitEvent, "models-changed", { agentId: "hana" });
   });
 
   it("shared vision model preference rejects text-only models", async () => {
@@ -199,6 +294,7 @@ describe("model sync related routes", () => {
       setSearchConfig: vi.fn(),
       setUtilityApi: vi.fn(),
       syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
+      emitEvent: vi.fn(),
     };
 
     app.route("/api", createPreferencesRoute(engine));
@@ -215,6 +311,7 @@ describe("model sync related routes", () => {
     expect(res.status).toBe(400);
     expect(data.error).toContain("image");
     expect(engine.setSharedModels).not.toHaveBeenCalled();
+    expect(engine.emitEvent).not.toHaveBeenCalled();
   });
 
   it("inline 凭证缺少显式 provider 时返回 400", async () => {
@@ -232,6 +329,7 @@ describe("model sync related routes", () => {
       getLocale: vi.fn(() => "zh-CN"),
       getTimezone: vi.fn(() => "Asia/Shanghai"),
       getLearnSkills: vi.fn(() => false),
+      emitEvent: vi.fn(),
     };
 
     app.route("/api", createConfigRoute(engine));
@@ -249,6 +347,7 @@ describe("model sync related routes", () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toContain("api.provider is required");
+    expect(engine.emitEvent).not.toHaveBeenCalled();
   });
 
   it("inline 空 api_key 也会同步到 provider 配置，用于真正清空凭证", async () => {
@@ -271,6 +370,8 @@ describe("model sync related routes", () => {
       getLocale: vi.fn(() => "zh-CN"),
       getTimezone: vi.fn(() => "Asia/Shanghai"),
       getLearnSkills: vi.fn(() => false),
+      currentAgentId: "hana",
+      emitEvent: vi.fn(),
     };
 
     app.route("/api", createConfigRoute(engine));
@@ -289,6 +390,36 @@ describe("model sync related routes", () => {
     expect(res.status).toBe(200);
     expect(saveProvider).toHaveBeenCalledWith("openai", { api_key: "" });
     expect(engine.onProviderChanged).toHaveBeenCalledTimes(1);
+    expectAppEvent(engine.emitEvent, "models-changed", { agentId: "hana" });
+  });
+
+  it("global locale config updates emit locale-changed after success", async () => {
+    const { createConfigRoute } = await import("../server/routes/config.js");
+    const app = new Hono();
+    const engine = {
+      config: {},
+      configPath: "/tmp/test-config.yaml",
+      setLocale: vi.fn(),
+      updateConfig: vi.fn().mockResolvedValue(undefined),
+      providerRegistry: {
+        saveProvider: vi.fn(),
+        removeProvider: vi.fn(),
+      },
+      emitEvent: vi.fn(),
+    };
+
+    app.route("/api", createConfigRoute(engine));
+
+    const res = await app.request("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locale: "en-US" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(engine.setLocale).toHaveBeenCalledWith("en-US");
+    expect(engine.updateConfig).not.toHaveBeenCalled();
+    expectAppEvent(engine.emitEvent, "locale-changed", { locale: "en-US" });
   });
 
   it("model routes expose stable ids and readable display names", async () => {

@@ -5,7 +5,6 @@ import { t } from '../helpers';
 import { loadAgents } from '../actions';
 import styles from '../Settings.module.css';
 
-const platform = window.platform;
 const CROP_SIZE = 256;
 const OUTPUT_SIZE = 512;
 
@@ -170,11 +169,7 @@ async function uploadCroppedAvatar(role: string, dataUrl: string) {
 
     const ts = Date.now();
     if (role === 'agent') {
-      const agentId = store.getSettingsAgentId();
       await loadAgents();
-      if (agentId === store.currentAgentId) {
-        platform?.settingsChanged?.('agent-updated', { agentId });
-      }
     } else {
       const url = hanaUrl(`/api/avatar/${role}?t=${ts}`);
       store.set({ userAvatarUrl: url });

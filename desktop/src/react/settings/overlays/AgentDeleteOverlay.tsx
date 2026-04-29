@@ -5,8 +5,6 @@ import { t } from '../helpers';
 import { switchToAgent, loadSettingsConfig, loadAgents } from '../actions';
 import styles from '../Settings.module.css';
 
-const platform = window.platform;
-
 export function AgentDeleteOverlay() {
   const { agents, currentAgentId, showToast } = useSettingsStore();
   const [visible, setVisible] = useState(false);
@@ -50,7 +48,6 @@ export function AgentDeleteOverlay() {
       useSettingsStore.setState({ settingsAgentId: null });
       await loadAgents();
       await loadSettingsConfig();
-      platform?.settingsChanged?.('agent-deleted', { agentId: targetId });
     } catch (err: any) {
       showToast(t('settings.agent.deleteFailed') + ': ' + err.message, 'error');
     }

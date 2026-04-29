@@ -167,7 +167,6 @@ export function SkillsTab() {
       if (skillsViewAgentIdRef.current === snapshotAgentId) {
         showToast(t('settings.autoSaved'), 'success');
       }
-      platform?.notifyMainWindow?.('skills-changed', {});
     } catch (err: unknown) {
       if (skillsViewAgentIdRef.current === snapshotAgentId) {
         const reverted = skillsList.map(s => s.name === name ? { ...s, enabled: !enable } : s);
@@ -199,7 +198,6 @@ export function SkillsTab() {
       await loadExternalPaths();
       await loadSkills();
       showToast(t('settings.autoSaved'), 'success');
-      platform?.notifyMainWindow?.('skills-changed', {});
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : String(err), 'error');
     }
@@ -216,7 +214,6 @@ export function SkillsTab() {
       await loadExternalPaths();
       await loadSkills();
       showToast(t('settings.autoSaved'), 'success');
-      platform?.notifyMainWindow?.('skills-changed', {});
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : String(err), 'error');
     }

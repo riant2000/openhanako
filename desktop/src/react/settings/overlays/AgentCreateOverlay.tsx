@@ -5,8 +5,6 @@ import { t } from '../helpers';
 import { switchToAgent } from '../actions';
 import styles from '../Settings.module.css';
 
-const platform = window.platform;
-
 export function AgentCreateOverlay() {
   const { showToast } = useSettingsStore();
   const [visible, setVisible] = useState(false);
@@ -45,7 +43,6 @@ export function AgentCreateOverlay() {
       await switchToAgent(data.id);
       close();
       showToast(t('settings.agent.created', { name: data.name }), 'success');
-      platform?.settingsChanged?.('agent-created', { agentId: data.id, name: data.name });
     } catch (err: any) {
       showToast(t('settings.agent.createFailed') + ': ' + err.message, 'error');
     } finally {

@@ -6,8 +6,6 @@ import { t, formatContext, lookupModelMeta } from '../../helpers';
 import { ModelEditPanel } from './ModelEditPanel';
 import styles from '../../Settings.module.css';
 
-const platform = window.platform;
-
 interface DiscoveredModel {
   id: string;
   name?: string;
@@ -57,7 +55,6 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
       });
       invalidateConfigCache();
       await onRefresh();
-      platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       showToast(msg, 'error');
@@ -74,7 +71,6 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
       });
       invalidateConfigCache();
       await onRefresh();
-      platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       showToast(msg, 'error');
@@ -103,7 +99,6 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
       }
       setCustomInput('');
       await onRefresh();
-      platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       showToast(msg, 'error');

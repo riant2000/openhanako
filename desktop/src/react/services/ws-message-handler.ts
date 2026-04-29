@@ -15,7 +15,7 @@ import { handleArtifact } from '../stores/artifact-actions';
 import { loadDeskFiles } from '../stores/desk-actions';
 import { loadChannels as loadChannelsAction, openChannel as openChannelAction } from '../stores/channel-actions';
 import { showError } from '../utils/ui-helpers';
-import { getWebSocket } from './websocket';
+import { handleAppEvent } from './app-event-actions';
 import {
   replayStreamResume,
   isStreamResumeRebuilding,
@@ -28,6 +28,14 @@ import { renderMarkdown } from '../utils/markdown';
 import { bumpMessageLiveVersion } from '../stores/message-live-version';
 
 declare function t(key: string, vars?: Record<string, string>): any;
+
+let requestContextUsage: (sessionPath: string) => void = () => {};
+
+export function configureWsMessageHandler(options: {
+  requestContextUsage?: (sessionPath: string) => void;
+}): void {
+  requestContextUsage = options.requestContextUsage || (() => {});
+}
 
 // ── 聊天事件集合（走 StreamBufferManager） ──
 
@@ -143,14 +151,11 @@ export function handleServerMessage(msg: any): void {
     // turn_end 后仍需执行部分通用逻辑（loadSessions、context_usage）
     if (msg.type === 'turn_end') {
       loadSessionsAction();
-      const ws = getWebSocket();
-      if (ws?.readyState === WebSocket.OPEN) {
-        const turnSp = msg.sessionPath;
-        if (turnSp) {
-          ws.send(JSON.stringify({ type: 'context_usage', sessionPath: turnSp }));
-        } else {
-          console.warn('[ws] turn_end missing sessionPath, skipping context_usage request');
-        }
+      const turnSp = msg.sessionPath;
+      if (turnSp) {
+        requestContextUsage(turnSp);
+      } else {
+        console.warn('[ws] turn_end missing sessionPath, skipping context_usage request');
       }
     }
     // tool_end 后更新 todo（兼容新旧工具名 + 新旧格式）
@@ -275,6 +280,12 @@ export function handleServerMessage(msg: any): void {
 
     case 'plugin_ui_changed':
       import('../stores/plugin-ui-actions').then(m => m.refreshPluginUI());
+      break;
+
+    case 'app_event':
+      if (msg.event?.type) {
+        handleAppEvent(msg.event.type, msg.event.payload || {});
+      }
       break;
 
     case 'bridge_message':

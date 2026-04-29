@@ -34,7 +34,7 @@ function jsonResponse(body: unknown): Response {
   return { json: async () => body } as unknown as Response;
 }
 
-describe('WorkTab workspace change notification', () => {
+describe('WorkTab workspace persistence', () => {
   beforeEach(() => {
     Object.keys(mockState).forEach(key => delete mockState[key]);
     Object.assign(mockState, {
@@ -68,7 +68,7 @@ describe('WorkTab workspace change notification', () => {
     cleanup();
   });
 
-  it('notifies the main window after saving the selected agent workspace', async () => {
+  it('saves the selected agent workspace without sending frontend business IPC', async () => {
     const { WorkTab } = await import('../../settings/tabs/WorkTab');
 
     render(<WorkTab />);
@@ -81,13 +81,10 @@ describe('WorkTab workspace change notification', () => {
         body: JSON.stringify({ desk: { home_folder: '/new-home' } }),
       }));
     });
-    expect(window.platform.settingsChanged).toHaveBeenCalledWith('agent-workspace-changed', {
-      agentId: 'agent-a',
-      homeFolder: '/new-home',
-    });
+    expect(window.platform.settingsChanged).not.toHaveBeenCalled();
   });
 
-  it('notifies the main window after clearing the selected agent workspace', async () => {
+  it('clears the selected agent workspace without sending frontend business IPC', async () => {
     const { WorkTab } = await import('../../settings/tabs/WorkTab');
 
     render(<WorkTab />);
@@ -100,9 +97,6 @@ describe('WorkTab workspace change notification', () => {
         body: JSON.stringify({ desk: { home_folder: '' } }),
       }));
     });
-    expect(window.platform.settingsChanged).toHaveBeenCalledWith('agent-workspace-changed', {
-      agentId: 'agent-a',
-      homeFolder: null,
-    });
+    expect(window.platform.settingsChanged).not.toHaveBeenCalled();
   });
 });

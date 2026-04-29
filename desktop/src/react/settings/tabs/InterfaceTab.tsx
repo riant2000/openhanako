@@ -146,7 +146,6 @@ export function InterfaceTab() {
                 await i18n?.load(val);
                 if (i18n) i18n.defaultName = useSettingsStore.getState().agentName;
                 useSettingsStore.getState().showToast(t('settings.autoSaved'), 'success');
-                platform?.settingsChanged?.('locale-changed', { locale: val });
                 useSettingsStore.setState({});
               }}
             />

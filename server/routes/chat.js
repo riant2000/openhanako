@@ -7,6 +7,7 @@
 import { Hono } from "hono";
 import { MoodParser, ThinkTagParser, CardParser } from "../../core/events.js";
 import { extractBlocks } from "../block-extractors.js";
+import { toAppEventWsMessage } from "../app-events.js";
 import { wsSend, wsParse } from "../ws-protocol.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { t } from "../i18n.js";
@@ -191,6 +192,12 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
   // 单订阅：事件只写入一次，再按需广播到所有连接中的客户端。
   hub.subscribe((event, sessionPath) => {
     // Non-session-scoped events: handle before session resolution
+    const appEventMessage = toAppEventWsMessage(event);
+    if (appEventMessage) {
+      broadcast(appEventMessage);
+      return;
+    }
+
     if (event.type === "plugin_ui_changed") {
       broadcast({ type: "plugin_ui_changed" });
       return;

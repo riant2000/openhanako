@@ -9,6 +9,7 @@
 import path from "path";
 import fs from "fs";
 import { Hono } from "hono";
+import { emitAppEvent } from "../app-events.js";
 import { safeJson } from "../hono-helpers.js";
 import { extractZip } from "../../lib/extract-zip.js";
 import { saveConfig } from "../../lib/memory/config-loader.js";
@@ -99,6 +100,7 @@ export function createSkillsRoute(engine) {
         saveConfig(configPath, partial);
       }
 
+      emitAppEvent(engine, "skills-changed", { agentId: id });
       return c.json({ ok: true, enabled: filtered });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -225,6 +227,7 @@ export function createSkillsRoute(engine) {
       const skill = viewAgentId
         ? engine.getAllSkills(viewAgentId).find(s => s.name === safeName)
         : null;
+      emitAppEvent(engine, "skills-changed", { agentId: agentId || null });
       return c.json({
         ok: true,
         skill: skill || { name: safeName, type: "user" },
@@ -261,6 +264,7 @@ export function createSkillsRoute(engine) {
         }
       }
       await engine.setExternalSkillPaths(paths);
+      emitAppEvent(engine, "skills-changed", { agentId: null });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -339,6 +343,7 @@ export function createSkillsRoute(engine) {
       // 重新加载 skills
       await engine.reloadSkills();
 
+      emitAppEvent(engine, "skills-changed", { agentId: targetAgentId || null });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -352,6 +357,7 @@ export function createSkillsRoute(engine) {
     try {
       await engine.reloadSkills();
       // 不返回 skills 列表（缺乏 agent 上下文），前端会 fallback 到 GET /skills?agentId=X
+      emitAppEvent(engine, "skills-changed", { agentId: null });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);

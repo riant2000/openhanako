@@ -5,8 +5,6 @@ import { invalidateConfigCache } from '../../../hooks/use-config';
 import { t } from '../../helpers';
 import styles from '../../Settings.module.css';
 
-const platform = (window as any).platform;
-
 interface Props {
   providerId: string;
   provider: {
@@ -46,7 +44,6 @@ export function MediaProviderDetail({ providerId, provider, config, onSaveConfig
       });
       invalidateConfigCache();
       await onRefresh();
-      platform?.settingsChanged?.('models-changed');
     } catch (err: any) {
       showToast(err.message || 'Failed', 'error');
     }
@@ -65,7 +62,6 @@ export function MediaProviderDetail({ providerId, provider, config, onSaveConfig
       });
       invalidateConfigCache();
       await onRefresh();
-      platform?.settingsChanged?.('models-changed');
     } catch (err: any) {
       showToast(err.message || 'Failed', 'error');
     }

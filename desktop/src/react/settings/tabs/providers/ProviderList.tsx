@@ -7,8 +7,6 @@ import { SelectWidget } from '../../widgets/SelectWidget';
 import { KeyInput } from '../../widgets/KeyInput';
 import styles from '../../Settings.module.css';
 
-const platform = window.platform;
-
 export function AddCustomButton({ onClick }: { onClick: () => void }) {
   return (
     <div className={styles['pv-add-wrapper']}>
@@ -60,7 +58,6 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
       if (data.error) throw new Error(data.error);
       showToast(t('settings.providers.added', { name: n }), 'success');
       await loadSettingsConfig();
-      platform?.settingsChanged?.('models-changed');
       useSettingsStore.setState({ selectedProviderId: n });
       onDone();
     } catch (err: unknown) {

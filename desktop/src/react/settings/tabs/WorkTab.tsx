@@ -68,13 +68,6 @@ export function WorkTab() {
     await autoSaveConfig({ desk: { cron_auto_approve: on } });
   };
 
-  const emitAgentWorkspaceChanged = (agentId: string, homeFolder: string | null) => {
-    window.platform?.settingsChanged?.('agent-workspace-changed', {
-      agentId,
-      homeFolder,
-    });
-  };
-
   const saveAgentConfig = async (agentId: string, patch: Record<string, any>): Promise<boolean> => {
     if (!agentId) return false;
     try {
@@ -118,9 +111,7 @@ export function WorkTab() {
       setAgentDesk({ ...agentDesk, home_folder: folder });
     }
     const saved = await saveAgentConfig(agentId, { desk: { home_folder: folder } });
-    if (saved) {
-      emitAgentWorkspaceChanged(agentId, folder);
-    } else if (selectedAgentIdRef.current === agentId) {
+    if (!saved && selectedAgentIdRef.current === agentId) {
       setAgentDesk(previous);
     }
   };
@@ -132,9 +123,7 @@ export function WorkTab() {
     const previous = agentDesk;
     setAgentDesk({ ...agentDesk, home_folder: '' });
     const saved = await saveAgentConfig(agentId, { desk: { home_folder: '' } });
-    if (saved) {
-      emitAgentWorkspaceChanged(agentId, null);
-    } else if (selectedAgentIdRef.current === agentId) {
+    if (!saved && selectedAgentIdRef.current === agentId) {
       setAgentDesk(previous);
     }
   };

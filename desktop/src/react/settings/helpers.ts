@@ -6,8 +6,6 @@ import { hanaFetch } from './api';
 import knownModels from '../../../../lib/known-models.json';
 import registry from '../../shared/theme-registry.cjs';
 
-const platform = window.platform;
-
 export function t(key: string, params?: Record<string, any>): any {
   return window.t?.(key, params) ?? key;
 }
@@ -96,7 +94,7 @@ export function lookupModelMeta(modelId: string, provider?: string): any {
 /** 通用 per-agent 自动保存 */
 export async function autoSaveConfig(
   partial: Record<string, any>,
-  opts: { silent?: boolean; refreshModels?: boolean } = {},
+  opts: { silent?: boolean } = {},
 ) {
   const store = useSettingsStore.getState();
   try {
@@ -117,7 +115,6 @@ export async function autoSaveConfig(
       if (k in prev && !(k in newConfig)) newConfig[k] = (prev as any)[k];
     }
     useSettingsStore.setState({ settingsConfig: newConfig });
-    if (opts.refreshModels) platform?.settingsChanged?.('models-changed');
   } catch (err: any) {
     store.showToast(t('settings.saveFailed') + ': ' + err.message, 'error');
   }

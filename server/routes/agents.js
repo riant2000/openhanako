@@ -25,6 +25,7 @@ import path from "path";
 import YAML from "js-yaml";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { emitAppEvent } from "../app-events.js";
 import { safeJson } from "../hono-helpers.js";
 import { saveConfig, clearConfigCache } from "../../lib/memory/config-loader.js";
 import {
@@ -45,6 +46,56 @@ import {
 
 function agentDir(engine, id) {
   return path.join(engine.agentsDir, id);
+}
+
+function hasOwn(value, key) {
+  return !!value && typeof value === "object" && Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function getGlobalValue(globalFields, key) {
+  return globalFields.find((field) => field.key === key)?.value;
+}
+
+function emitAgentConfigAppEvents(engine, agentId, { globalFields, agentPartial, providersChanged }) {
+  if (
+    providersChanged
+    || hasOwn(agentPartial, "api")
+    || hasOwn(agentPartial, "embedding_api")
+    || hasOwn(agentPartial, "utility_api")
+    || hasOwn(agentPartial, "models")
+  ) {
+    emitAppEvent(engine, "models-changed", { agentId });
+  }
+
+  const agentPayload = { agentId };
+  let agentUpdated = false;
+  if (hasOwn(agentPartial?.agent, "name")) {
+    agentPayload.agentName = agentPartial.agent.name;
+    agentUpdated = true;
+  }
+  if (hasOwn(agentPartial?.agent, "yuan")) {
+    agentPayload.yuan = agentPartial.agent.yuan;
+    agentUpdated = true;
+  }
+  if (agentUpdated) {
+    emitAppEvent(engine, "agent-updated", agentPayload);
+  }
+
+  if (hasOwn(agentPartial?.desk, "home_folder")) {
+    emitAppEvent(engine, "agent-workspace-changed", {
+      agentId,
+      homeFolder: agentPartial.desk.home_folder || null,
+    });
+  }
+
+  const locale = getGlobalValue(globalFields, "locale");
+  if (locale !== undefined) {
+    emitAppEvent(engine, "locale-changed", { locale });
+  }
+
+  if (hasOwn(agentPartial, "skills")) {
+    emitAppEvent(engine, "skills-changed", { agentId });
+  }
 }
 
 // 本地应用，API key 不做掩码，前端用 type="password" 控制显隐
@@ -72,6 +123,7 @@ export function createAgentsRoute(engine) {
         return c.json({ error: "name is required" }, 400);
       }
       const result = await engine.createAgent({ name, id, yuan });
+      emitAppEvent(engine, "agent-created", { agentId: result.id, name: result.name });
       return c.json({ ok: true, ...result });
     } catch (err) {
       return c.json({ error: err.message }, err.message.includes("已存在") ? 409 : 500);
@@ -86,11 +138,13 @@ export function createAgentsRoute(engine) {
         return c.json({ error: "invalid id" }, 400);
       }
       await engine.switchAgent(id);
+      const agentName = engine.getAgent(id)?.agentName || id;
+      emitAppEvent(engine, "agent-switched", { agentId: id, agentName });
       return c.json({
         ok: true,
         agent: {
           id,
-          name: engine.getAgent(id)?.agentName || id,
+          name: agentName,
         },
       });
     } catch (err) {
@@ -103,6 +157,7 @@ export function createAgentsRoute(engine) {
       const id = c.req.param("id");
       if (!validateId(id)) return c.json({ error: "invalid id" }, 400);
       await engine.deleteAgent(id);
+      emitAppEvent(engine, "agent-deleted", { agentId: id });
       return c.json({ ok: true });
     } catch (err) {
       const code = err.message.includes("不能删除当前") ? 400
@@ -191,6 +246,7 @@ export function createAgentsRoute(engine) {
     }
     await fs.writeFile(path.join(dir, `agent.${ext}`), buf);
     engine.invalidateAgentListCache();
+    emitAppEvent(engine, "agent-updated", { agentId: id });
     return c.json({ ok: true, ext });
   });
 
@@ -204,6 +260,7 @@ export function createAgentsRoute(engine) {
       try { await fs.unlink(path.join(dir, `agent.${ext}`)); } catch {}
     }
     engine.invalidateAgentListCache();
+    emitAppEvent(engine, "agent-updated", { agentId: id });
     return c.json({ ok: true });
   });
 
@@ -358,6 +415,7 @@ export function createAgentsRoute(engine) {
       }
 
       if (Object.keys(agentPartial).length === 0) {
+        emitAgentConfigAppEvents(engine, id, { globalFields, agentPartial, providersChanged });
         return c.json({ ok: true });
       }
 
@@ -380,6 +438,7 @@ export function createAgentsRoute(engine) {
       if (agentPartial.memory && "enabled" in agentPartial.memory) {
         engine.setMemoryMasterEnabled(id, agentPartial.memory.enabled !== false);
       }
+      emitAgentConfigAppEvents(engine, id, { globalFields, agentPartial, providersChanged });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -418,6 +477,7 @@ export function createAgentsRoute(engine) {
       await fs.writeFile(path.join(agentDir(engine, id), "identity.md"), content, "utf-8");
       engine.invalidateAgentListCache();
       await engine.updateConfig({}, { agentId: id });
+      emitAppEvent(engine, "agent-updated", { agentId: id });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -455,6 +515,7 @@ export function createAgentsRoute(engine) {
       }
       await fs.writeFile(path.join(agentDir(engine, id), "ishiki.md"), content, "utf-8");
       await engine.updateConfig({}, { agentId: id });
+      emitAppEvent(engine, "agent-updated", { agentId: id });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -492,6 +553,7 @@ export function createAgentsRoute(engine) {
       }
       await fs.writeFile(path.join(agentDir(engine, id), "public-ishiki.md"), content, "utf-8");
       await engine.updateConfig({}, { agentId: id });
+      emitAppEvent(engine, "agent-updated", { agentId: id });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -540,6 +602,7 @@ export function createAgentsRoute(engine) {
         + "\n";
       await fs.writeFile(path.join(agentDir(engine, id), "pinned.md"), content, "utf-8");
       await engine.updateConfig({}, { agentId: id });
+      emitAppEvent(engine, "agent-updated", { agentId: id });
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -605,6 +668,7 @@ export function createAgentsRoute(engine) {
       syncExperienceCategories(expDir, indexPath, categories);
 
       await engine.updateConfig({}, { agentId: id });
+      emitAppEvent(engine, "agent-updated", { agentId: id });
       return c.json({ ok: true });
     } catch (err) {
       if (err.message === "invalid experience category") {
