@@ -12,6 +12,7 @@ import { useStore } from '../../stores';
 import { selectIsStreamingSession, selectSelectedIdsBySession } from '../../stores/session-selectors';
 import { openFilePreview } from '../../utils/file-preview';
 import { isImageOrSvgExt, extOfName } from '../../utils/file-kind';
+import { getUserAttachmentImageSrc } from '../../utils/user-attachment-media';
 import styles from './Chat.module.css';
 import badgeStyles from '../input/SkillBadgeView.module.css';
 
@@ -163,12 +164,13 @@ const UserAttachmentsView = memo(function UserAttachmentsView({ attachments, des
   return (
     <div className={styles.userAttachments}>
       {attachments.map((att, i) => {
-        if (isImage(att) && att.base64Data) {
+        const imageSrc = isImage(att) ? getUserAttachmentImageSrc(att) : null;
+        if (imageSrc) {
           return (
             <div key={att.name || `att-${i}`} className={styles.attachImageWrap}>
               <img
                 className={styles.attachImage}
-                src={`data:${att.mimeType || 'image/png'};base64,${att.base64Data}`}
+                src={imageSrc}
                 alt={att.name}
                 loading="lazy"
                 onClick={(e) => {

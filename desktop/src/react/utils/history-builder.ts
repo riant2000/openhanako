@@ -133,20 +133,32 @@ export function buildItemsFromHistory(data: HistoryApiResponse): ChatListItem[] 
         continue;
       }
 
-      const { text, files, deskContext, quotedText } = parseUserAttachments(rawContent);
+      const { text, files, attachedImages, deskContext, quotedText } = parseUserAttachments(rawContent);
       const fileAtts = files.map(f => ({
         path: f.path,
         name: f.name,
         isDir: f.isDirectory,
       }));
-      const imageAtts = (m.images || []).map((img, idx) => ({
+      const imageBlocks = m.images || [];
+      const markerImageAtts = attachedImages.map((ref, idx) => {
+        const img = imageBlocks[idx];
+        return {
+          path: ref.path,
+          name: ref.name,
+          isDir: false,
+          base64Data: img?.data,
+          mimeType: img?.mimeType,
+          visionAuxiliary: !img,
+        };
+      });
+      const imageAtts = imageBlocks.slice(attachedImages.length).map((img, idx) => ({
         path: `image-${idx}`,
         name: `image-${idx}.${(img.mimeType || 'image/png').split('/')[1] || 'png'}`,
         isDir: false,
         base64Data: img.data,
         mimeType: img.mimeType,
       }));
-      const allAtts = [...fileAtts, ...imageAtts];
+      const allAtts = [...fileAtts, ...markerImageAtts, ...imageAtts];
       const msg: ChatMessage = {
         id,
         role: 'user',

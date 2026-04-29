@@ -104,6 +104,19 @@ describe('parseUserAttachments', () => {
     expect(result.files[0].isDirectory).toBe(false);
   });
 
+  it('解析内部 attached_image 标记为图片引用，并从正文隐藏', () => {
+    const input = '[attached_image: /Users/test/.hanako/attachments/upload-abc.png]\n(看图)';
+    const result = parseUserAttachments(input);
+
+    expect(result.text).toBe('(看图)');
+    expect(result.attachedImages).toEqual([
+      {
+        path: '/Users/test/.hanako/attachments/upload-abc.png',
+        name: 'upload-abc.png',
+      },
+    ]);
+  });
+
   it('解析旧版书桌上下文兼容格式', () => {
     const input = '[当前书桌目录] /home/user/desk\n  file1.txt\n  file2.txt\nSome text';
     const result = parseUserAttachments(input);
