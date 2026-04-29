@@ -9,6 +9,15 @@ describe('renderMarkdown', () => {
     expect(html).toContain('class="katex-display"');
   });
 
+  it('renders LaTeX parenthesis and bracket math delimiters', () => {
+    const html = renderMarkdown('inline \\(x+1\\)\n\n\\[\ny^2\n\\]');
+
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('class="katex-display"');
+    expect(html).not.toContain('\\(x+1\\)');
+    expect(html).not.toContain('\\[');
+  });
+
   it('renders Obsidian ==highlight== syntax as mark', () => {
     const html = renderMarkdown('GDP ==平减指数==');
 

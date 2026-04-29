@@ -923,6 +923,27 @@ html[data-platform="linux"] .tb-toggle-right {
     color: var(--text);
 }
 
+/* 公式 */
+.md-content .katex {
+    color: var(--text);
+}
+
+.md-content .katex-block,
+.md-content .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.md-content .katex-block {
+    margin: var(--space-sm) 0;
+    padding: var(--space-xs) 0;
+}
+
+.md-content .katex-error {
+    color: var(--mood-text);
+}
+
 /* 引用块 */
 .md-content blockquote {
     border-left: 2px solid var(--border);
