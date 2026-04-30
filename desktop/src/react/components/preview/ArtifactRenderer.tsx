@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useRef } from 'react';
-import { renderMarkdown } from '../../utils/markdown';
+import { renderMarkdownPreview } from '../../utils/markdown';
 import { parseCSV, injectCopyButtons } from '../../utils/format';
 import { fileIconSvg } from '../../utils/icons';
 import { openFilePreview } from '../../utils/file-preview';
@@ -73,7 +73,7 @@ function MarkdownPreview({ content }: { content: string }) {
     <div
       ref={divRef}
       className="preview-markdown md-content"
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+      dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(content) }}
     />
   );
 }
