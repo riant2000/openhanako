@@ -12,9 +12,16 @@ export function getPlatformPromptNote({
   osType = os.type(),
   osRelease = os.release(),
 } = {}) {
-  return [
+  const lines = [
     `Platform: ${platform}`,
     `Shell: ${HANA_EXEC_SHELL}`,
     `OS Version: ${osType} ${osRelease}`,
-  ].join("\n");
+  ];
+  if (platform === "win32") {
+    lines.push([
+      "Command syntax: use bash/POSIX syntax for pipes, paths, and redirection.",
+      "Discard output with /dev/null; do not use CMD's nul device unless the command is explicitly run through cmd.exe.",
+    ].join(" "));
+  }
+  return lines.join("\n");
 }

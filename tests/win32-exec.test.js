@@ -82,4 +82,30 @@ describe("createWin32Exec", () => {
       expect.objectContaining({ cwd: "C:\\work" })
     );
   });
+
+  it("rejects CMD nul redirection before executing bash-routed commands", async () => {
+    classifyWin32Command.mockReturnValue({ runner: "bash", reason: "complex-shell" });
+    existsSync.mockImplementation((p) => p === "C:\\mock\\bash.exe");
+    spawnSync.mockImplementation((cmd, args) => {
+      if (cmd === "where" && args?.[0] === "bash.exe") {
+        return { status: 0, stdout: "C:\\mock\\bash.exe\r\n", stderr: "" };
+      }
+      if (cmd === "C:\\mock\\bash.exe" && args?.[0] === "-c") {
+        return { status: 0, stdout: "__hana_probe_ok__\n", stderr: "" };
+      }
+      return { status: 1, stdout: "", stderr: "" };
+    });
+
+    const createWin32Exec = await loadExecFactory();
+    const exec = createWin32Exec();
+
+    await expect(exec("ipconfig /all > nul 2>&1", "C:\\work", {
+      onData: () => {},
+      signal: undefined,
+      timeout: 5,
+      env: { PATH: "C:\\Windows\\System32" },
+    })).rejects.toThrow("/dev/null");
+
+    expect(spawnAndStream).not.toHaveBeenCalled();
+  });
 });

@@ -16,7 +16,12 @@ describe("getPlatformPromptNote", () => {
 
   it("emits Platform/Shell/OS Version on win32", () => {
     const out = getPlatformPromptNote({ ...baseOpts, platform: "win32" });
-    expect(out).toBe("Platform: win32\nShell: bash\nOS Version: TestOS 1.2.3");
+    expect(out).toBe(
+      "Platform: win32\n" +
+      "Shell: bash\n" +
+      "OS Version: TestOS 1.2.3\n" +
+      "Command syntax: use bash/POSIX syntax for pipes, paths, and redirection. Discard output with /dev/null; do not use CMD's nul device unless the command is explicitly run through cmd.exe."
+    );
   });
 
   it("hard-codes Shell: bash regardless of $SHELL (reflects sandbox execution reality)", () => {
