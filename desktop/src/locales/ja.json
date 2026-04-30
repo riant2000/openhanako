@@ -625,7 +625,7 @@
       "updateDownloading": "{agentName}が新しいお家を準備中 {percent}%",
       "updateReadyInstall": "v{version} インストール準備完了",
       "updateInstalling": "アップデートをインストール中です。Hanako は自動で再起動します…",
-      "updateInstallOnQuit": "Hanako を終了した時にも自動でインストールします",
+      "updateInstallManualHint": "「再起動して更新」を押すとインストールします。終了だけでは自動インストールしません",
       "updateInstall": "再起動して更新",
       "updateProgress": "{percent}%",
       "updateError": "アップデートの確認に失敗しました",

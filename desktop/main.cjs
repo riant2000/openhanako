@@ -14,7 +14,7 @@ const path = require("path");
 const { spawn, execFile } = require("child_process");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
-const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel, getState: getUpdateState, installDownloadedUpdate } = require("./auto-updater.cjs");
+const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel, installDownloadedUpdate } = require("./auto-updater.cjs");
 const { createFileWatchRegistry } = require("./file-watch-registry.cjs");
 const { readTextFileSnapshot, writeTextFileIfUnchanged } = require("./file-text-io.cjs");
 const { wrapIpcHandler, wrapIpcBestEffortHandler, wrapIpcOn } = require('./ipc-wrapper.cjs');
@@ -325,6 +325,12 @@ function migrateSetupComplete() {
 // ── 启动 Server ──
 // 收集 server 的 stdout/stderr 用于崩溃诊断
 let _serverLogs = [];
+let _lastServerSpawn = null;
+
+function isPidAliveForDiagnostics(pid) {
+  if (!pid) return false;
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
 
 // Server 启动前的就绪性校验：处理自动更新文件落地竞态
 const {
@@ -536,11 +542,32 @@ async function _spawnServerOnce(serverInfoPath) {
   // 删除旧 server-info.json
   try { fs.unlinkSync(serverInfoPath); } catch {}
 
+  _lastServerSpawn = {
+    command: serverBin,
+    args: serverArgs,
+    pid: null,
+    startedAt: new Date().toISOString(),
+  };
   serverProcess = spawn(serverBin, serverArgs, {
     detached: true,
     windowsHide: true,
     env: serverEnv,
     stdio: ["pipe", "pipe", "pipe"],
+  });
+  const spawnedProcess = serverProcess;
+  _lastServerSpawn.pid = spawnedProcess.pid || null;
+
+  spawnedProcess.on("exit", (code, signal) => {
+    if (_lastServerSpawn?.pid === spawnedProcess.pid) {
+      _lastServerSpawn.exitCode = code;
+      _lastServerSpawn.exitSignal = signal;
+      _lastServerSpawn.exitedAt = new Date().toISOString();
+    }
+  });
+  spawnedProcess.on("error", (err) => {
+    if (_lastServerSpawn?.pid === spawnedProcess.pid) {
+      _lastServerSpawn.error = err?.message || String(err);
+    }
   });
 
   // 捕获 stdout/stderr 到 buffer（打包后 console 不可见，崩溃时需要这些信息）
@@ -700,6 +727,18 @@ function writeCrashLog(errorMessage) {
       `ELECTRON_RUN_AS_NODE: ${process.env.ELECTRON_RUN_AS_NODE || "unset"}`,
       `Node ABI: ${process.versions.modules || "unknown"}`,
     ];
+
+    if (_lastServerSpawn) {
+      const childAlive = isPidAliveForDiagnostics(_lastServerSpawn.pid);
+      const exitObserved = _lastServerSpawn.exitCode !== undefined || _lastServerSpawn.exitSignal !== undefined;
+      items.push(`Server PID: ${_lastServerSpawn.pid || "unknown"}`);
+      items.push(`Server command: ${_lastServerSpawn.command || "unknown"}`);
+      items.push(`Server args: ${JSON.stringify(_lastServerSpawn.args || [])}`);
+      items.push(`Server started at: ${_lastServerSpawn.startedAt || "unknown"}`);
+      items.push(`Server child alive: ${childAlive}`);
+      items.push(`Server exit: ${exitObserved ? `code=${_lastServerSpawn.exitCode ?? "null"} signal=${_lastServerSpawn.exitSignal ?? "null"}` : "not observed"}`);
+      if (_lastServerSpawn.error) items.push(`Server spawn error: ${_lastServerSpawn.error}`);
+    }
 
     // Windows: 检查 server 二进制、手动调试 wrapper 和 MinGit
     if (process.platform === "win32" && isPackaged) {
@@ -2895,19 +2934,6 @@ app.on("before-quit", async (event) => {
 
   // auto-updater 已完成 server 清理，直接放行
   if (_isUpdating) return;
-
-  if (getUpdateState().status === "downloaded") {
-    event.preventDefault();
-    const started = await installDownloadedUpdate("app-quit");
-    if (!started) {
-      isExitingServer = true;
-      if ((serverProcess && !serverProcess.killed) || reusedServerPid) {
-        await shutdownServer();
-      }
-      app.quit();
-    }
-    return;
-  }
 
   isExitingServer = true;
 

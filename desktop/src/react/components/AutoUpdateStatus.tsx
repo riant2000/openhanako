@@ -63,7 +63,7 @@ export function AutoUpdateStatus({ state, agentName = 'Hanako', onInstall }: Aut
               </button>
             )}
           </div>
-          <div className={`${styles.message} ${styles.hint}`}>{t('settings.about.updateInstallOnQuit')}</div>
+          <div className={`${styles.message} ${styles.hint}`}>{t('settings.about.updateInstallManualHint')}</div>
         </div>
       </div>
     );

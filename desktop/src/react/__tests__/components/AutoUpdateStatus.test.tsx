@@ -13,7 +13,7 @@ const labels: Record<string, string> = {
   'settings.about.updateProgress': '{percent}%',
   'settings.about.updateReadyInstall': 'v{version} 已就绪',
   'settings.about.updateInstall': '重启更新',
-  'settings.about.updateInstallOnQuit': '退出 Hanako 时也会自动安装',
+  'settings.about.updateInstallManualHint': '点重启更新后安装，直接退出不会自动安装',
   'settings.about.updateInstalling': '正在安装更新，Hanako 会自动重启…',
   'settings.about.updateNeedInstall': '请先将 Hanako 移动到应用程序文件夹',
 };
@@ -76,7 +76,7 @@ describe('AutoUpdateStatus', () => {
     );
 
     expect(screen.getByText('v0.118.0 已就绪')).toBeTruthy();
-    expect(screen.getByText('退出 Hanako 时也会自动安装')).toBeTruthy();
+    expect(screen.getByText('点重启更新后安装，直接退出不会自动安装')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /重启更新/ }));
     expect(onInstall).toHaveBeenCalledTimes(1);

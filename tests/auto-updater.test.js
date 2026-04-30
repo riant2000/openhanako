@@ -6,6 +6,7 @@ const mockAutoUpdater = {
   autoDownload: true,
   autoInstallOnAppQuit: true,
   allowPrerelease: false,
+  installDirectory: undefined,
   checkForUpdates: vi.fn().mockResolvedValue({}),
   downloadUpdate: vi.fn().mockResolvedValue(null),
   quitAndInstall: vi.fn(),
@@ -14,6 +15,7 @@ const mockAutoUpdater = {
 };
 
 const mockWindows = [];
+let mockExePath = "/Applications/Hanako.app/Contents/MacOS/Hanako";
 
 vi.mock("electron", () => ({
   ipcMain: { handle: vi.fn() },
@@ -22,7 +24,7 @@ vi.mock("electron", () => ({
     isPackaged: true,
     getVersion: () => "1.0.0",
     getPath: (name) => {
-      if (name === "exe") return "/Applications/Hanako.app/Contents/MacOS/Hanako";
+      if (name === "exe") return mockExePath;
       if (name === "userData") return "/tmp/test-userdata";
       return "/tmp";
     },
@@ -52,6 +54,8 @@ describe("auto-updater", () => {
     mockAutoUpdater.autoDownload = true;
     mockAutoUpdater.autoInstallOnAppQuit = true;
     mockAutoUpdater.allowPrerelease = false;
+    mockAutoUpdater.installDirectory = undefined;
+    mockExePath = "/Applications/Hanako.app/Contents/MacOS/Hanako";
 
     ({ ipcMain } = await import("electron"));
     ipcMain.handle.mockImplementation((name, handler) => {
@@ -87,6 +91,22 @@ describe("auto-updater", () => {
     initWithMockWindow();
     expect(mockAutoUpdater.autoDownload).toBe(false);
     expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false);
+  });
+
+  it("pins the NSIS install directory to the running exe directory on Windows", async () => {
+    const originalPlatform = process.platform;
+    try {
+      Object.defineProperty(process, "platform", { value: "win32" });
+      vi.resetModules();
+      mockExePath = "/tmp/Hanako/Hanako.exe";
+      mod = await import("../desktop/auto-updater.cjs");
+
+      initWithMockWindow();
+
+      expect(mockAutoUpdater.installDirectory).toBe("/tmp/Hanako");
+    } finally {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    }
   });
 
   it("should map update-available to available state", async () => {

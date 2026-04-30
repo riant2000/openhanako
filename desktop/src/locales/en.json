@@ -630,7 +630,7 @@
       "updateDownloading": "{agentName} is preparing a new home {percent}%",
       "updateReadyInstall": "v{version} ready to install",
       "updateInstalling": "Installing update. Hanako will restart automatically…",
-      "updateInstallOnQuit": "Hanako will also install it when you quit",
+      "updateInstallManualHint": "Install after clicking Restart to update; quitting will not install automatically",
       "updateInstall": "Restart to update",
       "updateProgress": "{percent}%",
       "updateError": "Update check failed",

@@ -233,9 +233,12 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.autoDownload = false;          // 由我们控制（磁盘空间检查后手动触发）
-  autoUpdater.autoInstallOnAppQuit = false;  // 统一走 installDownloadedUpdate，包含手动退出
+  autoUpdater.autoInstallOnAppQuit = false;  // 只在用户明确点击"重启更新"时安装
   autoUpdater.allowPrerelease = false;       // 由频道控制
   autoUpdater.disableDifferentialDownload = true;
+  if (process.platform === "win32") {
+    autoUpdater.installDirectory = path.dirname(app.getPath("exe"));
+  }
 
   // ── 事件 → 状态映射 ──
 
