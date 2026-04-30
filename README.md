@@ -8,143 +8,149 @@
 
 <h1 align="center">OpenHanako</h1>
 
-<p align="center">A personal AI agent with memory and soul</p>
+<p align="center">一个有记忆、有灵魂的私人 AI 助理</p>
 
-<p align="center"><a href="README_CN.md">中文版</a></p>
+<p align="center"><a href="README_EN.md">English</a></p>
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/liliMozi/openhanako/releases)
 
 ---
 
-## What is Hanako
+## Hanako 是什么
 
-OpenHanako is a personal AI agent that is easier to use than traditional coding agents. It has memory, personality, and can act autonomously. Multiple agents can work together on your machine.
+OpenHanako 是一个更加易用的 AI agent，有记忆，有性格，会主动行动，还能多 Agent 在你的电脑上一同工作。
 
-As an assistant, it is gentle: no complex configuration files, no obscure jargon. Hanako is designed not just for coders, but for everyone who works at a computer.
-As a tool, it is powerful: it remembers everything you've said, operates your computer, browses the web, searches for information, reads and writes files, executes code, manages schedules, and can even learn new skills on its own.
+作为助手，Ta 是温柔的：不需要写复杂的配置，不需要理解晦涩的术语。Hanako 它不只面向 coder ，而是为每一个坐在电脑前工作的人设计的助手。
+作为工具，Ta 是强大的：记住你说过的每一件事，操作你的电脑，浏览网页，搜索信息，读写文件，执行代码，管理日程，还能自主学习新技能。
 
-## Features
+我开这个项目的初衷是：弥合绝大多数人和 AI Agent 之间的缝隙，让强大的 Agent 能力不再只局限于命令行里。于是我做了比传统 Coding Agent 更多一些的优化：一方面是强化 Agent「像人」的属性，是你和他们沟通更自然；另一方面，因为我本职也是一介文员，所以我也针对日常办公场景做了很多工具性和流程性的优化，敬请探索。
+此外，Hanako 有比较完备的图形页面。
 
-**Memory** — A custom memory system that keeps recent events sharp and lets older ones fade naturally.
+如果你用过 claude code、codex、Manus 等 CLI 或是图形化的 Agent，你会在 Hanako 这里找到熟悉又新奇的感觉。
 
-**Personality** — Not a generic "AI assistant". Each agent has its own voice and behavior through personality templates. Agents are self-contained folders, easy to back up and manage.
+## 功能特性
 
-**Tools** — Read/write files, run terminal commands, browse the web, search the internet through browser-backed or API providers, take screenshots, preview media, and inspect pages. Covers the vast majority of daily work scenarios.
+**记忆** — 结合主流的记忆方案，自己又发挥了一下，做了个记忆系统，近期的事情记得非常牢固，但目前确实有待优化。
 
-**Skills** — Built-in compatibility with the community Skills ecosystem. Agents can also install skills from GitHub or write their own. Strict safety review enabled by default.
+**人格** — 不是千篇一律的"AI 助手"。通过人格模板和自定义人格文件塑造独特的性格，每个 Agent 都有自己的说话方式和行为逻辑，Agent 之间分离做得很好，备份方便，Agent 就是文件夹，后续还会添加备份功能。
 
-**Multi-Agent** — Create multiple agents, each with independent memory, personality, and scheduled tasks. Agents can collaborate via channel group chats or delegate tasks to each other.
+**工具** — 读写文件、执行终端命令、浏览网页、通过浏览器后端或 API 搜索互联网、截图、媒体预览、检查网页。能力覆盖日常办公的绝大多数场景。
 
-**Desk** — Each agent has a desk for files and notes (Jian). Supports drag-and-drop, file preview, and serves as an async collaboration space between you and your agent.
+**SKILLS 支持** — 内置兼容庞大 SKILLS 社区生态，之外，我也做了一些主动的优化：有时候干活之前，Agent 会从 GitHub 安装社区技能，Agent 也可以自己编写并学会新技能，有比较不错的主动性。当然，默认情况给 Agent 做了比较严格的 SKILLS 审核，如果发现 SKILLS 装不上可以自行关闭。
 
-**Full-Screen Media Viewer** — Click any image, SVG, or video from chat or the desk to open a dark-overlay viewer with wheel-zoom, drag-to-pan, `+` / `−` / `0` shortcuts, and left/right navigation between sibling media in the same session or folder.
+**多 Agent** — 创建多个 Agent，各自有独立的记忆、人格和定时任务。Agent 之间可以通过频道群聊协作，也可以互相委派任务。
 
-**Cron & Heartbeat** — Agents can run scheduled tasks and periodically check for file changes on the desk. They work autonomously even when you're away.
+**书桌** — 每个 Agent 都有自己的书桌，可以放文件、写笺（类似便签，Agent 会主动读取并执行）。支持拖拽操作，文件预览，是你和 Agent 之间的异步协作空间。
 
-**Sandbox** — Two-layer isolation: application-level PathGuard with four access tiers + OS-level sandboxing (macOS Seatbelt / Linux Bubblewrap).
+**全屏媒体查看器** — 聊天里或书桌上的任意图片、SVG、视频，点开就是暗色遮罩的全屏预览：滚轮缩放、拖拽平移，`+` / `−` / `0` 键盘快捷，左右箭头在同会话或同目录的相邻媒体间切换。
 
-**Plugins** — Extensible plugin system with a convention-first architecture. Install community plugins by drag-and-drop. Plugins can contribute tools, skills, commands, agent templates, HTTP routes, event hooks, LLM providers, pages, widgets, configuration schemas, and background tasks. Routes have direct access to core services (PluginContext injection) and can interact with agent sessions via the Session Bus. Two-level permission model (restricted / full-access) keeps things safe.
+**定时任务与心跳** — Agent 可以设置定时任务（Cron），也会定期巡检书桌上的文件变化。你不在的时候，Ta 也能按计划自主工作。
 
-**Multi-Platform Bridge** — A single agent can connect to Telegram, Feishu, QQ, and WeChat bots simultaneously. Chat from any platform and remotely operate your computer.
+**安全沙盒** — 双层隔离：应用层 PathGuard 四级访问控制 + 操作系统级沙盒（macOS Seatbelt / Linux Bubblewrap）。Agent 的权限在你的掌控之中。平时只能访问工作目录和一些用户文件，如果你想调整权限，可以在设置 → 安全页面修改沙盒级别。
 
-**i18n** — Interface available in 5 languages: Chinese, English, Japanese, Korean, and Traditional Chinese.
+**插件系统** — 约定优先的可扩展插件架构。拖拽安装社区插件，插件可以贡献工具、技能、命令、Agent 模板、HTTP 路由、事件钩子、LLM Provider、页面、侧栏 Widget、配置 schema 和后台任务。路由可直接访问核心服务（PluginContext 注入），通过 Session Bus 与 Agent 对话、获取历史、管理 session。两级权限模型（restricted / full-access）保障安全。
 
-## Screenshots
+**多平台接入** — 同一个 Agent 可以同时接入 Telegram、飞书、QQ、微信机器人，在任何平台和 Ta 对话，可以远程操作电脑。
+
+**国际化** — 界面支持中文、英文、日文、韩文、繁体中文 5 种语言。
+
+## 截图
 
 <p align="center">
-  <img src=".github/assets/screenshot-main.jpg" width="100%" alt="Hanako Main Interface">
+  <img src=".github/assets/screenshot-main.jpg" width="100%" alt="Hanako 主界面">
 </p>
 
-## Quick Start
+## 快速开始
 
-### Download
+### 下载安装
 
-**macOS (Apple Silicon / Intel):** download the latest `.dmg` from [Releases](https://github.com/liliMozi/openhanako/releases).
+**macOS（Apple Silicon / Intel）**：从 [Releases](https://github.com/liliMozi/openhanako/releases) 下载最新 `.dmg`。
 
-The app is signed and notarized with an Apple Developer ID. macOS should allow it to launch directly.
+应用已通过 Apple Developer ID 签名和公证，macOS 应该可以直接打开。
 
-**Windows:** download the latest `.exe` installer from [Releases](https://github.com/liliMozi/openhanako/releases).
+**Windows**：从 [Releases](https://github.com/liliMozi/openhanako/releases) 下载最新 `.exe` 安装包。
 
-> **Windows SmartScreen notice:** The installer is not yet code-signed. Windows Defender SmartScreen may show a warning on first run. Click **More info** → **Run anyway**. This is expected for unsigned builds.
+> **Windows SmartScreen 提示：** 安装包暂未经过代码签名，首次运行时 Windows Defender SmartScreen 可能会拦截，点击**更多信息** → **仍要运行**即可，未签名版本的正常现象。
 
-Linux builds are planned.
+Linux 版本计划中。
 
-### First Run
+### 首次运行
 
-On first launch, an onboarding wizard will guide you through setup: choose a language, enter your name, connect a model provider (API key + base URL), and select three models — a **chat model** (main conversation), a **utility model** (lightweight tasks), and a **utility large model** (memory compilation and deep analysis). In settings you can also choose a **vision model** that lets text-only chat models work with image attachments through Vision Bridge. Hanako supports OpenAI-compatible providers, Anthropic-style providers, OAuth providers, and local models via Ollama.
+首次启动时，引导向导会带你完成配置：选择语言、输入你的名字、连接模型提供商（API key + base URL），并选择三个模型：**对话模型**（主对话）、**小工具模型**（轻量任务）、**大工具模型**（记忆编译和深度分析）。设置页还可以单独选择**视觉模型**，让文本模型通过 Vision Bridge 处理图片附件。Hanako 支持 OpenAI 兼容、Anthropic 风格、OAuth Provider 和 Ollama 本地模型等多类接入。
+目前也添加了 OpenAI 的 OAuth 登录，鉴于 Anthropic 会有封号风险，所以暂时不提供。
 
-## Architecture
+## 架构
 
 ```
-core/           Engine orchestration + Managers (including PluginManager)
-lib/            Core libraries (memory, tools, sandbox, bridge adapters)
-server/         Hono HTTP + WebSocket server (standalone Node.js process)
-hub/            Scheduler, ChannelRouter, EventBus
-desktop/        Electron app + React frontend
-shared/         Cross-layer utilities (config schema, error bus, model refs)
-plugins/        Built-in system plugins (bundled into app)
-skills2set/     Built-in skill definitions
-scripts/        Build tools (server bundler, launcher, signing)
-tests/          Vitest test suite
+core/           引擎编排层 + Manager（含 PluginManager）
+lib/            核心库（记忆、工具、沙盒、Bridge 适配器）
+server/         Hono HTTP + WebSocket 服务（独立 Node.js 进程）
+hub/            调度器、频道路由、事件总线
+desktop/        Electron 应用 + React 前端
+shared/         跨层共享工具（config schema、error bus、模型引用等）
+plugins/        内置系统插件（随应用打包）
+skills2set/     内置技能定义
+scripts/        构建工具（server 打包、启动器、签名）
+tests/          Vitest 测试
 ```
 
-The engine layer coordinates multiple managers (Agent, Session, Model, Preferences, Skill, Channel, BridgeSession, Plugin, etc.) and exposes them through a unified facade. The Hub handles background tasks (heartbeat, cron, channel routing, agent messaging, DM routing) independently of the active chat session.
+引擎层协调多个 Manager（Agent、Session、Model、Preferences、Skill、Channel、BridgeSession、Plugin 等），通过统一的 facade 暴露。Hub 负责后台任务（心跳巡检、定时任务、频道路由、Agent 间通信、DM 路由），独立于当前聊天会话运行。
 
-The server runs as a standalone Node.js process (spawned by Electron or independently), bundled via Vite with @vercel/nft for dependency tracing. It communicates with the Electron renderer through WebSocket.
-User data is rooted at `HANA_HOME` (`~/.hanako` in production, `~/.hanako-dev` in development). The Pi SDK's own data is isolated under `${HANA_HOME}/.pi/`.
+Server 以独立 Node.js 进程运行（由 Electron spawn 或独立启动），通过 Vite 打包，@vercel/nft 追踪依赖。与 Electron 渲染进程通过 WebSocket 通信。
+用户数据目录由 `HANA_HOME` 决定（生产默认 `~/.hanako`，开发默认 `~/.hanako-dev`）。Pi SDK 自己的数据隔离在 `${HANA_HOME}/.pi/` 下。
 
-## Tech Stack
+## 技术栈
 
-| Layer | Technology |
-|-------|-----------|
-| Desktop | Electron 38 |
-| Frontend | React 19 + Zustand 5 + CSS Modules |
-| Build | Vite 7 |
-| Server | Hono + @hono/node-server |
-| Agent Runtime | [Pi SDK](https://github.com/nicepkg/pi) |
-| Database | better-sqlite3 (WAL mode) |
-| Testing | Vitest |
-| i18n | 5 languages (zh / en / ja / ko / zh-TW) |
+| 层级 | 技术 |
+|------|------|
+| 桌面端 | Electron 38 |
+| 前端 | React 19 + Zustand 5 + CSS Modules |
+| 构建 | Vite 7 |
+| 服务端 | Hono + @hono/node-server |
+| Agent 运行时 | [Pi SDK](https://github.com/nicepkg/pi) |
+| 数据库 | better-sqlite3（WAL 模式） |
+| 测试 | Vitest |
+| 国际化 | 5 语言（zh / en / ja / ko / zh-TW） |
 
-## Platform Support
+## 平台支持
 
-| Platform | Status |
-|----------|--------|
-| macOS (Apple Silicon) | Supported (signed & notarized) |
-| macOS (Intel) | Supported |
+| 平台 | 状态 |
+|------|------|
+| macOS (Apple Silicon) | 已支持（已签名公证） |
+| macOS (Intel) | 已支持 |
 | Windows | Beta |
-| Linux | Planned |
-| Mobile (PWA) | Planned |
+| Linux | 计划中 |
+| 移动端 (PWA) | 计划中 |
 
-## Development
+## 开发
 
 ```bash
-# Install dependencies
+# 安装依赖
 npm install
 
-# Start with Electron (builds renderer first)
+# Electron 启动（自动构建 renderer）
 npm start
 
-# Start with Vite HMR (run npm run dev:renderer first)
+# Vite HMR 开发（需先运行 npm run dev:renderer）
 npm run start:vite
 
-# Run tests
+# 运行测试
 npm test
 
-# Type check
+# 类型检查
 npm run typecheck
 ```
 
-## License
+## 许可证
 
 [Apache License 2.0](LICENSE)
 
-## Links
+## 链接
 
-- [Homepage](https://openhanako.com)
-- [Report an Issue](https://github.com/liliMozi/openhanako/issues)
-- [Security](https://github.com/liliMozi/openhanako/security)
-- [Security Policy](SECURITY.md)
-- [Plugin Development](PLUGINS.md)
-- [Contributing](CONTRIBUTING.md)
+- [官网](https://openhanako.com)
+- [提交 Issue](https://github.com/liliMozi/openhanako/issues)
+- [安全页](https://github.com/liliMozi/openhanako/security)
+- [安全政策](SECURITY.md)
+- [插件开发指南](PLUGINS.md)
+- [贡献指南](CONTRIBUTING.md)
