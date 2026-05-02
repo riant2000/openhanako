@@ -188,7 +188,7 @@ describe("auto-updater", () => {
     expect(win2.webContents.send).toHaveBeenCalledWith("auto-update-state", expect.objectContaining({ status: "latest" }));
   });
 
-  it("installDownloadedUpdate enters installing state and delegates to quitAndInstall immediately", async () => {
+  it("installDownloadedUpdate enters installing state and schedules quitAndInstall on the next tick", async () => {
     const shutdownServer = vi.fn(() => new Promise(() => {}));
     const setIsUpdating = vi.fn();
     const win = initWithMockWindow({ shutdownServer, setIsUpdating });
@@ -202,6 +202,8 @@ describe("auto-updater", () => {
 
     expect(setIsUpdating).toHaveBeenCalledWith(true);
     expect(shutdownServer).not.toHaveBeenCalled();
+    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+    await new Promise(resolve => setImmediate(resolve));
     expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(true, true);
     expect(mod.getState()).toEqual(expect.objectContaining({ status: "installing", version: "2.0.0" }));
     expect(win.webContents.send).toHaveBeenCalledWith("auto-update-state", expect.objectContaining({ status: "installing" }));
@@ -220,6 +222,8 @@ describe("auto-updater", () => {
     await Promise.resolve();
 
     expect(shutdownServer).not.toHaveBeenCalled();
+    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+    await new Promise(resolve => setImmediate(resolve));
     expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(true, true);
     await expect(installPromise).resolves.toBe(true);
   });

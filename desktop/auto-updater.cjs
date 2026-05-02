@@ -94,6 +94,24 @@ function resetState() {
   };
 }
 
+function invokeQuitAndInstallSoon() {
+  return new Promise((resolve) => {
+    setImmediate(() => {
+      try {
+        logUpdate("quitAndInstall invoked: silent=true, forceRunAfter=true");
+        autoUpdater.quitAndInstall(true, true);
+        resolve(true);
+      } catch (err) {
+        const msg = err?.message || String(err);
+        logUpdate(`install failed before quitAndInstall: ${msg}`);
+        if (_setIsUpdating) _setIsUpdating(false);
+        setState({ status: "error", error: msg });
+        resolve(false);
+      }
+    });
+  });
+}
+
 async function installDownloadedUpdate(source = "manual") {
   if (_updateState.status === "installing") return true;
   if (_updateState.status !== "downloaded") {
@@ -109,16 +127,9 @@ async function installDownloadedUpdate(source = "manual") {
     setState({ status: "installing", version, progress: null, error: null });
 
     try {
-      // Keep update install immediate. The NSIS installer owns process cleanup
-      // by install-root, including the bundled server, before overlaying files.
-      autoUpdater.quitAndInstall(true, true);
-      return true;
-    } catch (err) {
-      const msg = err?.message || String(err);
-      logUpdate(`install failed before quitAndInstall: ${msg}`);
-      if (_setIsUpdating) _setIsUpdating(false);
-      setState({ status: "error", error: msg });
-      return false;
+      // Defer one tick so the IPC/state handoff finishes before electron-updater
+      // closes windows and starts the NSIS installer.
+      return await invokeQuitAndInstallSoon();
     } finally {
       _installPromise = null;
     }
