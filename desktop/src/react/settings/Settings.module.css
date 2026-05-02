@@ -27,7 +27,6 @@
 
 /* ── 纸质纹理：Card 层（所有 bg-card 元素，lighten 混合） ── */
 :global(body:not(.no-paper-texture)) .agent-card-inner,
-:global(body:not(.no-paper-texture)) .agent-context-menu,
 :global(body:not(.no-paper-texture)) .agent-create-card,
 :global(body:not(.no-paper-texture)) .agent-delete-card,
 :global(body:not(.no-paper-texture)) .agent-name-input,
@@ -537,48 +536,45 @@
     box-shadow: 0 2px 8px var(--shadow);
 }
 
-/* Agent 右键菜单 */
-.agent-context-menu {
-    background-color: var(--bg-card);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06);
-    padding: 4px 0;
-    min-width: 120px;
+.agent-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    min-height: 1.4rem;
+    margin-top: calc(var(--space-xs) * -0.5);
 }
 
-.agent-context-header {
-    padding: 6px 14px 4px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--overlay-light, rgba(0,0,0,0.06));
-    margin-bottom: 2px;
-}
-
-.agent-context-item {
-    display: block;
-    width: 100%;
-    padding: 7px 14px;
+.agent-card-action {
     border: none;
+    border-radius: var(--radius-input, 4px);
     background: transparent;
-    color: var(--text);
-    font-size: 0.82rem;
-    font-family: inherit;
-    text-align: left;
+    color: var(--text-muted);
     cursor: pointer;
-    transition: background 0.1s;
+    font-family: inherit;
+    font-size: 0.7rem;
+    line-height: 1.3;
+    opacity: 0.68;
+    padding: calc(var(--space-xs) * 0.5) var(--space-sm);
+    transition: background 0.15s var(--ease-out),
+                color 0.15s var(--ease-out),
+                opacity 0.15s var(--ease-out);
 }
 
-.agent-context-item:hover {
+.agent-card-action:hover {
     background: var(--overlay-light, rgba(0,0,0,0.04));
+    color: var(--text);
+    opacity: 1;
 }
 
-.agent-context-danger {
-    color: var(--text-error, #c44);
+.agent-card-action-danger {
+    color: var(--danger, #c85143);
+    opacity: 0.58;
 }
 
-.agent-context-danger:hover {
-    background: rgba(204, 68, 68, 0.08);
+.agent-card-action-danger:hover {
+    background: rgba(var(--danger-rgb, 200, 81, 67), 0.08);
+    color: var(--danger, #c85143);
 }
 
 /* 新建助手浮层 */

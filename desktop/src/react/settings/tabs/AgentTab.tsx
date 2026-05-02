@@ -142,7 +142,7 @@ export function AgentTab() {
 
   return (
     <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="agent">
-      {/* Agent 卡片堆叠（保持原样，不改） */}
+      {/* Agent 卡片堆叠 */}
       <section className={styles['settings-section']}>
         <h2 className={styles['settings-section-title']}>{t('settings.agent.title')}</h2>
         <AgentCardStack
@@ -165,7 +165,9 @@ export function AgentTab() {
             input.click();
           }}
           onSetActive={(id) => switchToAgent(id)}
-          onDelete={() => window.dispatchEvent(new Event('hana-show-agent-delete'))}
+          onDelete={(id) => window.dispatchEvent(new CustomEvent('hana-show-agent-delete', {
+            detail: { agentId: id },
+          }))}
           onAdd={() => window.dispatchEvent(new Event('hana-show-agent-create'))}
         />
 

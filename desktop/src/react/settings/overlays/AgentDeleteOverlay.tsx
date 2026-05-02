@@ -10,14 +10,19 @@ export function AgentDeleteOverlay() {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [nameInput, setNameInput] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const settingsAgentId = useSettingsStore(s => s.settingsAgentId);
-  const targetId = settingsAgentId || currentAgentId;
+  const targetId = deleteTargetId || settingsAgentId || currentAgentId;
   const target = agents.find(a => a.id === targetId);
 
   useEffect(() => {
-    const handler = () => {
+    const handler = (event: Event) => {
+      const agentId = event instanceof CustomEvent && typeof event.detail?.agentId === 'string'
+        ? event.detail.agentId
+        : null;
+      setDeleteTargetId(agentId);
       setStep(1);
       setNameInput('');
       setVisible(true);
@@ -30,7 +35,10 @@ export function AgentDeleteOverlay() {
     if (step === 2) requestAnimationFrame(() => inputRef.current?.focus());
   }, [step]);
 
-  const close = () => setVisible(false);
+  const close = () => {
+    setVisible(false);
+    setDeleteTargetId(null);
+  };
 
   const confirmDelete = async () => {
     if (!target || nameInput.trim() !== target.name) return;
