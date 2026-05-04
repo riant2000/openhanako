@@ -142,7 +142,7 @@ export const description = "...";       // required
 export const parameters = { ... };      // JSON Schema, optional
 export async function execute(input, toolCtx) {  // required
   // input: user-provided parameters
-  // toolCtx: { pluginId, pluginDir, dataDir, sessionPath, bus, config, log, registerSessionFile }
+  // toolCtx: { pluginId, pluginDir, dataDir, sessionPath, bus, config, log, registerSessionFile, stageFile }
   return "result";
 }
 ```
@@ -152,29 +152,28 @@ export async function execute(input, toolCtx) {  // required
 
 #### Media Delivery
 
-When a tool needs to deliver files, first register the local file as a `SessionFile` for the current session, then reference it from `details.media.items`:
+When a tool needs to deliver files, first stage the local file as a `SessionFile` for the current session, then return the staged media item through `details.media.items`:
 
 ```js
-const file = toolCtx.registerSessionFile({
+const staged = toolCtx.stageFile({
   sessionPath: toolCtx.sessionPath,
   filePath: "/path/to/image.png",
   label: "image.png",
-  origin: "plugin_output",
 });
 
 return {
   content: [{ type: "text", text: "Image generated" }],
   details: {
     media: {
-      items: [{ type: "session_file", fileId: file.fileId }],
+      items: [staged.mediaItem],
     },
   },
 };
 ```
 
-The framework automatically extracts `details.media` and delivers files according to context: desktop renders file cards, Bridge sends through the target platform, and future mobile surfaces can consume the same `SessionFile` identity. The new protocol prefers structured `session_file` entries in `details.media.items`; `mediaUrls` remains only as a compatibility field for old tools and is not recommended for new plugins.
+The framework automatically extracts `details.media` and delivers files according to context: desktop renders file cards, Bridge sends through the target platform, and future mobile surfaces can consume the same `SessionFile` identity. The new protocol prefers structured `session_file` entries in `details.media.items`; `mediaUrls` remains only as a compatibility field for old tools and is planned for removal no earlier than v0.133.
 
-When a plugin produces local files directly, call `ctx.registerSessionFile({ sessionPath, filePath, label, origin: "plugin_output" })` to attach them to the current session. `sessionPath` is explicit and `filePath` must be absolute. Hana records these files as `storageKind: "plugin_data"`, so they are treated as plugin data or generated output and are not removed by the session temporary-cache cleaner. Plugins should not assign temporary-cache lifecycle to arbitrary local paths; that lifecycle belongs to the framework.
+When a plugin produces local files directly, call `ctx.stageFile({ sessionPath, filePath, label })` to attach them to the current session and obtain a ready-to-return media item. `registerSessionFile` remains available as a lower-level compatibility API, but new plugins should use `stageFile` so file ownership and media delivery stay coupled. `sessionPath` is explicit and `filePath` must be absolute. Hana records these files as `storageKind: "plugin_data"`, so they are treated as plugin data or generated output and are not removed by the session temporary-cache cleaner. Plugins should not assign temporary-cache lifecycle to arbitrary local paths; that lifecycle belongs to the framework.
 
 Boundaries:
 

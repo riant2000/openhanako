@@ -13,7 +13,7 @@ export type FileSource =
   | 'desk'
   | 'session-attachment'
   | 'session-block-file'
-  | 'session-block-artifact'
+  | 'session-block-legacy-artifact'
   | 'session-block-screenshot';
 
 export interface FileRef {

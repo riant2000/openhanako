@@ -261,7 +261,7 @@ export class HanaEngine {
     this._imageStripNotified = new Set();
 
     // UI context 注入（用户当前视野）：sessionPath → { currentViewed, activeFile,
-    // activeArtifact, pinnedFiles }。由前端每次发 prompt 时带过来，经 server/routes/chat.js
+    // activePreview, pinnedFiles }。由前端每次发 prompt 时带过来，经 server/routes/chat.js
     // 写入；session-coordinator 注册的 `context` extension hook 每轮读取并拼 reminder
     // 到 last user message 开头（不写进 session.entries，不累积）。
     // 详见 core/ui-context-reminder.js 和 docs/superpowers/specs/2026-04-22-viewer-spawn-and-context-injection-design.md

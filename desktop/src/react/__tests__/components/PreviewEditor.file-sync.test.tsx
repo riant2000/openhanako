@@ -5,14 +5,14 @@ import { act, cleanup, render } from '@testing-library/react';
 import { Transaction } from '@codemirror/state';
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ArtifactEditor, type ArtifactEditorHandle } from '../../components/ArtifactEditor';
+import { PreviewEditor, type PreviewEditorHandle } from '../../components/PreviewEditor';
 import type { PlatformApi, VersionedWriteResult } from '../../types';
 
 vi.mock('../../utils/checkpoints', () => ({
   requestUserEditCheckpoint: vi.fn(async () => undefined),
 }));
 
-describe('ArtifactEditor file sync', () => {
+describe('PreviewEditor file sync', () => {
   let fileChangedHandler: ((filePath: string) => void) | null;
   let platform: Pick<
     PlatformApi,
@@ -58,10 +58,10 @@ describe('ArtifactEditor file sync', () => {
   });
 
   it('does not autosave content that arrived from a file watcher reload', async () => {
-    const ref = createRef<ArtifactEditorHandle>();
+    const ref = createRef<PreviewEditorHandle>();
 
     render(
-      <ArtifactEditor
+      <PreviewEditor
         ref={ref}
         content="original"
         filePath="/tmp/hana-note.md"
@@ -85,7 +85,7 @@ describe('ArtifactEditor file sync', () => {
   });
 
   it('saves user edits with the file version that was last loaded from disk', async () => {
-    const ref = createRef<ArtifactEditorHandle>();
+    const ref = createRef<PreviewEditorHandle>();
     const fileVersion = { mtimeMs: 1, size: 8, sha256: 'loaded' };
     const nextVersion = { mtimeMs: 2, size: 10, sha256: 'next' };
     const onContentChange = vi.fn();
@@ -96,7 +96,7 @@ describe('ArtifactEditor file sync', () => {
     });
 
     render(
-      <ArtifactEditor
+      <PreviewEditor
         ref={ref}
         content="original"
         filePath="/tmp/hana-note.md"
@@ -126,10 +126,10 @@ describe('ArtifactEditor file sync', () => {
   });
 
   it('preserves the cursor when parent content is refreshed', async () => {
-    const ref = createRef<ArtifactEditorHandle>();
+    const ref = createRef<PreviewEditorHandle>();
 
     const { rerender } = render(
-      <ArtifactEditor
+      <PreviewEditor
         ref={ref}
         content="abcdef"
         filePath="/tmp/hana-note.md"
@@ -143,7 +143,7 @@ describe('ArtifactEditor file sync', () => {
 
     await act(async () => {
       rerender(
-        <ArtifactEditor
+        <PreviewEditor
           ref={ref}
           content="abcXYZdef"
           filePath="/tmp/hana-note.md"
@@ -158,7 +158,7 @@ describe('ArtifactEditor file sync', () => {
   });
 
   it('queues saves and does not publish stale save results over newer edits', async () => {
-    const ref = createRef<ArtifactEditorHandle>();
+    const ref = createRef<PreviewEditorHandle>();
     const loadedVersion = { mtimeMs: 1, size: 8, sha256: 'loaded' };
     const firstVersion = { mtimeMs: 2, size: 10, sha256: 'first' };
     const secondVersion = { mtimeMs: 3, size: 11, sha256: 'second' };
@@ -178,7 +178,7 @@ describe('ArtifactEditor file sync', () => {
       });
 
     render(
-      <ArtifactEditor
+      <PreviewEditor
         ref={ref}
         content="original"
         filePath="/tmp/hana-note.md"

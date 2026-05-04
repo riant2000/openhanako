@@ -35,21 +35,29 @@ describe("buildUiContextReminder", () => {
     );
   });
 
-  it("activeArtifact only (no filePath) → active_artifact line", () => {
+  it("activePreview only (no filePath) → active_preview line", () => {
     const r = buildUiContextReminder(
-      { activeArtifact: "便利店.md" },
+      { activePreview: "便利店.md" },
       "/root",
     );
-    expect(r).toContain('active_artifact: "便利店.md"（前文生成的文稿）');
+    expect(r).toContain('active_preview: "便利店.md"（前文生成的预览内容）');
   });
 
-  it("activeFile 和 activeArtifact 同时提供 → 只输出 active_file（前者优先）", () => {
+  it("activeFile 和 activePreview 同时提供 → 只输出 active_file（前者优先）", () => {
     const r = buildUiContextReminder(
-      { activeFile: "/a/b.md", activeArtifact: "ghost" },
+      { activeFile: "/a/b.md", activePreview: "ghost" },
       "/root",
     );
     expect(r).toContain("active_file: /a/b.md");
-    expect(r).not.toContain("active_artifact");
+    expect(r).not.toContain("active_preview");
+  });
+
+  it("legacy activeArtifact 字段仍兼容成 active_preview", () => {
+    const r = buildUiContextReminder(
+      { activeArtifact: "legacy.md" },
+      "/root",
+    );
+    expect(r).toContain('active_preview: "legacy.md"（前文生成的预览内容）');
   });
 
   it("pinnedFiles 空数组 → 整段省略", () => {

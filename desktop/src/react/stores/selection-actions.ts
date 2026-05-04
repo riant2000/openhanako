@@ -1,20 +1,20 @@
 import { useStore } from './index';
-import type { Artifact } from '../types';
+import type { PreviewItem } from '../types';
 import type { EditorView } from '@codemirror/view';
 
 /**
- * 捕获 artifact 中的文本选中。
+ * 捕获 previewItem 中的文本选中。
  * CM 模式传入 cmView，DOM 模式不传。
  */
-export function captureSelection(artifact: Artifact, cmView?: EditorView): void {
+export function captureSelection(previewItem: PreviewItem, cmView?: EditorView): void {
   if (cmView) {
-    captureCMSelection(artifact, cmView);
+    captureCMSelection(previewItem, cmView);
   } else {
-    captureDOMSelection(artifact);
+    captureDOMSelection(previewItem);
   }
 }
 
-function captureCMSelection(artifact: Artifact, view: EditorView): void {
+function captureCMSelection(previewItem: PreviewItem, view: EditorView): void {
   const { from, to } = view.state.selection.main;
   if (from === to) {
     clearSelection();
@@ -30,15 +30,15 @@ function captureCMSelection(artifact: Artifact, view: EditorView): void {
 
   useStore.getState().setQuotedSelection({
     text,
-    sourceTitle: artifact.title,
-    sourceFilePath: artifact.filePath,
+    sourceTitle: previewItem.title,
+    sourceFilePath: previewItem.filePath,
     lineStart,
     lineEnd,
     charCount: text.length,
   });
 }
 
-function captureDOMSelection(artifact: Artifact): void {
+function captureDOMSelection(previewItem: PreviewItem): void {
   const sel = window.getSelection();
   const text = sel?.toString().trim();
   if (!text) {
@@ -49,7 +49,7 @@ function captureDOMSelection(artifact: Artifact): void {
 
   useStore.getState().setQuotedSelection({
     text: clipped,
-    sourceTitle: artifact.title,
+    sourceTitle: previewItem.title,
     charCount: text.length,
   });
 }

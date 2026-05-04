@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   openMediaViewerFromContext: vi.fn(),
 }));
 
-vi.mock('../../stores/artifact-actions', () => ({
+vi.mock('../../stores/preview-actions', () => ({
   openPreview: mocks.openPreview,
 }));
 

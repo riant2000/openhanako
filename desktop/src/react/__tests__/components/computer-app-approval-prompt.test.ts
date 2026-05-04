@@ -129,7 +129,7 @@ function seedSession() {
     docContextAttached: false,
     quotedSelection: null,
     models: [],
-    artifacts: [],
+    previewItems: [],
     previewOpen: false,
     chatSessions: {},
     serverPort: 3210,

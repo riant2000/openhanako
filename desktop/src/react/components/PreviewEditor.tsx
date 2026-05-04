@@ -1,5 +1,5 @@
 /**
- * ArtifactEditor — CodeMirror 6 编辑器组件
+ * PreviewEditor — CodeMirror 6 编辑器组件
  *
  * Obsidian 风格 markdown live preview：
  * - 衬线体渲染，无行号，无行高亮
@@ -35,12 +35,12 @@ import type { FileVersion } from '../types';
 
 /* ── Types ── */
 
-export interface ArtifactEditorHandle {
+export interface PreviewEditorHandle {
   getView(): EditorView | null;
   focus(): void;
 }
 
-export interface ArtifactEditorProps {
+export interface PreviewEditorProps {
   content: string;
   filePath?: string;
   fileVersion?: FileVersion | null;
@@ -106,8 +106,8 @@ function setupFileChangeListener() {
 
 /* ── Editor Component ── */
 
-export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorProps>(
-  function ArtifactEditor({ content, filePath, fileVersion, mode, language, onSelectionChange, onContentChange, readOnly = false }, ref) {
+export const PreviewEditor = forwardRef<PreviewEditorHandle, PreviewEditorProps>(
+  function PreviewEditor({ content, filePath, fileVersion, mode, language, onSelectionChange, onContentChange, readOnly = false }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,7 +154,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
       try {
         await requestUserEditCheckpoint(fp, reason);
       } catch (err) {
-        console.warn('[ArtifactEditor] checkpoint failed:', err);
+        console.warn('[PreviewEditor] checkpoint failed:', err);
         showSaveError('settings.saveFailed', err);
       } finally {
         lastCheckpointAtRef.current = now;
@@ -202,7 +202,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
           contentCbRef.current?.(text, nextVersion);
         }
       } catch (err) {
-        console.warn('[ArtifactEditor] write failed:', err);
+        console.warn('[PreviewEditor] write failed:', err);
         showSaveError('settings.saveFailed', err);
       }
     }, [createCheckpointIfDue, rememberSelfWrite]);
@@ -344,7 +344,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
             contentCbRef.current?.(newContent, diskVersionRef.current);
           })
           .catch((err) => {
-            console.warn('[ArtifactEditor] reload watched file failed:', err);
+            console.warn('[PreviewEditor] reload watched file failed:', err);
           });
       };
 
@@ -355,6 +355,6 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
       };
     }, [filePath, readOnly]);
 
-    return <div className={`artifact-editor mode-${mode}`} ref={containerRef} />;
+    return <div className={`preview-editor mode-${mode}`} ref={containerRef} />;
   },
 );

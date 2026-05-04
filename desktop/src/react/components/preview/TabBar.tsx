@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../../stores';
-import { selectArtifacts, selectOpenTabs, selectActiveTabId } from '../../stores/artifact-slice';
-import { closeTab, closePreview, setActiveTab, canSpawnViewer, spawnViewer } from '../../stores/artifact-actions';
-import type { Artifact } from '../../types';
+import { selectPreviewItems, selectOpenTabs, selectActiveTabId } from '../../stores/preview-slice';
+import { closeTab, closePreview, setActiveTab, canSpawnViewer, spawnViewer } from '../../stores/preview-actions';
+import type { PreviewItem } from '../../types';
 import { ContextMenu } from '../ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu';
 import styles from './TabBar.module.css';
@@ -16,14 +16,14 @@ interface TabContextMenuState {
 export function TabBar() {
   const openTabs = useStore(selectOpenTabs);
   const activeTabId = useStore(selectActiveTabId);
-  const artifacts = useStore(selectArtifacts);
+  const previewItems = useStore(selectPreviewItems);
   const [ctxMenu, setCtxMenu] = useState<TabContextMenuState | null>(null);
 
-  const getArtifact = (id: string): Artifact | undefined =>
-    artifacts.find((art: Artifact) => art.id === id);
+  const getPreviewItem = (id: string): PreviewItem | undefined =>
+    previewItems.find((item: PreviewItem) => item.id === id);
 
   const getTitle = (id: string): string => {
-    const a = getArtifact(id);
+    const a = getPreviewItem(id);
     return a?.title ?? id;
   };
 
@@ -46,15 +46,15 @@ export function TabBar() {
 
   const ctxItems: ContextMenuItem[] = (() => {
     if (!ctxMenu) return [];
-    const artifact = getArtifact(ctxMenu.id);
-    const supported = canSpawnViewer(artifact ?? null);
+    const previewItem = getPreviewItem(ctxMenu.id);
+    const supported = canSpawnViewer(previewItem ?? null);
     const t = window.t ?? ((p: string) => p);
     return [
       {
         label: supported
           ? t('preview.openInNewWindow')
           : t('preview.openInNewWindowUnsupported'),
-        action: supported && artifact ? () => spawnViewer(artifact) : undefined,
+        action: supported && previewItem ? () => spawnViewer(previewItem) : undefined,
       },
     ];
   })();

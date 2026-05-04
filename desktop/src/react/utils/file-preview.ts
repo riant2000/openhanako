@@ -4,15 +4,15 @@
  * 从 file-cards-shim.ts 提取，供 React 组件直接 import。
  */
 
-import type { Artifact } from '../types';
-import { openPreview } from '../stores/artifact-actions';
+import type { PreviewItem } from '../types';
+import { openPreview } from '../stores/preview-actions';
 import { inferKindByExt, isMediaKind } from './file-kind';
 import { openMediaViewerFromContext } from './open-media-viewer';
 import { showError } from './ui-helpers';
 
 
-// ── 可在 Artifacts 面板中预览的文件类型 ──
-// 注意：image / svg 类型由 MediaViewer 处理，不再进入 Artifacts 面板。
+// ── 可在 Preview 面板中预览的文件类型 ──
+// 注意：image / svg 类型由 MediaViewer 处理，不再进入 Preview 面板。
 
 export const PREVIEWABLE_EXTS: Record<string, string> = {
   html: 'html', htm: 'html',
@@ -31,7 +31,7 @@ export const BINARY_PREVIEW_TYPES = new Set(['pdf']);
 
 interface PreviewReadResult {
   content: string;
-  fileVersion?: Artifact['fileVersion'];
+  fileVersion?: PreviewItem['fileVersion'];
 }
 
 function getErrorMessage(err: unknown): string {
@@ -68,10 +68,10 @@ export async function readFileForPreview(filePath: string, ext: string): Promise
 }
 
 /**
- * 打开文件预览：读取文件内容 → 创建 Artifact → 打开预览面板
+ * 打开文件预览：读取文件内容 → 创建 PreviewItem → 打开预览面板
  *
  * @param context 调用上下文。media 类型（image/svg/video）会按 context 分流到 MediaViewer；
- *   其它类型走 Artifacts 面板。context 必须由调用方显式提供，不从 store 推导。
+ *   其它类型走 Preview 面板。context 必须由调用方显式提供，不从 store 推导。
  */
 export async function openFilePreview(
   filePath: string,
@@ -93,13 +93,13 @@ export async function openFilePreview(
       const content = await window.platform?.readFile?.(filePath);
       if (content != null) {
         const body = content.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '');
-        const artifact: Artifact = {
+        const previewItem: PreviewItem = {
           id: `skill-${name}`,
           type: 'markdown',
           title: name,
           content: body,
         };
-        openPreview(artifact);
+        openPreview(previewItem);
         return;
       }
       // 读取失败（可能是 zip 格式），尝试 skill viewer
@@ -107,7 +107,7 @@ export async function openFilePreview(
       return;
     }
 
-    // Media 类型（image / svg / video）分流到 MediaViewer，不经过 Artifacts 面板。
+    // Media 类型（image / svg / video）分流到 MediaViewer，不经过 Preview 面板。
     const mediaKind = inferKindByExt(ext);
     if (isMediaKind(mediaKind)) {
       openMediaViewerFromContext({
@@ -128,7 +128,7 @@ export async function openFilePreview(
       const readResult = await readFileForPreviewWithVersion(filePath, ext);
       if (readResult != null) {
         const previewType = PREVIEWABLE_EXTS[ext];
-        const artifact: Artifact = {
+        const previewItem: PreviewItem = {
           id: `file-${filePath}`,
           type: previewType,
           title: fileName,
@@ -138,13 +138,13 @@ export async function openFilePreview(
           fileVersion: readResult.fileVersion,
           language: previewType === 'code' ? ext : undefined,
         };
-        openPreview(artifact);
+        openPreview(previewItem);
         return;
       }
     }
 
     // 无法预览的文件类型
-    const artifact: Artifact = {
+    const previewItem: PreviewItem = {
       id: `file-${filePath}`,
       type: 'file-info',
       title: fileName,
@@ -152,7 +152,7 @@ export async function openFilePreview(
       filePath,
       ext,
     };
-    openPreview(artifact);
+    openPreview(previewItem);
   } catch (err) {
     console.error('[file-preview] open preview failed:', err);
     showError(getErrorMessage(err));
@@ -160,20 +160,20 @@ export async function openFilePreview(
 }
 
 /**
- * 打开 Skill 预览：读取 skill 文件 → 创建 markdown Artifact → 打开预览面板
+ * 打开 Skill 预览：读取 skill 文件 → 创建 markdown PreviewItem → 打开预览面板
  */
 export async function openSkillPreview(skillName: string, skillFilePath: string): Promise<void> {
   try {
     const content = await window.platform?.readFile?.(skillFilePath);
     if (content != null) {
       const body = content.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '');
-      const artifact: Artifact = {
+      const previewItem: PreviewItem = {
         id: `skill-${skillName}`,
         type: 'markdown',
         title: skillName,
         content: body,
       };
-      openPreview(artifact);
+      openPreview(previewItem);
     }
   } catch (err) {
     console.error('[file-preview] open skill preview failed:', err);

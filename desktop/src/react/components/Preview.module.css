@@ -1,5 +1,5 @@
 /* ========================================
-   Artifact 预览面板 — CSS Module
+   PreviewItem 预览面板 — CSS Module
    ======================================== */
 
 .previewPanel {
@@ -55,7 +55,7 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* iframe 预览（HTML artifact） */
+/* iframe 预览（HTML previewItem） */
 .previewPanelBody iframe {
     width: 100%;
     height: 100%;
@@ -215,54 +215,54 @@
     opacity: 0.85;
 }
 
-/* ── Artifact 编辑器（CodeMirror 6）── */
+/* ── Preview 编辑器（CodeMirror 6）── */
 
-:global(.artifact-editor) {
+:global(.preview-editor) {
     height: 100%;
     overflow: hidden;
 }
 
-:global(.artifact-editor .cm-editor) {
+:global(.preview-editor .cm-editor) {
     height: 100%;
     background: transparent;
 }
 
-:global(.artifact-editor .cm-editor.cm-focused) {
+:global(.preview-editor .cm-editor.cm-focused) {
     outline: none;
 }
 
-:global(.artifact-editor .cm-scroller) {
+:global(.preview-editor .cm-scroller) {
     overflow: auto;
     padding: var(--space-lg) 0;
 }
 
-:global(.artifact-editor .cm-content) {
+:global(.preview-editor .cm-content) {
     max-width: 720px;
     margin: 0 auto;
     padding: 0 var(--space-md);
 }
 
-:global(.artifact-editor .cm-gutters) {
+:global(.preview-editor .cm-gutters) {
     background: transparent;
     border-right: 1px solid var(--overlay-light);
     color: var(--text-muted);
     font-size: 0.75rem;
 }
 
-:global(.artifact-editor .cm-activeLineGutter) {
+:global(.preview-editor .cm-activeLineGutter) {
     background: transparent;
     color: var(--text);
 }
 
-:global(.artifact-editor .cm-activeLine) {
+:global(.preview-editor .cm-activeLine) {
     background: var(--overlay-subtle);
 }
 
-:global(.artifact-editor .cm-selectionBackground) {
+:global(.preview-editor .cm-selectionBackground) {
     background: var(--accent-light, rgba(100, 140, 200, 0.15)) !important;
 }
 
-:global(.artifact-editor .cm-cursor) {
+:global(.preview-editor .cm-cursor) {
     border-left-color: var(--text);
 }
 

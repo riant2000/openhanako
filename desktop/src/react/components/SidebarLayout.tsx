@@ -9,7 +9,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../stores';
 import { createNewSession } from '../stores/session-actions';
-import { closePreview } from '../stores/artifact-actions';
+import { closePreview } from '../stores/preview-actions';
 
 const CHAT_MIN_WIDTH = 400;
 

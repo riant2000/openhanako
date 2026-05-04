@@ -11,7 +11,7 @@ import { dispatchStreamKey } from './stream-key-dispatcher';
 import { useStore } from '../stores';
 import { updateKeyed } from '../stores/create-keyed-slice';
 import { loadSessions as loadSessionsAction } from '../stores/session-actions';
-import { handleArtifact } from '../stores/artifact-actions';
+import { handleLegacyArtifactBlock } from '../stores/preview-actions';
 import { loadDeskFiles } from '../stores/desk-actions';
 import { loadChannels as loadChannelsAction, openChannel as openChannelAction } from '../stores/channel-actions';
 import { showError } from '../utils/ui-helpers';
@@ -229,9 +229,10 @@ export function handleServerMessage(msg: any): void {
         useStore.getState().bumpTodosLiveVersion(sp);
       }
     }
-    // content_block 中的 artifact 需要通知预览系统更新
+    // COMPAT(create_artifact, remove no earlier than v0.133):
+    // 旧 artifact block 进入当前 Preview 面板。
     if (msg.type === 'content_block' && msg.block?.type === 'artifact' && state.currentTab === 'chat') {
-      handleArtifact({ ...msg.block, sessionPath: msg.sessionPath });
+      handleLegacyArtifactBlock({ ...msg.block, sessionPath: msg.sessionPath });
     }
     return;
   }

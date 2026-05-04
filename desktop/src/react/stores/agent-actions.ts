@@ -9,7 +9,7 @@
 
 import { useStore } from './index';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
-import { closePreview } from './artifact-actions';
+import { closePreview } from './preview-actions';
 
 declare function t(key: string, vars?: Record<string, string>): any;
 declare const i18n: { defaultName: string };
@@ -24,7 +24,7 @@ export function clearChat(): void {
     s.clearSession?.(sessionPath);
   }
 
-  // Artifact 内容池不随 clearChat 清空；可见的 preview/tabs 由 workspace
+  // PreviewItem 内容池不随 clearChat 清空；可见的 preview/tabs 由 workspace
   // 激活流程保存和恢复。清对话只收起当前可见面板。
 
   useStore.setState({

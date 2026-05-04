@@ -147,12 +147,12 @@ export function selectSessionFiles(state: SessionStateShape, sessionPath: string
           const ext = b.ext || extOf(b.filePath);
           result.push({
             id: buildFileRefId({
-              source: 'session-block-artifact',
+              source: 'session-block-legacy-artifact',
               sessionPath, messageId: msg.id, blockIdx: i, path: b.filePath,
             }),
             fileId: b.fileId,
             kind: inferKindByExt(ext),
-            source: 'session-block-artifact',
+            source: 'session-block-legacy-artifact',
             name: b.title || b.label || b.filePath.split('/').pop() || b.filePath,
             path: b.filePath,
             ext,

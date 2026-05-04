@@ -68,6 +68,7 @@ export type TextDecorator =
 // 物种 B：富内容块（通过 content_block 事件 push，不 upsert）
 export type RichBlock =
   | { type: 'file'; fileId?: string; filePath: string; label: string; ext: string; mime?: string; kind?: string; storageKind?: string; status?: 'available' | 'expired' | string; missingAt?: number | null }
+  // COMPAT(create_artifact, remove no earlier than v0.133 after legacy sessions are migrated)
   | { type: 'artifact'; artifactId: string; artifactType: string; title: string; content: string; language?: string | null; fileId?: string; filePath?: string; label?: string; ext?: string; mime?: string; kind?: string; storageKind?: string; status?: 'available' | 'expired' | string; missingAt?: number | null }
   | { type: 'screenshot'; base64: string; mimeType: string }
   | { type: 'skill'; skillName: string; skillFilePath: string; fileId?: string; installedFile?: Record<string, unknown> }

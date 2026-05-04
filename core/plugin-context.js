@@ -63,5 +63,24 @@ export function createPluginContext({ pluginId, pluginDir, dataDir, bus, accessL
     }));
   }
 
-  return { pluginId, pluginDir, dataDir, bus: pluginBus, config, log, registerSessionFile };
+  function toMediaItem(file) {
+    return {
+      type: "session_file",
+      fileId: file.fileId || file.id,
+      sessionPath: file.sessionPath,
+      filePath: file.filePath,
+      label: file.label || file.displayName || file.filename,
+      ...(file.mime ? { mime: file.mime } : {}),
+      ...(file.size !== undefined ? { size: file.size } : {}),
+      ...(file.kind ? { kind: file.kind } : {}),
+    };
+  }
+
+  function stageFile(entry = {}) {
+    const { origin: _origin, storageKind: _storageKind, ...safeEntry } = entry;
+    const file = registerSessionFile({ ...safeEntry, origin: "plugin_output" });
+    return { file, mediaItem: toMediaItem(file) };
+  }
+
+  return { pluginId, pluginDir, dataDir, bus: pluginBus, config, log, registerSessionFile, stageFile };
 }

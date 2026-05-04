@@ -156,8 +156,8 @@ describe('desk-actions workspace roots', () => {
       cwdSkills: [{ name: 'skill-a', description: '', source: 'workspace', filePath: '/workspace-a/.agents/skills/a/SKILL.md', baseDir: '/workspace-a/.agents/skills/a' }],
       cwdSkillsOpen: true,
       previewOpen: true,
-      openTabs: ['artifact-a'],
-      activeTabId: 'artifact-a',
+      openTabs: ['previewItem-a'],
+      activeTabId: 'previewItem-a',
     } as never);
 
     const { activateWorkspaceDesk } = await import('../../stores/desk-actions');
@@ -173,8 +173,8 @@ describe('desk-actions workspace roots', () => {
       deskFiles: [{ name: 'b.md' }],
       deskJianContent: 'b-note',
       previewOpen: false,
-      openTabs: ['artifact-b'],
-      activeTabId: 'artifact-b',
+      openTabs: ['previewItem-b'],
+      activeTabId: 'previewItem-b',
     } as never);
 
     await activateWorkspaceDesk('/workspace-a', { reload: false });
@@ -185,7 +185,7 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().deskJianContent).toBeNull();
     expect(useStore.getState().cwdSkillsOpen).toBe(true);
     expect(useStore.getState().previewOpen).toBe(true);
-    expect(useStore.getState().openTabs).toEqual(['artifact-a']);
-    expect(useStore.getState().activeTabId).toBe('artifact-a');
+    expect(useStore.getState().openTabs).toEqual(['previewItem-a']);
+    expect(useStore.getState().activeTabId).toBe('previewItem-a');
   });
 });

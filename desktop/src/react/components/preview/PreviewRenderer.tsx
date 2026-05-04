@@ -1,8 +1,8 @@
 /**
- * ArtifactRenderer — Artifact 内容的声明式渲染
+ * PreviewRenderer — PreviewItem 内容的声明式渲染
  *
  * 替代 PreviewPanel 中命令式 DOM 构建的 switch/case useEffect。
- * 每种 artifact 类型对应一个 JSX 分支或子组件。
+ * 每种 previewItem 类型对应一个 JSX 分支或子组件。
  */
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -11,25 +11,25 @@ import { parseCSV, injectCopyButtons } from '../../utils/format';
 import { fileIconSvg } from '../../utils/icons';
 import { openFilePreview } from '../../utils/file-preview';
 import { useStore } from '../../stores';
-import type { Artifact } from '../../types';
+import type { PreviewItem } from '../../types';
 
 // ── LegacyMediaFallback ──
-// image / svg 旧类型 artifact 的隔离渲染组件。
+// image / svg 旧类型 previewItem 的隔离渲染组件。
 // currentSessionPath 订阅收窄到此组件，不影响 html/markdown/code/csv 等主流路径。
 
-function LegacyMediaFallback({ artifact }: { artifact: Artifact }) {
+function LegacyMediaFallback({ previewItem }: { previewItem: PreviewItem }) {
   const currentSessionPath = useStore(s => s.currentSessionPath);
 
   if (process.env.NODE_ENV !== 'production') {
-    console.warn('[ArtifactRenderer] 旧类型 image/svg artifact，走 fallback，请通过文件重新打开以使用新 MediaViewer');
+    console.warn('[PreviewRenderer] 旧类型 image/svg previewItem，走 fallback，请通过文件重新打开以使用新 MediaViewer');
   }
 
   const onOpen = () => {
-    if (!artifact.filePath || !artifact.ext) return;
+    if (!previewItem.filePath || !previewItem.ext) return;
     const context = currentSessionPath
       ? { origin: 'session' as const, sessionPath: currentSessionPath }
       : { origin: 'desk' as const };
-    openFilePreview(artifact.filePath, artifact.title, artifact.ext, context);
+    openFilePreview(previewItem.filePath, previewItem.title, previewItem.ext, context);
   };
 
   return (
@@ -54,8 +54,8 @@ function LegacyMediaFallback({ artifact }: { artifact: Artifact }) {
   );
 }
 
-interface ArtifactRendererProps {
-  artifact: Artifact;
+interface PreviewRendererProps {
+  previewItem: PreviewItem;
 }
 
 // ── MarkdownPreview ──
@@ -133,9 +133,9 @@ function PdfPreview({ content }: { content: string }) {
 
 // ── FileInfoPreview ──
 
-function FileInfoPreview({ artifact }: { artifact: Artifact }) {
+function FileInfoPreview({ previewItem }: { previewItem: PreviewItem }) {
   const t = window.t ?? ((p: string) => p);
-  const ext = artifact.ext || '';
+  const ext = previewItem.ext || '';
 
   return (
     <div className="preview-file-info">
@@ -143,14 +143,14 @@ function FileInfoPreview({ artifact }: { artifact: Artifact }) {
         className="preview-file-icon"
         dangerouslySetInnerHTML={{ __html: fileIconSvg(ext) }}
       />
-      <div className="preview-file-name">{artifact.title}</div>
+      <div className="preview-file-name">{previewItem.title}</div>
       <div className="preview-file-ext">
         {ext.toUpperCase()} {t('desk.fileLabel')}
       </div>
       <button
         className="preview-file-open-btn"
         onClick={() => {
-          if (artifact.filePath) window.platform?.openFile?.(artifact.filePath);
+          if (previewItem.filePath) window.platform?.openFile?.(previewItem.filePath);
         }}
       >
         {t('desk.openWithDefault')}
@@ -159,47 +159,47 @@ function FileInfoPreview({ artifact }: { artifact: Artifact }) {
   );
 }
 
-// ── ArtifactRenderer ──
+// ── PreviewRenderer ──
 
-export function ArtifactRenderer({ artifact }: ArtifactRendererProps) {
-  switch (artifact.type) {
+export function PreviewRenderer({ previewItem }: PreviewRendererProps) {
+  switch (previewItem.type) {
     case 'html':
       return (
         <iframe
           sandbox="allow-scripts"
-          srcDoc={artifact.content}
+          srcDoc={previewItem.content}
         />
       );
 
     case 'markdown':
-      return <MarkdownPreview content={artifact.content} />;
+      return <MarkdownPreview content={previewItem.content} />;
 
     case 'code':
       return (
         <pre className="preview-code">
-          <code className={artifact.language ? `language-${artifact.language}` : undefined}>
-            {artifact.content}
+          <code className={previewItem.language ? `language-${previewItem.language}` : undefined}>
+            {previewItem.content}
           </code>
         </pre>
       );
 
     case 'csv':
-      return <CsvPreview content={artifact.content} />;
+      return <CsvPreview content={previewItem.content} />;
 
-    // image / svg：旧类型 artifact 的 fallback。新路径不再产生此类 artifact，
+    // image / svg：旧类型 previewItem 的 fallback。新路径不再产生此类 previewItem，
     // 持久化或旧 session 恢复时可能命中。点击后按 owner 路由到统一的 MediaViewer。
     case 'image':
     case 'svg':
-      return <LegacyMediaFallback artifact={artifact} />;
+      return <LegacyMediaFallback previewItem={previewItem} />;
 
     case 'pdf':
-      return <PdfPreview content={artifact.content} />;
+      return <PdfPreview content={previewItem.content} />;
 
     case 'docx':
       return (
         <div
           className="preview-docx md-content"
-          dangerouslySetInnerHTML={{ __html: artifact.content }}
+          dangerouslySetInnerHTML={{ __html: previewItem.content }}
         />
       );
 
@@ -207,16 +207,16 @@ export function ArtifactRenderer({ artifact }: ArtifactRendererProps) {
       return (
         <div
           className="preview-csv"
-          dangerouslySetInnerHTML={{ __html: artifact.content }}
+          dangerouslySetInnerHTML={{ __html: previewItem.content }}
         />
       );
 
     case 'file-info':
-      return <FileInfoPreview artifact={artifact} />;
+      return <FileInfoPreview previewItem={previewItem} />;
 
     default:
       return (
-        <pre className="preview-code">{artifact.content}</pre>
+        <pre className="preview-code">{previewItem.content}</pre>
       );
   }
 }

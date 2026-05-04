@@ -90,7 +90,7 @@ export interface Activity {
   [key: string]: unknown;
 }
 
-export interface Artifact {
+export interface PreviewItem {
   id: string;
   type: string;
   title: string;

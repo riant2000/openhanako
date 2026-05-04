@@ -186,7 +186,16 @@ function sessionFileFields(file) {
 function extractPluginCard(details) {
   if (!details?.card?.pluginId) return null;
   const c = details.card;
-  return { type: "plugin_card", card: { ...c, type: c.type || "iframe" } };
+  const {
+    // COMPAT(v0.127, remove no earlier than v0.133):
+    // 文件归属必须走 SessionFile / details.media，card 只保留展示参数。
+    file: _file,
+    files: _files,
+    sessionFile: _sessionFile,
+    sourceFile: _sourceFile,
+    ...safeCard
+  } = c;
+  return { type: "plugin_card", card: { ...safeCard, type: safeCard.type || "iframe" } };
 }
 
 export function extractBlocks(toolName, details, toolResult) {

@@ -11,23 +11,23 @@
  */
 
 import type { StoreState } from '../stores';
-import type { Artifact } from '../types';
+import type { PreviewItem } from '../types';
 
 export interface UiContextPayload {
   currentViewed: string | null;
   activeFile: string | null;
-  activeArtifact: string | null;
+  activePreview: string | null;
   pinnedFiles: string[];
 }
 
 export function collectUiContext(state: StoreState): UiContextPayload | null {
   const currentViewed = state.deskCurrentPath || null;
 
-  const activeTab: Artifact | undefined = state.artifacts.find(
-    (a: Artifact) => a.id === state.activeTabId,
+  const activeTab: PreviewItem | undefined = state.previewItems.find(
+    (a: PreviewItem) => a.id === state.activeTabId,
   );
   const activeFile = activeTab?.filePath ?? null;
-  const activeArtifact =
+  const activePreview =
     activeTab && !activeTab.filePath ? activeTab.title : null;
 
   const pinnedFiles = state.pinnedViewers.map((v) => v.filePath);
@@ -35,11 +35,11 @@ export function collectUiContext(state: StoreState): UiContextPayload | null {
   if (
     !currentViewed &&
     !activeFile &&
-    !activeArtifact &&
+    !activePreview &&
     pinnedFiles.length === 0
   ) {
     return null;
   }
 
-  return { currentViewed, activeFile, activeArtifact, pinnedFiles };
+  return { currentViewed, activeFile, activePreview, pinnedFiles };
 }

@@ -217,7 +217,7 @@ describe('selectSessionFiles', () => {
     });
   });
 
-  it('抽取 artifact 对应的 session file', () => {
+  it('抽取 legacy artifact 对应的 session file', () => {
     const items: ChatListItem[] = [{
       type: 'message',
       data: {
@@ -244,7 +244,7 @@ describe('selectSessionFiles', () => {
     expect(refs[0]).toMatchObject({
       fileId: 'sf_art',
       kind: 'markdown',
-      source: 'session-block-artifact',
+      source: 'session-block-legacy-artifact',
       name: 'Plan',
       path: '/cache/plan.md',
       status: 'expired',

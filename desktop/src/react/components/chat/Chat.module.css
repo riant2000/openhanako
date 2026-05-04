@@ -913,9 +913,9 @@
     text-overflow: ellipsis;
 }
 
-/* ── 聊天气泡中的 Artifact 卡片 ── */
+/* ── 聊天气泡中的 Legacy Artifact 兼容卡片 ── */
 
-.artifactCard {
+.legacyArtifactCard {
     display: inline-flex;
     align-items: center;
     gap: var(--space-sm);
@@ -929,19 +929,19 @@
     transition: background 0.15s, box-shadow 0.15s;
 }
 
-.artifactCard:hover {
+.legacyArtifactCard:hover {
     background: var(--accent-light);
     box-shadow: 0 2px 8px var(--shadow);
 }
 
-.artifactExpiredBadge {
+.legacyArtifactExpiredBadge {
     flex-shrink: 0;
     margin-left: var(--space-xs);
     font-size: 0.68rem;
     color: var(--text-muted);
 }
 
-.artifactCardIcon {
+.legacyArtifactCardIcon {
     flex-shrink: 0;
     width: 18px;
     height: 18px;
@@ -951,16 +951,16 @@
     justify-content: center;
 }
 
-.artifactCardIcon svg {
+.legacyArtifactCardIcon svg {
     width: 16px;
     height: 16px;
 }
 
-.artifactCardInfo {
+.legacyArtifactCardInfo {
     overflow: hidden;
 }
 
-.artifactCardTitle {
+.legacyArtifactCardTitle {
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--text);
@@ -969,7 +969,7 @@
     text-overflow: ellipsis;
 }
 
-.artifactCardType {
+.legacyArtifactCardType {
     font-size: 0.72rem;
     color: var(--text-muted);
 }
@@ -993,7 +993,7 @@
     opacity: 0.9;
 }
 
-/* ── Skill 卡片（复用 artifact 样式） ── */
+/* ── Skill 卡片（复用 legacy artifact 样式） ── */
 
 .skillCard {
     display: inline-flex;

@@ -14,7 +14,7 @@ import { loadSessions } from './stores/session-actions';
 import { connectWebSocket, getWebSocket } from './services/websocket';
 import { setStatus, loadModels } from './utils/ui-helpers';
 import { initJian } from './stores/desk-actions';
-import { initViewerEvents } from './stores/artifact-actions';
+import { initViewerEvents } from './stores/preview-actions';
 import { updateLayout } from './components/SidebarLayout';
 import { initErrorBusBridge } from './errors/error-bus-bridge';
 import { refreshPluginUI } from './stores/plugin-ui-actions';

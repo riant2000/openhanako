@@ -69,7 +69,7 @@ vi.mock('../stores/channel-actions', () => ({
   loadChannels: mockLoadChannels,
 }));
 
-vi.mock('../stores/artifact-actions', () => ({
+vi.mock('../stores/preview-actions', () => ({
   initViewerEvents: mockInitViewerEvents,
 }));
 

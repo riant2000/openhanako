@@ -10,7 +10,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useStore } from '../stores';
-import { selectArtifacts, selectActiveTabId } from '../stores/artifact-slice';
+import { selectPreviewItems, selectActiveTabId } from '../stores/preview-slice';
 import { isImageFile } from '../utils/format';
 import { fetchConfig } from '../hooks/use-config';
 import { useI18n } from '../hooks/use-i18n';
@@ -93,7 +93,7 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
   const attachedFiles = useStore(s => s.attachedFiles);
   const docContextAttached = useStore(s => s.docContextAttached);
   const quotedSelection = useStore(s => s.quotedSelection);
-  const artifacts = useStore(selectArtifacts);
+  const previewItems = useStore(selectPreviewItems);
   const activeTabId = useStore(selectActiveTabId);
   const previewOpen = useStore(s => s.previewOpen);
   const models = useStore(s => s.models);
@@ -210,10 +210,10 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
   // Doc context
   const currentDoc = useMemo(() => {
     if (!previewOpen || !activeTabId) return null;
-    const art = artifacts.find(a => a.id === activeTabId);
+    const art = previewItems.find(a => a.id === activeTabId);
     if (!art?.filePath) return null;
     return { path: art.filePath, name: art.title || art.filePath.split('/').pop() || '' };
-  }, [previewOpen, activeTabId, artifacts]);
+  }, [previewOpen, activeTabId, previewItems]);
   const hasDoc = !!currentDoc;
 
   // doc 消失时同步清 attach，避免悬空的 docContextAttached 干扰 hasContent / 发送态

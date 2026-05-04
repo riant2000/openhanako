@@ -19,8 +19,8 @@ vi.mock('../../stores/channel-actions', () => ({
   openChannel: vi.fn(),
 }));
 
-vi.mock('../../stores/artifact-actions', () => ({
-  handleArtifact: vi.fn(),
+vi.mock('../../stores/preview-actions', () => ({
+  handleLegacyArtifactBlock: vi.fn(),
 }));
 
 vi.mock('../../services/app-event-actions', () => ({

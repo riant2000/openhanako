@@ -175,7 +175,7 @@ export function extractToolDetail(name: string, args: Record<string, unknown> | 
       return { text: truncateHead((args.label || args.prompt || '') as string, 30) };
     case 'notify':
       return { text: truncateHead((args.title || '') as string, 30) };
-    case 'artifact':
+    case 'create_artifact':
       return { text: truncateHead((args.title || '') as string, 30) };
     case 'install_skill':
       return { text: (args.skill_name || '') as string };

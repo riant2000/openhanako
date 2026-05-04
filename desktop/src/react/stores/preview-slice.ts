@@ -1,4 +1,4 @@
-import type { Artifact } from '../types';
+import type { PreviewItem } from '../types';
 
 // ── Types ──
 
@@ -17,16 +17,16 @@ export interface PinnedViewer {
 
 // ── Slice ──
 
-export interface ArtifactSlice {
-  /** 全局 artifact 池（user-level），所有 session 共享 */
-  artifacts: Artifact[];
+export interface PreviewSlice {
+  /** 全局 preview item 池（user-level），所有 session 共享 */
+  previewItems: PreviewItem[];
   /** 当前可见 workspace 打开的 tab id 列表 */
   openTabs: string[];
   /** 当前可见 workspace 激活的 tab id */
   activeTabId: string | null;
   /** 当前派生出的只读 viewer 窗口（按 windowId keyed） */
   pinnedViewers: PinnedViewer[];
-  /** 临时 Markdown 阅读预览状态，按 artifact id keyed */
+  /** 临时 Markdown 阅读预览状态，按 preview item id keyed */
   markdownPreviewIds: string[];
   addPinnedViewer: (viewer: PinnedViewer) => void;
   removePinnedViewer: (windowId: number) => void;
@@ -34,10 +34,10 @@ export interface ArtifactSlice {
   setMarkdownPreviewActive: (id: string, active: boolean) => void;
 }
 
-export const createArtifactSlice = (
-  set: (partial: Partial<ArtifactSlice> | ((s: ArtifactSlice) => Partial<ArtifactSlice>)) => void
-): ArtifactSlice => ({
-  artifacts: [],
+export const createPreviewSlice = (
+  set: (partial: Partial<PreviewSlice> | ((s: PreviewSlice) => Partial<PreviewSlice>)) => void
+): PreviewSlice => ({
+  previewItems: [],
   openTabs: [],
   activeTabId: null,
   pinnedViewers: [],
@@ -62,8 +62,8 @@ export const createArtifactSlice = (
 
 // ── Selectors ──
 
-export const selectArtifacts = (s: ArtifactSlice): Artifact[] => s.artifacts;
-export const selectOpenTabs = (s: ArtifactSlice): string[] => s.openTabs;
-export const selectActiveTabId = (s: ArtifactSlice): string | null => s.activeTabId;
-export const selectPinnedViewers = (s: ArtifactSlice): PinnedViewer[] => s.pinnedViewers;
-export const selectMarkdownPreviewIds = (s: ArtifactSlice): string[] => s.markdownPreviewIds;
+export const selectPreviewItems = (s: PreviewSlice): PreviewItem[] => s.previewItems;
+export const selectOpenTabs = (s: PreviewSlice): string[] => s.openTabs;
+export const selectActiveTabId = (s: PreviewSlice): string | null => s.activeTabId;
+export const selectPinnedViewers = (s: PreviewSlice): PinnedViewer[] => s.pinnedViewers;
+export const selectMarkdownPreviewIds = (s: PreviewSlice): string[] => s.markdownPreviewIds;

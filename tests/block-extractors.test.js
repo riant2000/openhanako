@@ -473,6 +473,28 @@ describe('extractBlocks: plugin card extraction', () => {
     expect(blocks[0].card.type).toBe('native');
   });
 
+  it('strips legacy file payload fields from plugin cards', () => {
+    const details = {
+      card: {
+        pluginId: 'fm',
+        route: '/k',
+        title: 'Chart',
+        file: { filePath: '/tmp/raw.png', bytes: 'raw' },
+        sessionFile: { fileId: 'sf_1' },
+        sourceFile: { filePath: '/tmp/source.csv' },
+        files: [{ filePath: '/tmp/a.png' }],
+      },
+    };
+    const blocks = extractBlocks('unknown_tool', details);
+
+    expect(blocks[0].card).toEqual({
+      pluginId: 'fm',
+      route: '/k',
+      title: 'Chart',
+      type: 'iframe',
+    });
+  });
+
   it('unknown tool with no card: returns empty array', () => {
     const blocks = extractBlocks('nonexistent_tool', {});
     expect(blocks).toEqual([]);

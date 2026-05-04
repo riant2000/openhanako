@@ -1,48 +1,48 @@
 /**
- * artifact-actions.ts — Artifact 预览管理
+ * preview-actions.ts — PreviewItem 预览管理
  *
- * artifacts 内容池仍是 user-level flat state；可见的 previewOpen / openTabs /
+ * previewItems 内容池仍是 user-level flat state；可见的 previewOpen / openTabs /
  * activeTabId 会随 workspace desk 状态保存和恢复。
  */
 
 import { useStore } from './index';
 import type { StoreState } from './index';
 import { updateLayout } from '../components/SidebarLayout';
-import type { Artifact } from '../types';
-import type { ArtifactSlice } from './artifact-slice';
+import type { PreviewItem } from '../types';
+import type { PreviewSlice } from './preview-slice';
 
 // ── Viewer spawn（派生只读窗口） ──
 
-/** artifact 是否允许派生到 viewer 窗口：有 filePath 且类型在 viewer 支持集合里 */
+/** preview item 是否允许派生到 viewer 窗口：有 filePath 且类型在 viewer 支持集合里 */
 const VIEWER_SUPPORTED_TYPES = new Set(['markdown', 'code', 'csv']);
 
-export function canSpawnViewer(artifact: Artifact | null): boolean {
-  if (!artifact?.filePath) return false;
-  return VIEWER_SUPPORTED_TYPES.has(artifact.type);
+export function canSpawnViewer(previewItem: PreviewItem | null): boolean {
+  if (!previewItem?.filePath) return false;
+  return VIEWER_SUPPORTED_TYPES.has(previewItem.type);
 }
 
 /**
- * 把当前 artifact 派生到独立 viewer 窗口（只读 live）。
+ * 把当前 previewItem 派生到独立 viewer 窗口（只读 live）。
  * 成功后把 windowId 记入 pinnedViewers store。
  * 失败（如非可编辑类型、无 filePath、Electron 异常）静默返回。
  */
-export async function spawnViewer(artifact: Artifact): Promise<void> {
-  if (!canSpawnViewer(artifact)) return;
-  if (!artifact.filePath) return; // TS 窄化，canSpawnViewer 已保证
+export async function spawnViewer(previewItem: PreviewItem): Promise<void> {
+  if (!canSpawnViewer(previewItem)) return;
+  if (!previewItem.filePath) return; // TS 窄化，canSpawnViewer 已保证
 
   const windowId = await window.platform?.spawnViewer?.({
-    filePath: artifact.filePath,
-    title: artifact.title,
-    type: artifact.type,
-    language: artifact.language,
+    filePath: previewItem.filePath,
+    title: previewItem.title,
+    type: previewItem.type,
+    language: previewItem.language,
   });
 
   if (typeof windowId !== 'number') return;
 
   useStore.getState().addPinnedViewer({
     windowId,
-    filePath: artifact.filePath,
-    title: artifact.title,
+    filePath: previewItem.filePath,
+    title: previewItem.title,
   });
 }
 
@@ -59,17 +59,17 @@ export function initViewerEvents(): void {
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- IPC callback data */
 
-let _artifactCounter = 0;
+let _legacyArtifactCounter = 0;
 
 // ── Internal write primitive ──
 
 function updatePreview(
-  updater: (prev: Pick<ArtifactSlice, 'artifacts' | 'openTabs' | 'activeTabId' | 'markdownPreviewIds'>) =>
-    Partial<Pick<ArtifactSlice, 'artifacts' | 'openTabs' | 'activeTabId' | 'markdownPreviewIds'>>,
+  updater: (prev: Pick<PreviewSlice, 'previewItems' | 'openTabs' | 'activeTabId' | 'markdownPreviewIds'>) =>
+    Partial<Pick<PreviewSlice, 'previewItems' | 'openTabs' | 'activeTabId' | 'markdownPreviewIds'>>,
 ): void {
   useStore.setState((s: StoreState) => {
     const prev = {
-      artifacts: s.artifacts,
+      previewItems: s.previewItems,
       openTabs: s.openTabs,
       activeTabId: s.activeTabId,
       markdownPreviewIds: s.markdownPreviewIds,
@@ -80,14 +80,14 @@ function updatePreview(
 
 // ── Public primitives ──
 
-/** upsert 一条 artifact 到全局池 */
-export function upsertArtifact(artifact: Artifact): void {
+/** upsert 一条 preview item 到全局池 */
+export function upsertPreviewItem(previewItem: PreviewItem): void {
   updatePreview(prev => {
-    const arts = [...prev.artifacts];
-    const idx = arts.findIndex(a => a.id === artifact.id);
-    if (idx >= 0) arts[idx] = artifact;
-    else arts.push(artifact);
-    return { artifacts: arts };
+    const arts = [...prev.previewItems];
+    const idx = arts.findIndex(a => a.id === previewItem.id);
+    if (idx >= 0) arts[idx] = previewItem;
+    else arts.push(previewItem);
+    return { previewItems: arts };
   });
 }
 
@@ -125,7 +125,7 @@ export function setActiveTab(id: string): void {
 /** 清空整个预览池 */
 export function clearPreview(): void {
   useStore.setState({
-    artifacts: [],
+    previewItems: [],
     openTabs: [],
     activeTabId: null,
     markdownPreviewIds: [],
@@ -143,15 +143,15 @@ export function toggleMarkdownPreview(id: string): void {
 
 // ── High-level actions ──
 
-/** 注册 artifact 并打开为 tab，展开面板 */
-export function openPreview(artifact: Artifact): void {
-  upsertArtifact(artifact);
-  openTab(artifact.id);
+/** 注册 previewItem 并打开为 tab，展开面板 */
+export function openPreview(previewItem: PreviewItem): void {
+  upsertPreviewItem(previewItem);
+  openTab(previewItem.id);
   useStore.getState().setPreviewOpen(true);
   updateLayout();
 }
 
-/** 收起面板，保留 tabs 和 artifacts（下次打开恢复） */
+/** 收起面板，保留 tabs 和 previewItems（下次打开恢复） */
 export function closePreview(): void {
   const s = useStore.getState();
   s.setPreviewOpen(false);
@@ -159,10 +159,13 @@ export function closePreview(): void {
   updateLayout();
 }
 
-/** 流式事件：AI 生成 artifact 进全局池（不再按 sessionPath 路由） */
-export function handleArtifact(data: Record<string, unknown>): void {
-  const id = (data.artifactId as string) || `artifact-${++_artifactCounter}`;
-  const artifact: Artifact = {
+/**
+ * COMPAT(create_artifact, remove no earlier than v0.133):
+ * 老 `create_artifact` content_block 转成当前 PreviewItem。
+ */
+export function handleLegacyArtifactBlock(data: Record<string, unknown>): void {
+  const id = (data.artifactId as string) || `legacy-artifact-${++_legacyArtifactCounter}`;
+  const previewItem: PreviewItem = {
     id,
     type: data.artifactType as string,
     title: data.title as string,
@@ -177,5 +180,5 @@ export function handleArtifact(data: Record<string, unknown>): void {
     status: data.status as string | undefined,
     missingAt: data.missingAt as number | null | undefined,
   };
-  upsertArtifact(artifact);
+  upsertPreviewItem(previewItem);
 }

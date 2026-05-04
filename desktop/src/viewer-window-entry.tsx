@@ -9,13 +9,13 @@
  *
  * 生命周期：
  *   主进程 spawn BrowserWindow → did-finish-load → IPC `viewer-load` 送文件元信息
- *   → readFile → 渲染 ArtifactEditor(readOnly) → watchFile → 变化时 readFile + setContent
+ *   → readFile → 渲染 PreviewEditor(readOnly) → watchFile → 变化时 readFile + setContent
  *   → 窗口 close → 主进程广播 `viewer-closed` 给主 renderer 清 store
  */
 
 import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
-import { ArtifactEditor } from './react/components/ArtifactEditor';
+import { PreviewEditor } from './react/components/PreviewEditor';
 
 type ViewerMode = 'markdown' | 'code' | 'csv';
 
@@ -141,7 +141,7 @@ function ViewerApp() {
       </div>
       <div className="viewer-body">
         {content != null && (
-          <ArtifactEditor
+          <PreviewEditor
             content={content}
             filePath={payload.filePath}
             mode={mode}

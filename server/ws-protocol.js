@@ -3,7 +3,7 @@
  *
  * Client → Server:
  *   { type: "prompt", text: "...", sessionPath?: "...", images?: [...], skills?: [...],
- *     uiContext?: { currentViewed?: string|null, activeFile?: string|null, activeArtifact?: string|null, pinnedFiles?: string[] } | null }
+ *     uiContext?: { currentViewed?: string|null, activeFile?: string|null, activePreview?: string|null, pinnedFiles?: string[] } | null }
  *     （uiContext：用户视野元信息，context extension 每轮读取拼 reminder 到 last user message 开头；
  *      null/undefined 表示清空旧值；不进 session.entries，不累积。）
  *   { type: "abort" }

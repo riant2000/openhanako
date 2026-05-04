@@ -217,6 +217,66 @@ describe("tool loading", () => {
     expect(result.content[0].text).toBe("sf_plugin_output");
   });
 
+  it("exposes stageFile so plugin tools return SessionFile media items without hand-writing protocol", async () => {
+    const registerSessionFile = vi.fn(({ sessionPath, filePath, label, origin, storageKind }) => ({
+      id: "sf_plugin_stage",
+      sessionPath,
+      filePath,
+      label,
+      origin,
+      storageKind,
+      mime: "image/png",
+      size: 12,
+      kind: "image",
+    }));
+    const dir = path.join(pluginsDir, "stage-file-plugin");
+    fs.mkdirSync(path.join(dir, "tools"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "tools", "stage.js"), `
+      export const name = "stage";
+      export const description = "Stage plugin output";
+      export const parameters = {};
+      export async function execute(input, ctx) {
+        const staged = ctx.stageFile({
+          sessionPath: ctx.sessionPath,
+          filePath: "/tmp/plugin-output.png",
+          label: "plugin-output.png",
+          origin: "external",
+          storageKind: "external",
+        });
+        return {
+          content: [{ type: "text", text: "done" }],
+          details: { media: { items: [staged.mediaItem] } },
+        };
+      }
+    `);
+    const pm = new PluginManager({ pluginsDir, dataDir, bus: await makeBus(), registerSessionFile });
+    pm.scan();
+    await pm.loadAll();
+
+    const tool = pm.getAllTools()[0];
+    const result = await tool.execute("call-1", {}, {
+      sessionManager: { getSessionFile: () => "/sessions/plugin.jsonl" },
+    });
+
+    expect(registerSessionFile).toHaveBeenCalledWith({
+      sessionPath: "/sessions/plugin.jsonl",
+      filePath: "/tmp/plugin-output.png",
+      label: "plugin-output.png",
+      origin: "plugin_output",
+      storageKind: "plugin_data",
+    });
+    expect(result.details.media.items).toEqual([{
+      type: "session_file",
+      fileId: "sf_plugin_stage",
+      sessionPath: "/sessions/plugin.jsonl",
+      filePath: "/tmp/plugin-output.png",
+      label: "plugin-output.png",
+      mime: "image/png",
+      size: 12,
+      kind: "image",
+    }]);
+  });
+
   it("skips tool files with invalid exports", async () => {
     const dir = path.join(pluginsDir, "bad-tool");
     fs.mkdirSync(path.join(dir, "tools"), { recursive: true });

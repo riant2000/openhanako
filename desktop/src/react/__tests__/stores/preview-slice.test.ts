@@ -1,32 +1,32 @@
 /**
- * artifact-slice + artifact-actions 行为测试
+ * preview-slice + preview-actions 行为测试
  *
- * Artifact 内容池是 user-level flat state；可见 preview/tabs 由 workspace 激活流程恢复。
- * 覆盖：tab 操作、upsert / clear、openPreview / closePreview、handleArtifact。
+ * PreviewItem 内容池是 user-level flat state；可见 preview/tabs 由 workspace 激活流程恢复。
+ * 覆盖：tab 操作、upsert / clear、openPreview / closePreview、handleLegacyArtifactBlock。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  createArtifactSlice,
-  selectArtifacts,
+  createPreviewSlice,
+  selectPreviewItems,
   selectOpenTabs,
   selectActiveTabId,
   selectPinnedViewers,
   selectMarkdownPreviewIds,
-} from '../../stores/artifact-slice';
+} from '../../stores/preview-slice';
 import {
-  upsertArtifact,
+  upsertPreviewItem,
   openTab,
   closeTab,
   setActiveTab,
   clearPreview,
   openPreview,
   closePreview,
-  handleArtifact,
+  handleLegacyArtifactBlock,
   canSpawnViewer,
   setMarkdownPreviewActive,
   toggleMarkdownPreview,
-} from '../../stores/artifact-actions';
-import type { Artifact } from '../../types';
+} from '../../stores/preview-actions';
+import type { PreviewItem } from '../../types';
 
 function createTestStore() {
   let state: Record<string, unknown> = {};
@@ -38,9 +38,9 @@ function createTestStore() {
     state = { ...state, ...(patch as Record<string, unknown>) };
   };
 
-  const artifactSlice = createArtifactSlice(set as any);
+  const previewItemSlice = createPreviewSlice(set as any);
   state = {
-    ...artifactSlice,
+    ...previewItemSlice,
     currentSessionPath: null,
     previewOpen: false,
     setPreviewOpen: (open: boolean) => set({ previewOpen: open }),
@@ -72,11 +72,11 @@ vi.mock('../../components/SidebarLayout', () => ({
   updateLayout: () => {},
 }));
 
-function makeArtifact(id: string, title?: string): Artifact {
+function makePreviewItem(id: string, title?: string): PreviewItem {
   return { id, type: 'code', title: title ?? id, content: `content-${id}` };
 }
 
-describe('artifact slice (user-level content pool)', () => {
+describe('preview slice (user-level content pool)', () => {
   beforeEach(() => {
     testStore = createTestStore();
   });
@@ -138,23 +138,23 @@ describe('artifact slice (user-level content pool)', () => {
     });
   });
 
-  describe('upsertArtifact + selector', () => {
+  describe('upsertPreviewItem + selector', () => {
     it('新 id 追加', () => {
-      const a = makeArtifact('a1');
-      upsertArtifact(a);
-      expect(selectArtifacts(testStore.getState())).toEqual([a]);
+      const a = makePreviewItem('a1');
+      upsertPreviewItem(a);
+      expect(selectPreviewItems(testStore.getState())).toEqual([a]);
     });
 
     it('已存在 id 就地替换', () => {
-      const a1 = makeArtifact('a1', 'v1');
-      upsertArtifact(a1);
-      const a1v2 = makeArtifact('a1', 'v2');
-      upsertArtifact(a1v2);
-      expect(selectArtifacts(testStore.getState())).toEqual([a1v2]);
+      const a1 = makePreviewItem('a1', 'v1');
+      upsertPreviewItem(a1);
+      const a1v2 = makePreviewItem('a1', 'v2');
+      upsertPreviewItem(a1v2);
+      expect(selectPreviewItems(testStore.getState())).toEqual([a1v2]);
     });
 
     it('selectors 直接读 flat state', () => {
-      upsertArtifact(makeArtifact('a1'));
+      upsertPreviewItem(makePreviewItem('a1'));
       openTab('a1');
       expect(selectOpenTabs(testStore.getState())).toEqual(['a1']);
       expect(selectActiveTabId(testStore.getState())).toBe('a1');
@@ -164,7 +164,7 @@ describe('artifact slice (user-level content pool)', () => {
   describe('内容池不从 currentSessionPath 推导归属', () => {
     it('切换 currentSessionPath 不影响预览面板状态', () => {
       openTab('file-1');
-      upsertArtifact(makeArtifact('file-1'));
+      upsertPreviewItem(makePreviewItem('file-1'));
 
       testStore.setState({ currentSessionPath: '/session/a' });
       expect(selectOpenTabs(testStore.getState())).toEqual(['file-1']);
@@ -176,27 +176,27 @@ describe('artifact slice (user-level content pool)', () => {
       expect(selectOpenTabs(testStore.getState())).toEqual(['file-1']);
     });
 
-    it('任何 session 下生成的 artifact 都进同一个全局池', () => {
+    it('任何 session 下生成的 previewItem 都进同一个全局池', () => {
       testStore.setState({ currentSessionPath: '/session/a' });
-      upsertArtifact(makeArtifact('from-a'));
+      upsertPreviewItem(makePreviewItem('from-a'));
 
       testStore.setState({ currentSessionPath: '/session/b' });
-      upsertArtifact(makeArtifact('from-b'));
+      upsertPreviewItem(makePreviewItem('from-b'));
 
       testStore.setState({ currentSessionPath: null });
-      const arts = selectArtifacts(testStore.getState());
+      const arts = selectPreviewItems(testStore.getState());
       expect(arts.map(a => a.id).sort()).toEqual(['from-a', 'from-b']);
     });
   });
 
   describe('clearPreview', () => {
-    it('清空全部 artifacts / openTabs / activeTabId', () => {
-      upsertArtifact(makeArtifact('a1'));
-      upsertArtifact(makeArtifact('a2'));
+    it('清空全部 previewItems / openTabs / activeTabId', () => {
+      upsertPreviewItem(makePreviewItem('a1'));
+      upsertPreviewItem(makePreviewItem('a2'));
       openTab('a1');
       openTab('a2');
       clearPreview();
-      expect(selectArtifacts(testStore.getState())).toEqual([]);
+      expect(selectPreviewItems(testStore.getState())).toEqual([]);
       expect(selectOpenTabs(testStore.getState())).toEqual([]);
       expect(selectActiveTabId(testStore.getState())).toBeNull();
       expect(selectMarkdownPreviewIds(testStore.getState())).toEqual([]);
@@ -204,7 +204,7 @@ describe('artifact slice (user-level content pool)', () => {
   });
 
   describe('markdown preview eye state', () => {
-    it('按 artifact id 记录临时阅读预览状态', () => {
+    it('按 previewItem id 记录临时阅读预览状态', () => {
       setMarkdownPreviewActive('file-a', true);
       expect(selectMarkdownPreviewIds(testStore.getState())).toEqual(['file-a']);
 
@@ -215,7 +215,7 @@ describe('artifact slice (user-level content pool)', () => {
       expect(selectMarkdownPreviewIds(testStore.getState())).toEqual(['file-b']);
     });
 
-    it('toggleMarkdownPreview 翻转指定 artifact 的预览状态', () => {
+    it('toggleMarkdownPreview 翻转指定 previewItem 的预览状态', () => {
       toggleMarkdownPreview('file-a');
       expect(selectMarkdownPreviewIds(testStore.getState())).toEqual(['file-a']);
 
@@ -225,47 +225,47 @@ describe('artifact slice (user-level content pool)', () => {
   });
 
   describe('openPreview / closePreview', () => {
-    it('openPreview upsert artifact + openTab + setPreviewOpen(true)', () => {
-      const a = makeArtifact('p1');
+    it('openPreview upsert preview item + openTab + setPreviewOpen(true)', () => {
+      const a = makePreviewItem('p1');
       openPreview(a);
-      expect(selectArtifacts(testStore.getState())).toEqual([a]);
+      expect(selectPreviewItems(testStore.getState())).toEqual([a]);
       expect(selectOpenTabs(testStore.getState())).toEqual(['p1']);
       expect(selectActiveTabId(testStore.getState())).toBe('p1');
       expect(testStore.getState().previewOpen).toBe(true);
     });
 
-    it('closePreview 只收起面板，不清 openTabs / artifacts', () => {
-      const a = makeArtifact('p1');
+    it('closePreview 只收起面板，不清 openTabs / previewItems', () => {
+      const a = makePreviewItem('p1');
       openPreview(a);
       closePreview();
       expect(testStore.getState().previewOpen).toBe(false);
       expect(selectOpenTabs(testStore.getState())).toEqual(['p1']);
-      expect(selectArtifacts(testStore.getState())).toEqual([a]);
+      expect(selectPreviewItems(testStore.getState())).toEqual([a]);
     });
   });
 
-  describe('handleArtifact', () => {
+  describe('handleLegacyArtifactBlock', () => {
     it('无 sessionPath 也正常入池（user-level 化后）', () => {
-      handleArtifact({
+      handleLegacyArtifactBlock({
         artifactId: 'stream-1',
         artifactType: 'code',
         title: 'streaming',
         content: 'console.log(1)',
       });
-      const arts = selectArtifacts(testStore.getState());
+      const arts = selectPreviewItems(testStore.getState());
       expect(arts).toHaveLength(1);
       expect(arts[0].id).toBe('stream-1');
     });
 
     it('事件携带 sessionPath 时也忽略（不再按 owner 路由）', () => {
-      handleArtifact({
+      handleLegacyArtifactBlock({
         artifactId: 'stream-2',
         artifactType: 'code',
         title: 's',
         content: 'x',
         sessionPath: '/session/whatever',
       });
-      const arts = selectArtifacts(testStore.getState());
+      const arts = selectPreviewItems(testStore.getState());
       expect(arts).toHaveLength(1);
       expect(arts[0].id).toBe('stream-2');
     });
@@ -314,32 +314,32 @@ describe('artifact slice (user-level content pool)', () => {
 
   describe('canSpawnViewer', () => {
     it('markdown + filePath → true', () => {
-      const a: Artifact = { id: '1', type: 'markdown', title: 't', content: 'c', filePath: '/x.md' };
+      const a: PreviewItem = { id: '1', type: 'markdown', title: 't', content: 'c', filePath: '/x.md' };
       expect(canSpawnViewer(a)).toBe(true);
     });
 
     it('code + filePath → true', () => {
-      const a: Artifact = { id: '1', type: 'code', title: 't', content: 'c', filePath: '/x.py' };
+      const a: PreviewItem = { id: '1', type: 'code', title: 't', content: 'c', filePath: '/x.py' };
       expect(canSpawnViewer(a)).toBe(true);
     });
 
     it('csv + filePath → true', () => {
-      const a: Artifact = { id: '1', type: 'csv', title: 't', content: 'c', filePath: '/x.csv' };
+      const a: PreviewItem = { id: '1', type: 'csv', title: 't', content: 'c', filePath: '/x.csv' };
       expect(canSpawnViewer(a)).toBe(true);
     });
 
     it('memory markdown（无 filePath）→ false', () => {
-      const a: Artifact = { id: '1', type: 'markdown', title: 't', content: 'c' };
+      const a: PreviewItem = { id: '1', type: 'markdown', title: 't', content: 'c' };
       expect(canSpawnViewer(a)).toBe(false);
     });
 
     it('html 类型（有 filePath）→ false，暂不支持', () => {
-      const a: Artifact = { id: '1', type: 'html', title: 't', content: 'c', filePath: '/x.html' };
+      const a: PreviewItem = { id: '1', type: 'html', title: 't', content: 'c', filePath: '/x.html' };
       expect(canSpawnViewer(a)).toBe(false);
     });
 
     it('pdf → false', () => {
-      const a: Artifact = { id: '1', type: 'pdf', title: 't', content: 'c', filePath: '/x.pdf' };
+      const a: PreviewItem = { id: '1', type: 'pdf', title: 't', content: 'c', filePath: '/x.pdf' };
       expect(canSpawnViewer(a)).toBe(false);
     });
 

@@ -19,7 +19,7 @@ import { hanaFetch, hanaUrl } from '../../hooks/use-hana-fetch';
 import { openFilePreview, openSkillPreview } from '../../utils/file-preview';
 import { openMediaViewerForRef } from '../../utils/open-media-viewer';
 import { buildFileRefId, isImageOrSvgExt } from '../../utils/file-kind';
-import { openPreview } from '../../stores/artifact-actions';
+import { openPreview } from '../../stores/preview-actions';
 import { selectIsStreamingSession, selectSelectedIdsBySession } from '../../stores/session-selectors';
 import styles from './Chat.module.css';
 
@@ -333,11 +333,13 @@ const FileBlock = memo(function FileBlock({ block, sessionPath, messageId, block
     : <FileOutputCard filePath={block.filePath} label={block.label} ext={block.ext} status={block.status} ctx={ctx} />;
 });
 
-// artifact block
+// COMPAT(create_artifact, remove no earlier than v0.133):
+// Old sessions may still contain `artifact` content blocks. New preview
+// surface consumes them as PreviewItem records.
 
-const ArtifactBlock = memo(function ArtifactBlock({ block }: { block: any }) {
+const LegacyArtifactBlock = memo(function LegacyArtifactBlock({ block }: { block: any }) {
   const handleClick = () => {
-    const artifact = {
+    const previewItem = {
       id: block.artifactId,
       type: block.artifactType,
       title: block.title,
@@ -352,18 +354,18 @@ const ArtifactBlock = memo(function ArtifactBlock({ block }: { block: any }) {
       status: block.status,
       missingAt: block.missingAt,
     };
-    openPreview(artifact);
+    openPreview(previewItem);
   };
   const expired = block.status === 'expired';
 
   return (
-    <div className={styles.artifactCard} onClick={handleClick} style={{ cursor: 'pointer' }}>
+    <div className={styles.legacyArtifactCard} onClick={handleClick} style={{ cursor: 'pointer' }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
         <line x1="3" y1="9" x2="21" y2="9" />
       </svg>
       <span>{block.title || block.artifactType}</span>
-      {expired && <span className={styles.artifactExpiredBadge}>{window.t('chat.fileExpired')}</span>}
+      {expired && <span className={styles.legacyArtifactExpiredBadge}>{window.t('chat.fileExpired')}</span>}
     </div>
   );
 });
@@ -495,7 +497,7 @@ const SettingsConfirmBlock = memo(function SettingsConfirmBlock({ block }: { blo
 // 注：`file` 与 `screenshot` 需 session 上下文（sessionPath/messageId/blockIdx），
 // 统一走 ContentBlockView 的 switch 内联分发，不注册到全局表中。
 BLOCK_RENDERERS['subagent'] = SubagentCard;
-BLOCK_RENDERERS['artifact'] = ArtifactBlock;
+BLOCK_RENDERERS['artifact'] = LegacyArtifactBlock;
 BLOCK_RENDERERS['plugin_card'] = PluginCardWrapper;
 BLOCK_RENDERERS['skill'] = SkillBlock;
 BLOCK_RENDERERS['cron_confirm'] = CronConfirmBlock;

@@ -14,7 +14,7 @@
  * 去冗余规则：
  * - `current_folder` 仅当 `currentViewed !== session.cwd` 时写
  *   （避免跟 agent.js 的 system prompt「工作空间」章节重复）
- * - `active_file` 和 `active_artifact` 二选一（前者优先：有 filePath 走 active_file）
+ * - `active_file` 和 `active_preview` 二选一（前者优先：有 filePath 走 active_file）
  * - `pinned_files` 空数组则省略整段
  * - 所有字段都空 → 返回 null，hook 啥也不改
  */
@@ -23,7 +23,8 @@
  * @typedef {Object} UiContext
  * @property {string|null} [currentViewed]  用户当前浏览的子目录（deskCurrentPath）
  * @property {string|null} [activeFile]     主面板 active tab 的 filePath（本地文件）
- * @property {string|null} [activeArtifact] 主面板 active tab 的 title（无 filePath 的 memory artifact）
+ * @property {string|null} [activePreview]  主面板 active tab 的 title（无 filePath 的内存预览）
+ * @property {string|null} [activeArtifact] COMPAT(v0.127, remove no earlier than v0.133): 旧前端字段
  * @property {string[]} [pinnedFiles]       派生 viewer 窗口钉住的文件绝对路径列表
  */
 
@@ -44,8 +45,11 @@ export function buildUiContextReminder(uiCtx, sessionCwd) {
 
   if (uiCtx.activeFile) {
     lines.push(`active_file: ${uiCtx.activeFile}`);
-  } else if (uiCtx.activeArtifact) {
-    lines.push(`active_artifact: "${uiCtx.activeArtifact}"（前文生成的文稿）`);
+  } else {
+    const activePreview = uiCtx.activePreview || uiCtx.activeArtifact;
+    if (activePreview) {
+      lines.push(`active_preview: "${activePreview}"（前文生成的预览内容）`);
+    }
   }
 
   if (Array.isArray(uiCtx.pinnedFiles) && uiCtx.pinnedFiles.length > 0) {

@@ -23,7 +23,8 @@ export interface HistoryApiResponse {
     images?: Array<{ data: string; mimeType: string }>;
   }>;
   blocks?: Array<any>;
-  // COMPAT(v0.98): 以下三个老字段在新服务端不再返回，v0.98 后可删
+  // COMPAT(v0.98/v0.127, remove no earlier than v0.133):
+  // 以下三个老字段在新服务端不再返回；其中 artifacts 仅保留为旧 session 恢复协议。
   fileOutputs?: Array<{
     afterIndex: number;
     files: Array<{ fileId?: string; filePath: string; label: string; ext: string; mime?: string; kind?: string; storageKind?: string; status?: string; missingAt?: number | null }>;
@@ -56,7 +57,8 @@ export interface HistoryApiResponse {
 // ── 兼容层 ──
 
 /**
- * COMPAT(v0.98): 兼容层，v0.98 后可整个删除。
+ * COMPAT(v0.98/v0.127, remove no earlier than v0.133):
+ * 旧历史消息兼容层，可在确认老 session 已完成迁移后整个删除。
  *
  * 将老格式（fileOutputs/artifacts/cards）转为新 blocks[] 格式。
  * 新服务端返回 blocks[]，此函数只在升级过渡期（老服务端 → 新前端）命中。
