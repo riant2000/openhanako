@@ -16,7 +16,7 @@ const TELEGRAM_CAPS = {
   supportedKinds: ["image", "video", "audio", "document"],
 };
 const QQ_CAPS = {
-  inputModes: ["remote_url", "public_url"],
+  inputModes: ["local_file", "remote_url", "public_url"],
   supportedKinds: ["image", "video", "audio", "document"],
 };
 
@@ -70,7 +70,7 @@ describe("BridgeManager session_file media delivery", () => {
     expect(adapter.sendMedia).not.toHaveBeenCalled();
   });
 
-  it("requires a public URL for QQ local staged files", async () => {
+  it("sends QQ local staged files through direct local file upload", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-bridge-media-"));
     const filePath = path.join(tmpDir, "image.png");
     fs.writeFileSync(filePath, Buffer.from([0x89, 0x50, 0x4E, 0x47]));
@@ -84,14 +84,17 @@ describe("BridgeManager session_file media delivery", () => {
     });
     const adapter = {
       mediaCapabilities: QQ_CAPS,
-      sendMediaBuffer: vi.fn().mockResolvedValue(),
+      sendMediaFile: vi.fn().mockResolvedValue(),
       sendMedia: vi.fn().mockResolvedValue(),
     };
 
-    await expect(
-      bm._sendMediaItem(adapter, "chat-1", { type: "session_file", fileId: "sf_image" }, { platform: "qq" }),
-    ).rejects.toThrow(/公网可访问 URL/);
-    expect(adapter.sendMediaBuffer).not.toHaveBeenCalled();
+    await bm._sendMediaItem(adapter, "chat-1", { type: "session_file", fileId: "sf_image" }, { platform: "qq" });
+
+    expect(adapter.sendMediaFile).toHaveBeenCalledWith("chat-1", fs.realpathSync(filePath), {
+      kind: "image",
+      mime: "image/png",
+      filename: "image.png",
+    });
     expect(adapter.sendMedia).not.toHaveBeenCalled();
   });
 

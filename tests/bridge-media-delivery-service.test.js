@@ -11,10 +11,14 @@ import { QQ_MEDIA_CAPABILITIES } from "../lib/bridge/qq-adapter.js";
 
 describe("MediaDeliveryService", () => {
   let tmpDir = null;
+  let extraTmpDirs = [];
 
   afterEach(() => {
     if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
+    for (const dir of extraTmpDirs) fs.rmSync(dir, { recursive: true, force: true });
     tmpDir = null;
+    extraTmpDirs = [];
+    setMediaLocalRoots([]);
   });
 
   function makeTempFile(name, content = "hello") {
@@ -23,6 +27,15 @@ describe("MediaDeliveryService", () => {
     const filePath = path.join(tmpDir, name);
     fs.writeFileSync(filePath, content);
     return filePath;
+  }
+
+  function makeTempFileOutsideAllowedRoots(name, content = "hello") {
+    makeTempFile("allowed-placeholder.txt", "allowed");
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hana-media-outside-"));
+    extraTmpDirs.push(outsideRoot);
+    const outsidePath = path.join(outsideRoot, name);
+    fs.writeFileSync(outsidePath, content);
+    return { outsidePath, outsideRoot };
   }
 
   function makeService(sessionFile, extra = {}) {
@@ -217,7 +230,7 @@ describe("MediaDeliveryService", () => {
     });
   });
 
-  it("rejects QQ local images without public URL", async () => {
+  it("delivers QQ local images through direct local file upload", async () => {
     const filePath = makeTempFile("image.png", Buffer.from([0x89, 0x50, 0x4E, 0x47]));
     const service = makeService({
       id: "sf_image",
@@ -230,7 +243,40 @@ describe("MediaDeliveryService", () => {
     const adapter = {
       mediaCapabilities: QQ_MEDIA_CAPABILITIES,
       sendMedia: vi.fn(async () => {}),
-      sendMediaBuffer: vi.fn(async () => {}),
+      sendMediaFile: vi.fn(async () => {}),
+    };
+
+    await service.send({
+      adapter,
+      chatId: "chat-1",
+      platform: "qq",
+      mediaItem: { type: "session_file", fileId: "sf_image" },
+      isGroup: false,
+    });
+
+    expect(adapter.sendMedia).not.toHaveBeenCalled();
+    expect(adapter.sendMediaFile).toHaveBeenCalledWith("chat-1", fs.realpathSync(filePath), {
+      kind: "image",
+      mime: "image/png",
+      filename: "image.png",
+      isGroup: false,
+      targetScope: "dm",
+    });
+  });
+
+  it("keeps local-file delivery behind the allowed local roots", async () => {
+    const { outsidePath } = makeTempFileOutsideAllowedRoots("secret.png", "not allowed");
+    const service = makeService({
+      id: "sf_image",
+      filePath: outsidePath,
+      realPath: outsidePath,
+      filename: "secret.png",
+      mime: "image/png",
+      kind: "image",
+    });
+    const adapter = {
+      mediaCapabilities: QQ_MEDIA_CAPABILITIES,
+      sendMediaFile: vi.fn(async () => {}),
     };
 
     await expect(service.send({
@@ -238,12 +284,11 @@ describe("MediaDeliveryService", () => {
       chatId: "chat-1",
       platform: "qq",
       mediaItem: { type: "session_file", fileId: "sf_image" },
-    })).rejects.toThrow(/bridge_media_public_base_url/);
-    expect(adapter.sendMedia).not.toHaveBeenCalled();
-    expect(adapter.sendMediaBuffer).not.toHaveBeenCalled();
+    })).rejects.toThrow(/outside allowed roots/);
+    expect(adapter.sendMediaFile).not.toHaveBeenCalled();
   });
 
-  it("publishes QQ local images before sending them as public URLs", async () => {
+  it("publishes local files before sending them to URL-only adapters", async () => {
     const filePath = makeTempFile("image.png", Buffer.from([0x89, 0x50, 0x4E, 0x47]));
     const mediaPublisher = {
       setBaseUrl: vi.fn(),
@@ -261,7 +306,10 @@ describe("MediaDeliveryService", () => {
       kind: "image",
     }, { mediaPublisher });
     const adapter = {
-      mediaCapabilities: QQ_MEDIA_CAPABILITIES,
+      mediaCapabilities: {
+        ...QQ_MEDIA_CAPABILITIES,
+        inputModes: ["remote_url", "public_url"],
+      },
       sendMedia: vi.fn(async () => {}),
       sendMediaBuffer: vi.fn(async () => {}),
     };
@@ -290,7 +338,7 @@ describe("MediaDeliveryService", () => {
     expect(adapter.sendMediaBuffer).not.toHaveBeenCalled();
   });
 
-  it("refreshes the publisher base URL from preferences before publishing local files", async () => {
+  it("refreshes the publisher base URL from preferences before publishing local files for URL-only adapters", async () => {
     const filePath = makeTempFile("image.png", Buffer.from([0x89, 0x50, 0x4E, 0x47]));
     const mediaPublisher = {
       setBaseUrl: vi.fn(),
@@ -315,7 +363,10 @@ describe("MediaDeliveryService", () => {
       mediaPublisher,
     });
     const adapter = {
-      mediaCapabilities: QQ_MEDIA_CAPABILITIES,
+      mediaCapabilities: {
+        ...QQ_MEDIA_CAPABILITIES,
+        inputModes: ["remote_url", "public_url"],
+      },
       sendMedia: vi.fn(async () => {}),
     };
 

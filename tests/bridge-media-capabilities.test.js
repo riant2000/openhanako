@@ -69,10 +69,10 @@ describe("bridge media capabilities", () => {
     expect(FEISHU_MEDIA_CAPABILITIES.maxBytes.buffer.document).toBe(30 * 1024 * 1024);
   });
 
-  it("declares QQ as URL-only for group/C2C rich media, with C2C document support", () => {
+  it("declares QQ as local-file and URL capable for group/C2C rich media", () => {
     expect(QQ_MEDIA_CAPABILITIES).toMatchObject({
       platform: "qq",
-      inputModes: ["remote_url", "public_url"],
+      inputModes: ["local_file", "remote_url", "public_url"],
       supportedKinds: ["image", "video", "audio", "document"],
       requiresReplyContext: false,
       deliveryByKind: {
@@ -82,6 +82,8 @@ describe("bridge media capabilities", () => {
         document: "native_file",
       },
     });
+    expect(QQ_MEDIA_CAPABILITIES.maxBytes.local_file.image).toBe(30 * 1024 * 1024);
+    expect(QQ_MEDIA_CAPABILITIES.maxBytes.local_file.document).toBe(100 * 1024 * 1024);
   });
 
   it("declares WeChat iLink as reply-context bound", () => {
