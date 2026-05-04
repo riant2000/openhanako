@@ -493,8 +493,12 @@
   },
   "model": {
     "unknown": "Unknown model",
+    "notSelected": "Select a model",
+    "noneConfigured": "No models configured",
+    "unavailable": "Model unavailable",
     "offline": "Offline",
-    "switchFailed": "Failed to switch model"
+    "switchFailed": "Failed to switch model",
+    "switchWhileStreaming": "Cannot switch models while replying"
   },
   "splash": {
     "lines": [

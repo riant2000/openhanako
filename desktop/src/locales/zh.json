@@ -498,8 +498,12 @@
   },
   "model": {
     "unknown": "未知模型",
+    "notSelected": "请选择模型",
+    "noneConfigured": "未配置模型",
+    "unavailable": "模型不可用",
     "offline": "离线",
-    "switchFailed": "切换模型失败"
+    "switchFailed": "切换模型失败",
+    "switchWhileStreaming": "回复中不能切换模型"
   },
   "splash": {
     "lines": [

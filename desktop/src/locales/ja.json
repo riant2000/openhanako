@@ -492,8 +492,12 @@
   },
   "model": {
     "unknown": "不明なモデル",
+    "notSelected": "モデルを選択",
+    "noneConfigured": "モデル未設定",
+    "unavailable": "モデルは利用できません",
     "offline": "オフライン",
-    "switchFailed": "モデルの切り替えに失敗しました"
+    "switchFailed": "モデルの切り替えに失敗しました",
+    "switchWhileStreaming": "返信中はモデルを切り替えられません"
   },
   "splash": {
     "lines": [

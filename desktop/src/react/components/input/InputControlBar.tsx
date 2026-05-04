@@ -77,7 +77,7 @@ export const InputControlBar = memo(function InputControlBar(props: Props) {
         {showThinking && (
           <ThinkingLevelButton level={thinkingLevel} onChange={onThinkingChange} modelXhigh={modelXhigh} />
         )}
-        <ModelSelector models={models} sessionModel={sessionModel} />
+        <ModelSelector models={models} sessionModel={sessionModel} isStreaming={isStreaming} />
         <SendButton isStreaming={isStreaming} hasInput={hasInput}
           disabled={isStreaming ? false : !canSend} onSend={onSend} onSteer={onSteer} onStop={onStop} />
       </div>

@@ -492,8 +492,12 @@
   },
   "model": {
     "unknown": "未知模型",
+    "notSelected": "請選擇模型",
+    "noneConfigured": "未配置模型",
+    "unavailable": "模型不可用",
     "offline": "離線",
-    "switchFailed": "切換模型失敗"
+    "switchFailed": "切換模型失敗",
+    "switchWhileStreaming": "回覆中不能切換模型"
   },
   "splash": {
     "lines": [

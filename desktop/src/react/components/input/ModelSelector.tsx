@@ -6,18 +6,30 @@ import type { Model } from '../../types';
 import type { SessionModel } from '../../stores/chat-types';
 import styles from './InputArea.module.css';
 
-export function ModelSelector({ models, sessionModel }: {
+export function ModelSelector({ models, sessionModel, isStreaming = false }: {
   models: Model[];
   sessionModel?: SessionModel;
+  isStreaming?: boolean;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  const matchedSessionModel = sessionModel
+    ? models.find(m => m.id === sessionModel.id && m.provider === sessionModel.provider)
+    : undefined;
   const current = sessionModel
-    ? { ...models.find(m => m.id === sessionModel.id && m.provider === sessionModel.provider), ...sessionModel }
+    ? (matchedSessionModel ? { ...matchedSessionModel, ...sessionModel } : sessionModel)
     : models.find(m => m.isCurrent);
+  const sessionModelUnavailable = !!(sessionModel?.id && sessionModel.provider && models.length > 0 && !matchedSessionModel);
+  const label = (() => {
+    if (loading) return '...';
+    if (sessionModelUnavailable) return t('model.unavailable') || '...';
+    if (current?.name) return current.name;
+    if (models.length > 0) return t('model.notSelected') || t('model.unknown') || '...';
+    return t('model.noneConfigured') || t('model.unknown') || '...';
+  })();
 
   // Close on outside click
   useEffect(() => {
@@ -83,12 +95,20 @@ export function ModelSelector({ models, sessionModel }: {
         useStore.setState({ models: data.models || [] });
       }
     } catch (err) {
-      console.error('[model] switch failed:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('cannot switch model while streaming')) {
+        useStore.getState().addToast(t('model.switchWhileStreaming'), 'warning', 4000, {
+          dedupeKey: 'model-switch-streaming',
+        });
+      } else {
+        console.error('[model] switch failed:', err);
+        useStore.getState().addToast(message || t('model.switchFailed'), 'error');
+      }
       setLoading(false);
       useStore.getState().setModelSwitching(false);
     }
     setOpen(false);
-  }, [models]);
+  }, [models, t]);
 
   // 按 provider 分组
   const grouped = useMemo(() => {
@@ -98,14 +118,15 @@ export function ModelSelector({ models, sessionModel }: {
       if (!groups[key]) groups[key] = [];
       groups[key].push(m);
     }
-    // 当前模型不在列表中时强制加入
-    if (current && !models.find(m => m.id === current.id && m.provider === current.provider)) {
+    // 只补入仍可用的当前模型；失效模型只作为状态展示，不塞回可选列表。
+    const currentCanBeSelected = !sessionModel || !!matchedSessionModel;
+    if (current && currentCanBeSelected && !sessionModelUnavailable && !models.find(m => m.id === current.id && m.provider === current.provider)) {
       const key = current.provider || '';
       if (!groups[key]) groups[key] = [];
       groups[key].unshift(current as typeof models[0]);
     }
     return groups;
-  }, [models, current]);
+  }, [models, current, sessionModel, matchedSessionModel, sessionModelUnavailable]);
 
   const groupKeys = Object.keys(grouped);
   const hasMultipleProviders = groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== '');
@@ -114,9 +135,19 @@ export function ModelSelector({ models, sessionModel }: {
     <div className={`${styles['model-selector']}${open ? ` ${styles.open}` : ''}`} ref={ref}>
       <button
         className={`${styles['model-pill']}${loading ? ` ${styles['model-pill-disabled']}` : ''}`}
-        onClick={(e) => { e.stopPropagation(); if (!loading) setOpen(!open); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (loading) return;
+          if (isStreaming) {
+            useStore.getState().addToast(t('model.switchWhileStreaming'), 'warning', 4000, {
+              dedupeKey: 'model-switch-streaming',
+            });
+            return;
+          }
+          setOpen(!open);
+        }}
       >
-        <span>{loading ? '...' : (current?.name || t('model.unknown') || '...')}</span>
+        <span>{label}</span>
         <span className={styles['model-arrow']}>▾</span>
       </button>
       {open && (
