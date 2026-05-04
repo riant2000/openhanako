@@ -69,19 +69,19 @@ describe("bridge media capabilities", () => {
     expect(FEISHU_MEDIA_CAPABILITIES.maxBytes.buffer.document).toBe(30 * 1024 * 1024);
   });
 
-  it("declares QQ as URL-only for group/C2C rich media and excludes documents", () => {
+  it("declares QQ as URL-only for group/C2C rich media, with C2C document support", () => {
     expect(QQ_MEDIA_CAPABILITIES).toMatchObject({
       platform: "qq",
       inputModes: ["remote_url", "public_url"],
-      supportedKinds: ["image", "video", "audio"],
+      supportedKinds: ["image", "video", "audio", "document"],
       requiresReplyContext: false,
       deliveryByKind: {
         image: "native_image",
         video: "native_video",
         audio: "native_audio",
+        document: "native_file",
       },
     });
-    expect(QQ_MEDIA_CAPABILITIES.supportedKinds).not.toContain("document");
   });
 
   it("declares WeChat iLink as reply-context bound", () => {

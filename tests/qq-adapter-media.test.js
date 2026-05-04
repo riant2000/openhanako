@@ -69,4 +69,98 @@ describe("createQQAdapter media delivery", () => {
     );
     adapter.stop();
   });
+
+  it("uses staged file metadata to choose QQ rich-media image file_type for extensionless URLs", async () => {
+    const adapter = createQQAdapter({
+      appID: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+    });
+
+    await adapter.sendMedia("user-openid", "https://hana.example.com/api/bridge/media/token_123", {
+      kind: "image",
+      mime: "image/png",
+      filename: "image.png",
+    });
+
+    const uploadCall = fetch.mock.calls.find(([url]) => String(url).includes("/v2/users/user-openid/files"));
+    expect(uploadCall).toBeTruthy();
+    expect(JSON.parse(uploadCall[1].body)).toMatchObject({
+      file_type: 1,
+      url: "https://hana.example.com/api/bridge/media/token_123",
+      srv_send_msg: false,
+    });
+    const messageCall = fetch.mock.calls.find(([url]) => String(url).includes("/v2/users/user-openid/messages"));
+    expect(JSON.parse(messageCall[1].body)).toMatchObject({
+      msg_type: 7,
+      media: { file_info: "file-info" },
+    });
+    adapter.stop();
+  });
+
+  it("sends C2C documents with QQ rich-media file_type 4", async () => {
+    const adapter = createQQAdapter({
+      appID: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+    });
+
+    await adapter.sendMedia("user-openid", "https://cdn.example.com/note.txt", {
+      kind: "document",
+      mime: "text/plain",
+      filename: "note.txt",
+    });
+
+    const uploadCall = fetch.mock.calls.find(([url]) => String(url).includes("/v2/users/user-openid/files"));
+    expect(uploadCall).toBeTruthy();
+    expect(JSON.parse(uploadCall[1].body)).toMatchObject({
+      file_type: 4,
+      url: "https://cdn.example.com/note.txt",
+      srv_send_msg: false,
+    });
+    adapter.stop();
+  });
+
+  it("uses the group rich-media endpoint directly when Bridge knows the target is a group", async () => {
+    const adapter = createQQAdapter({
+      appID: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+    });
+
+    await adapter.sendMedia("group-openid", "https://cdn.example.com/image.png", {
+      kind: "image",
+      mime: "image/png",
+      filename: "image.png",
+      isGroup: true,
+    });
+
+    expect(fetch.mock.calls.some(([url]) => String(url).includes("/v2/users/group-openid/files"))).toBe(false);
+    const uploadCall = fetch.mock.calls.find(([url]) => String(url).includes("/v2/groups/group-openid/files"));
+    expect(uploadCall).toBeTruthy();
+    expect(JSON.parse(uploadCall[1].body)).toMatchObject({ file_type: 1 });
+    adapter.stop();
+  });
+
+  it("rejects QQ group documents before upload because the official API has not opened file_type 4 for groups", async () => {
+    const adapter = createQQAdapter({
+      appID: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+    });
+
+    await expect(adapter.sendMedia("group-openid", "https://cdn.example.com/note.txt", {
+      kind: "document",
+      mime: "text/plain",
+      filename: "note.txt",
+      isGroup: true,
+    })).rejects.toThrow(/群聊.*暂不开放文件类型/);
+
+    expect(fetch.mock.calls.some(([url]) => String(url).includes("/v2/groups/group-openid/files"))).toBe(false);
+    adapter.stop();
+  });
 });

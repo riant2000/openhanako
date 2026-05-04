@@ -127,12 +127,13 @@ describe("MediaDeliveryService", () => {
     expect(adapter.sendMediaBuffer).toHaveBeenCalledOnce();
   });
 
-  it("delivers QQ images through public URL only", async () => {
+  it("delivers QQ images through public URL with original file metadata", async () => {
     const service = makeService({
       id: "sf_image",
       filename: "image.png",
       mime: "image/png",
       kind: "image",
+      size: 4,
       publicUrl: "https://cdn.example.com/image.png",
     });
     const adapter = {
@@ -148,16 +149,22 @@ describe("MediaDeliveryService", () => {
       mediaItem: { type: "session_file", fileId: "sf_image" },
     });
 
-    expect(adapter.sendMedia).toHaveBeenCalledWith("chat-1", "https://cdn.example.com/image.png");
+    expect(adapter.sendMedia).toHaveBeenCalledWith("chat-1", "https://cdn.example.com/image.png", {
+      kind: "image",
+      mime: "image/png",
+      filename: "image.png",
+      size: 4,
+    });
     expect(adapter.sendMediaBuffer).not.toHaveBeenCalled();
   });
 
-  it("rejects unsupported QQ documents before adapter calls", async () => {
+  it("delivers QQ documents through public URL for C2C-capable adapters", async () => {
     const service = makeService({
       id: "sf_doc",
       filename: "note.txt",
       mime: "text/plain",
       kind: "document",
+      size: 2,
       publicUrl: "https://cdn.example.com/note.txt",
     });
     const adapter = {
@@ -165,13 +172,49 @@ describe("MediaDeliveryService", () => {
       sendMedia: vi.fn(async () => {}),
     };
 
-    await expect(service.send({
+    await service.send({
       adapter,
       chatId: "chat-1",
       platform: "qq",
       mediaItem: { type: "session_file", fileId: "sf_doc" },
-    })).rejects.toThrow(/qq.*document/i);
-    expect(adapter.sendMedia).not.toHaveBeenCalled();
+    });
+
+    expect(adapter.sendMedia).toHaveBeenCalledWith("chat-1", "https://cdn.example.com/note.txt", {
+      kind: "document",
+      mime: "text/plain",
+      filename: "note.txt",
+      size: 2,
+    });
+  });
+
+  it("passes bridge target scope metadata to URL-only adapters", async () => {
+    const service = makeService({
+      id: "sf_image",
+      filename: "image.png",
+      mime: "image/png",
+      kind: "image",
+      publicUrl: "https://cdn.example.com/image.png",
+    });
+    const adapter = {
+      mediaCapabilities: QQ_MEDIA_CAPABILITIES,
+      sendMedia: vi.fn(async () => {}),
+    };
+
+    await service.send({
+      adapter,
+      chatId: "group-openid",
+      platform: "qq",
+      mediaItem: { type: "session_file", fileId: "sf_image" },
+      isGroup: true,
+    });
+
+    expect(adapter.sendMedia).toHaveBeenCalledWith("group-openid", "https://cdn.example.com/image.png", {
+      kind: "image",
+      mime: "image/png",
+      filename: "image.png",
+      isGroup: true,
+      targetScope: "group",
+    });
   });
 
   it("rejects QQ local images without public URL", async () => {
@@ -236,6 +279,11 @@ describe("MediaDeliveryService", () => {
     expect(adapter.sendMedia).toHaveBeenCalledWith(
       "chat-1",
       "https://hana.example.com/api/bridge/media/token_123",
+      {
+        kind: "image",
+        mime: "image/png",
+        filename: "image.png",
+      },
     );
     expect(adapter.sendMediaBuffer).not.toHaveBeenCalled();
   });

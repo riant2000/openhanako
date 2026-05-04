@@ -17,7 +17,7 @@ const TELEGRAM_CAPS = {
 };
 const QQ_CAPS = {
   inputModes: ["remote_url", "public_url"],
-  supportedKinds: ["image", "video", "audio"],
+  supportedKinds: ["image", "video", "audio", "document"],
 };
 
 describe("BridgeManager session_file media delivery", () => {
@@ -111,7 +111,11 @@ describe("BridgeManager session_file media delivery", () => {
 
     await bm._sendMediaItem(adapter, "chat-1", { type: "session_file", fileId: "sf_public" }, { platform: "qq" });
 
-    expect(adapter.sendMedia).toHaveBeenCalledWith("chat-1", "https://cdn.example.com/image.png");
+    expect(adapter.sendMedia).toHaveBeenCalledWith("chat-1", "https://cdn.example.com/image.png", {
+      kind: "image",
+      mime: "image/png",
+      filename: "image.png",
+    });
     expect(adapter.sendMediaBuffer).not.toHaveBeenCalled();
   });
 });

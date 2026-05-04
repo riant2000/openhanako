@@ -162,7 +162,11 @@ describe("BridgeManager RC attached-session routing", () => {
 
     await vi.advanceTimersByTimeAsync(2500);
 
-    expect(adapterSendMedia).toHaveBeenCalledWith("owner123", "https://example.com/a.png");
+    expect(adapterSendMedia).toHaveBeenCalledWith("owner123", "https://example.com/a.png", {
+      kind: "image",
+      isGroup: false,
+      targetScope: "dm",
+    });
   });
 
   it("streams attached desktop-session deltas through the same adapter delivery path", async () => {
