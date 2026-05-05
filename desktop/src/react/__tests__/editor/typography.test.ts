@@ -1,9 +1,18 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_EDITOR_TYPOGRAPHY,
   applyEditorTypography,
   normalizeEditorTypography,
 } from '../../editor/typography';
+
+function readPreviewStyles(): string {
+  return fs.readFileSync(
+    path.join(process.cwd(), 'desktop/src/react/components/Preview.module.css'),
+    'utf8',
+  );
+}
 
 describe('editor typography settings', () => {
   it('uses Notion-like markdown defaults and preserves future heading controls', () => {
@@ -71,5 +80,21 @@ describe('editor typography settings', () => {
     expect(style.getPropertyValue('--editor-markdown-h6-font-size')).toBe('16px');
     expect(style.getPropertyValue('--editor-markdown-line-height')).toBe('1.8');
     expect(style.getPropertyValue('--editor-markdown-content-padding-x')).toBe('28px');
+  });
+
+  it('uses the editor typography variables for markdown preview font size and weight', () => {
+    const css = readPreviewStyles();
+
+    expect(css).toMatch(/:global\(\.preview-markdown\)\s*\{[\s\S]*font-size:\s*var\(--editor-markdown-font-size\)/);
+    expect(css).toMatch(/:global\(\.preview-markdown\)\s*\{[\s\S]*font-weight:\s*400/);
+    expect(css).toMatch(/:global\(\.preview-markdown\) h1\s*\{[\s\S]*font-size:\s*var\(--editor-markdown-h1-font-size\)[\s\S]*font-weight:\s*700/);
+
+    for (const level of [2, 3, 4, 5, 6]) {
+      expect(css).toMatch(new RegExp(
+        `:global\\(\\.preview-markdown\\) h${level}\\s*\\{[\\s\\S]*font-size:\\s*var\\(--editor-markdown-h${level}-font-size\\)[\\s\\S]*font-weight:\\s*600`,
+      ));
+    }
+
+    expect(css).toMatch(/:global\(\.preview-markdown\) strong\s*\{[\s\S]*font-weight:\s*700/);
   });
 });
