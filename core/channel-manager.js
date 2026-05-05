@@ -154,6 +154,44 @@ export class ChannelManager {
     }
   }
 
+  /**
+   * 修复 agent 的频道游标投影。
+   *
+   * 频道文件 frontmatter 的 members 是成员真相源；agent 的 channels.md 只保存
+   * last-read cursor。老数据或异常中断导致 cursor 缺失时，在启动阶段补齐为
+   * never，不改频道文件，也不删除旧 cursor，避免改变用户可见历史。
+   */
+  async repairChannelCursorProjection() {
+    if (!this._channelsDir || !fs.existsSync(this._channelsDir)) return { added: 0 };
+
+    let added = 0;
+    const files = fs.readdirSync(this._channelsDir).filter(f => f.endsWith(".md"));
+    for (const f of files) {
+      const channelId = f.replace(/\.md$/, "");
+      const channelFile = path.join(this._channelsDir, f);
+      const members = getChannelMembers(channelFile);
+      for (const agentId of members) {
+        const agentDir = path.join(this._agentsDir, agentId);
+        const configPath = path.join(agentDir, "config.yaml");
+        if (!fs.existsSync(configPath)) continue;
+
+        const channelsMdPath = path.join(agentDir, "channels.md");
+        const before = fs.existsSync(channelsMdPath)
+          ? fs.readFileSync(channelsMdPath, "utf-8")
+          : "";
+        await addBookmarkEntry(channelsMdPath, channelId);
+        const after = fs.existsSync(channelsMdPath)
+          ? fs.readFileSync(channelsMdPath, "utf-8")
+          : "";
+        if (before !== after) added++;
+      }
+    }
+    if (added > 0) {
+      log.log(`已修复 ${added} 个频道游标投影`);
+    }
+    return { added };
+  }
+
   /** 清理被删频道的 bookmark（从其他 agent 和用户的 bookmark 中移除） */
   async _cleanupBookmarks(deletedChannels, excludeAgentId) {
     const agentDirs = fs.readdirSync(this._agentsDir, { withFileTypes: true })

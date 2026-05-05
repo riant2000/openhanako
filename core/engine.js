@@ -836,6 +836,7 @@ export class HanaEngine {
         await this._channels.setupChannelsForNewAgent(id);
       }
     }
+    await this._channels.repairChannelCursorProjection();
 
     // 3. ResourceLoader + Skills
     log(`[init] 3/5 ResourceLoader 初始化...`);

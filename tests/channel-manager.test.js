@@ -22,6 +22,7 @@ vi.mock("../lib/debug-log.js", () => ({
 }));
 
 import { ChannelManager } from "../core/channel-manager.js";
+import { readBookmarks } from "../lib/channels/channel-store.js";
 
 // ── Helpers ──
 
@@ -151,6 +152,24 @@ describe("ChannelManager", () => {
 
       const channelsMd = fs.readFileSync(path.join(agentDir, "channels.md"), "utf-8");
       expect(channelsMd).toContain("ch_crew");
+    });
+  });
+
+  describe("repairChannelCursorProjection", () => {
+    it("adds missing agent cursor entries from channel membership without changing channel data", async () => {
+      writeChannelMd(channelsDir, "ch_team", ["hana", "yui", "ghost"]);
+      fs.mkdirSync(path.join(agentsDir, "hana"), { recursive: true });
+      fs.writeFileSync(path.join(agentsDir, "hana", "config.yaml"), "agent:\n  name: Hana\n", "utf-8");
+      fs.writeFileSync(path.join(agentsDir, "hana", "channels.md"), "# 频道\n\n", "utf-8");
+      fs.mkdirSync(path.join(agentsDir, "yui"), { recursive: true });
+      fs.writeFileSync(path.join(agentsDir, "yui", "config.yaml"), "agent:\n  name: Yui\n", "utf-8");
+
+      await manager.repairChannelCursorProjection();
+
+      expect(readBookmarks(path.join(agentsDir, "hana", "channels.md")).get("ch_team")).toBe("never");
+      expect(readBookmarks(path.join(agentsDir, "yui", "channels.md")).get("ch_team")).toBe("never");
+      expect(fs.existsSync(path.join(agentsDir, "ghost", "channels.md"))).toBe(false);
+      expect(readMembers(channelsDir, "ch_team")).toEqual(["hana", "yui", "ghost"]);
     });
   });
 

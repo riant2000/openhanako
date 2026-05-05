@@ -110,7 +110,7 @@ export class ChannelRouter {
 
   // ──────────── 频道 Agent 顺序 ────────────
 
-  /** 获取参与频道轮转的 agent 列表（只含有 channels.md 的，30s TTL 缓存） */
+  /** 获取频道轮转候选 agent 列表；具体频道 membership 由 channel frontmatter 决定 */
   getAgentOrder() {
     const now = Date.now();
     if (this._agentOrderCache && now - this._agentOrderCache.ts < ChannelRouter._AGENT_ORDER_TTL) {
@@ -121,8 +121,8 @@ export class ChannelRouter {
       const list = entries
         .filter(e => e.isDirectory())
         .filter(e => {
-          const channelsMd = path.join(this._engine.agentsDir, e.name, "channels.md");
-          return fs.existsSync(channelsMd);
+          const configPath = path.join(this._engine.agentsDir, e.name, "config.yaml");
+          return fs.existsSync(configPath);
         })
         .map(e => e.name);
       this._agentOrderCache = { list, ts: now };
