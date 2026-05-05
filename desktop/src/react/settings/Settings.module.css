@@ -176,13 +176,14 @@
     top: 0;
     z-index: 3;
     display: block;
-    height: 18px;
-    margin-bottom: -18px;
+    height: 12px;
+    margin-bottom: -12px;
     pointer-events: none;
+    transform: translateY(-14px);
     background: linear-gradient(
         to bottom,
-        color-mix(in srgb, var(--bg) 96%, transparent),
-        color-mix(in srgb, var(--bg) 62%, transparent) 54%,
+        color-mix(in srgb, var(--bg) 88%, transparent),
+        color-mix(in srgb, var(--bg) 42%, transparent) 46%,
         transparent
     );
 }
