@@ -885,6 +885,9 @@ export class HanaEngine {
               || findUniqueModelById(this._models.availableModels, p.model)
               || null;
             const reasoningLevel = resolveRequestReasoningLevel(this._models, this._prefs, ctx);
+            // The SDK hook exposes the serialized body, but not whether maxTokens came
+            // from user intent or buildBaseOptions' model-derived default. Keep source
+            // unspecified here; output-budget removes only values matching that SDK default.
             return normalizeProviderPayload(p, requestModel, { mode: "chat", reasoningLevel });
           });
         },

@@ -18,6 +18,8 @@ const DEFAULT_OUTPUT_CAP_CAPABILITY = Object.freeze({
   required: false,
   preserveImplicitSdkDefault: false,
 });
+const OUTPUT_BUDGET_SOURCE_UNSPECIFIED = "unspecified";
+const PRESERVED_OUTPUT_BUDGET_SOURCES = new Set(["user", "system"]);
 
 function lower(value) {
   return typeof value === "string" ? value.toLowerCase() : "";
@@ -87,18 +89,32 @@ function isImplicitSdkOutputCap(value, model) {
   return positiveInteger(value) === Math.min(modelLimit, SDK_IMPLICIT_MAX_TOKENS_CAP);
 }
 
-function getOutputBudgetSource(options = {}) {
+function resolveOutputBudgetSource(options = {}) {
   const outputBudgetSource = lower(options.outputBudgetSource);
   if (outputBudgetSource) return outputBudgetSource;
   const maxTokensSource = lower(options.maxTokensSource);
   if (maxTokensSource) return maxTokensSource;
   if (positiveInteger(options.userMaxTokens) !== null) return "user";
-  return "";
+  return OUTPUT_BUDGET_SOURCE_UNSPECIFIED;
 }
 
-function shouldPreserveForSource(options = {}) {
-  const source = getOutputBudgetSource(options);
-  return source === "user" || source === "system";
+export function resolveOutputBudgetPolicy(model, options = {}) {
+  const mode = options.mode || "chat";
+  const source = resolveOutputBudgetSource(options);
+  const capability = resolveOutputCapCapability(model);
+  const preserveForSource = PRESERVED_OUTPUT_BUDGET_SOURCES.has(source);
+  const removeImplicitSdkDefault = mode !== "utility"
+    && !preserveForSource
+    && !capability.required
+    && !capability.preserveImplicitSdkDefault;
+
+  return {
+    mode,
+    source,
+    capability,
+    preserveForSource,
+    removeImplicitSdkDefault,
+  };
 }
 
 /**
@@ -108,11 +124,8 @@ function shouldPreserveForSource(options = {}) {
  */
 export function normalizeImplicitOutputBudget(payload, model, options = {}) {
   if (!payload || typeof payload !== "object") return payload;
-  if (options.mode === "utility") return payload;
-  if (shouldPreserveForSource(options)) return payload;
-
-  const outputCap = resolveOutputCapCapability(model);
-  if (outputCap.required || outputCap.preserveImplicitSdkDefault) return payload;
+  const policy = resolveOutputBudgetPolicy(model, options);
+  if (!policy.removeImplicitSdkDefault) return payload;
 
   let next = payload;
   for (const field of OUTPUT_CAP_FIELDS) {

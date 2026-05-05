@@ -24,15 +24,29 @@ export const getToolArgs = (b) => b.input || b.arguments;
  * @param {Array} opts.messages
  * @param {number} [opts.temperature=0.3]
  * @param {number} [opts.max_tokens=100]
+ * @param {"user"|"system"|"sdk-default"} [opts.outputBudgetSource=system]
  * @returns {Promise<string|null>} 回复文本
  */
-async function callLlm({ model, api, api_key, base_url, messages, temperature = 0.3, max_tokens = 100, timeoutMs, signal, quirks }) {
+async function callLlm({
+  model,
+  api,
+  api_key,
+  base_url,
+  messages,
+  temperature = 0.3,
+  max_tokens = 100,
+  outputBudgetSource = "system",
+  timeoutMs,
+  signal,
+  quirks,
+}) {
   return callText({
     api, model,
     apiKey: api_key,
     baseUrl: base_url,
     messages, temperature,
     maxTokens: max_tokens,
+    outputBudgetSource,
     ...(timeoutMs != null && { timeoutMs }),
     ...(signal != null && { signal }),
     ...(quirks != null && { quirks }),
