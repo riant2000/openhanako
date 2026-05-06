@@ -2572,6 +2572,18 @@ wrapIpcBestEffortHandler("show-in-finder", (_event, filePath) => {
   shell.showItemInFolder(filePath);
 });
 
+wrapIpcBestEffortHandler("trash-item", async (_event, filePath) => {
+  if (!filePath || !path.isAbsolute(filePath)) return false;
+  try {
+    fs.lstatSync(filePath);
+    await shell.trashItem(filePath);
+    return true;
+  } catch (err) {
+    console.warn("[trash-item] failed:", err?.message || err);
+    return false;
+  }
+});
+
 wrapIpcBestEffortHandler("open-file", (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return;
   try {

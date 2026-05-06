@@ -1348,10 +1348,16 @@
       "rename": "Rename",
       "copyPath": "Copy Path",
       "delete": "Delete",
+      "deleteSelected": "Delete {count} items",
       "deleteN": "Delete {n} items",
       "newMdFile": "New Markdown Document",
       "newFolder": "New Folder"
     },
+    "deleteConfirm": "Move \"{name}\" to the system Trash?",
+    "deleteSelectedConfirm": "Move {count} selected items to the system Trash?",
+    "trashFailed": "Failed to move item to the system Trash",
+    "renameInvalid": "File names cannot contain path separators",
+    "renameFailed": "Rename failed",
     "sort": {
       "label": "Sort",
       "mtime": "Modified",

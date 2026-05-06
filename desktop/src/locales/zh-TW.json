@@ -1303,10 +1303,16 @@
       "rename": "重新命名",
       "copyPath": "複製路徑",
       "delete": "刪除",
+      "deleteSelected": "刪除 {count} 項",
       "deleteN": "刪除 {n} 項",
       "newMdFile": "新建 Markdown 文件",
       "newFolder": "新建資料夾"
     },
+    "deleteConfirm": "要把「{name}」移到系統垃圾桶嗎？",
+    "deleteSelectedConfirm": "要把選取的 {count} 項移到系統垃圾桶嗎？",
+    "trashFailed": "移到系統垃圾桶失敗",
+    "renameInvalid": "檔名不能包含路徑分隔符",
+    "renameFailed": "重新命名失敗",
     "sort": {
       "label": "排序",
       "mtime": "修改時間",

@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld("hana", {
   openFile: (path) => ipcRenderer.invoke("open-file", path),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   showInFinder: (path) => ipcRenderer.invoke("show-in-finder", path),
+  trashItem: (path) => ipcRenderer.invoke("trash-item", path),
   readFile: (path) => ipcRenderer.invoke("read-file", path),
   writeFile: (filePath, content) => ipcRenderer.invoke("write-file", filePath, content),
   readFileSnapshot: (path) => ipcRenderer.invoke("read-file-snapshot", path),

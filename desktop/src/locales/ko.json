@@ -1303,10 +1303,16 @@
       "rename": "이름 변경",
       "copyPath": "경로 복사",
       "delete": "삭제",
+      "deleteSelected": "{count}개 항목 삭제",
       "deleteN": "{n}개 항목 삭제",
       "newMdFile": "새 Markdown 문서",
       "newFolder": "새 폴더"
     },
+    "deleteConfirm": "\"{name}\"을 시스템 휴지통으로 이동할까요?",
+    "deleteSelectedConfirm": "선택한 {count}개 항목을 시스템 휴지통으로 이동할까요?",
+    "trashFailed": "시스템 휴지통으로 이동하지 못했습니다",
+    "renameInvalid": "파일 이름에는 경로 구분자를 사용할 수 없습니다",
+    "renameFailed": "이름 변경 실패",
     "sort": {
       "label": "정렬",
       "mtime": "수정일",

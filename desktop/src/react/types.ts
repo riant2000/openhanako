@@ -206,6 +206,7 @@ export interface PlatformApi {
   openFile(path: string): void;
   openExternal(url: string): void;
   showInFinder(path: string): void;
+  trashItem?(path: string): Promise<boolean>;
   browserEmergencyStop?(): void;
   openSkillViewer?(opts: { skillPath?: string; name?: string; baseDir?: string; filePath?: string; installed?: boolean }): void;
   settingsChanged(event: string, payload?: unknown): void;

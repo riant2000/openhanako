@@ -208,6 +208,94 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().activeTabId).toBe('previewItem-a');
   });
 
+  it('renames a tree item by explicit parent subdir and updates that tree cache', async () => {
+    useStore.setState({
+      deskBasePath: '/workspace',
+      deskCurrentPath: '',
+      deskTreeFilesByPath: {
+        '': [{ name: 'notes', isDir: true }],
+        notes: [{ name: 'chapter.md', isDir: false }],
+      },
+      deskFiles: [{ name: 'notes', isDir: true }],
+    } as never);
+    mockHanaFetch.mockResolvedValueOnce(jsonResponse({
+      ok: true,
+      files: [{ name: 'renamed.md', isDir: false }],
+    }));
+
+    const { deskRenameTreeItem } = await import('../../stores/desk-actions');
+    const ok = await deskRenameTreeItem('notes', 'chapter.md', 'renamed.md', false);
+
+    expect(ok).toBe(true);
+    expect(mockHanaFetch).toHaveBeenCalledWith('/api/desk/files', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'rename',
+        dir: '/workspace',
+        subdir: 'notes',
+        oldName: 'chapter.md',
+        newName: 'renamed.md',
+      }),
+    }));
+    expect(useStore.getState().deskTreeFilesByPath.notes).toEqual([{ name: 'renamed.md', isDir: false }]);
+  });
+
+  it('renames expanded folder cache keys when a tree folder is renamed', async () => {
+    useStore.setState({
+      deskBasePath: '/workspace',
+      deskCurrentPath: '',
+      deskTreeFilesByPath: {
+        '': [{ name: 'notes', isDir: true }],
+        notes: [{ name: 'chapter.md', isDir: false }],
+        'notes/deep': [{ name: 'leaf.md', isDir: false }],
+      },
+      deskExpandedPaths: ['notes', 'notes/deep'],
+      deskSelectedPath: 'notes/deep/leaf.md',
+      deskFiles: [{ name: 'notes', isDir: true }],
+    } as never);
+    mockHanaFetch.mockResolvedValueOnce(jsonResponse({
+      ok: true,
+      files: [{ name: 'renamed', isDir: true }],
+    }));
+
+    const { deskRenameTreeItem } = await import('../../stores/desk-actions');
+    const ok = await deskRenameTreeItem('', 'notes', 'renamed', true);
+
+    expect(ok).toBe(true);
+    expect(useStore.getState().deskTreeFilesByPath['renamed/deep']).toEqual([{ name: 'leaf.md', isDir: false }]);
+    expect(useStore.getState().deskTreeFilesByPath.notes).toBeUndefined();
+    expect(useStore.getState().deskExpandedPaths).toEqual(['renamed', 'renamed/deep']);
+    expect(useStore.getState().deskSelectedPath).toBe('renamed/deep/leaf.md');
+  });
+
+  it('trashes tree items through the platform trash API and refreshes affected parents', async () => {
+    const trashItem = vi.fn(async () => true);
+    (globalThis as any).window.platform = { trashItem };
+    useStore.setState({
+      deskBasePath: '/workspace',
+      deskCurrentPath: '',
+      deskTreeFilesByPath: {
+        '': [{ name: 'notes', isDir: true }],
+        notes: [{ name: 'chapter.md', isDir: false }],
+      },
+      deskExpandedPaths: ['notes'],
+    } as never);
+    mockHanaFetch.mockResolvedValueOnce(jsonResponse({
+      files: [],
+      basePath: '/workspace',
+    }));
+
+    const { deskTrashTreeItems } = await import('../../stores/desk-actions');
+    const ok = await deskTrashTreeItems([
+      { sourceSubdir: 'notes', name: 'chapter.md', isDirectory: false },
+    ]);
+
+    expect(ok).toBe(true);
+    expect(trashItem).toHaveBeenCalledWith('/workspace/notes/chapter.md');
+    expect(mockHanaFetch).toHaveBeenCalledWith('/api/desk/files?dir=%2Fworkspace&subdir=notes');
+    expect(useStore.getState().deskTreeFilesByPath.notes).toEqual([]);
+  });
+
   it('keeps right Jian drawer state keyed by workspace root and collapses unseen roots', async () => {
     useStore.setState({
       deskBasePath: '/workspace-a',

@@ -180,13 +180,43 @@ function deskTreeLoadKey(root: string | undefined, subdir: string): string {
   return `${root || ''}\n${subdir}`;
 }
 
+function normalizeSubdir(value: string | null | undefined): string {
+  return (value || '').replace(/^\/+|\/+$/g, '');
+}
+
+function childSubdir(parent: string, name: string): string {
+  const normalized = normalizeSubdir(parent);
+  return normalized ? `${normalized}/${name}` : name;
+}
+
+function replaceSubdirPrefix(value: string, oldPrefix: string, newPrefix: string): string {
+  if (value === oldPrefix) return newPrefix;
+  if (value.startsWith(`${oldPrefix}/`)) return `${newPrefix}${value.slice(oldPrefix.length)}`;
+  return value;
+}
+
+function removeSubdirPrefix(value: string, prefix: string): boolean {
+  return value === prefix || value.startsWith(`${prefix}/`);
+}
+
+function isPlainFileName(value: string): boolean {
+  return !!value && !value.includes('/') && !value.includes('\\') && value !== '.' && value !== '..';
+}
+
+function joinDeskPath(basePath: string, subdir: string, name: string): string {
+  const separator = basePath.includes('\\') && !basePath.includes('/') ? '\\' : '/';
+  const base = basePath.replace(/[\\/]+$/g, '');
+  const parts = normalizeSubdir(subdir).split('/').filter(Boolean);
+  return [base, ...parts, name].join(separator);
+}
+
 export async function loadDeskTreeFiles(subdir = '', options: { force?: boolean; overrideDir?: string | null } = {}): Promise<void> {
   const s = useStore.getState();
   if (!s.serverPort) return;
   const dir = options.overrideDir !== undefined
     ? (options.overrideDir || undefined)
     : defaultDeskRoot(s);
-  const normalizedSubdir = subdir.replace(/^\/+|\/+$/g, '');
+  const normalizedSubdir = normalizeSubdir(subdir);
   const cached = s.deskTreeFilesByPath?.[normalizedSubdir];
   if (cached && !options.force) return;
 
@@ -206,6 +236,7 @@ export async function loadDeskTreeFiles(subdir = '', options: { force?: boolean;
     const st = useStore.getState();
     if (data.basePath) st.setDeskBasePath(data.basePath);
     st.setDeskTreeFiles(normalizedSubdir, data.files || []);
+    if ((st.deskCurrentPath || '') === normalizedSubdir) st.setDeskFiles(data.files || []);
   } catch (err) {
     console.error('[desk-tree] load failed:', err);
     if (_deskTreeLoadVersion.get(key) !== myVersion) return;
@@ -344,6 +375,38 @@ export interface DeskTreeMoveItem {
   isDirectory?: boolean;
 }
 
+function applyRenamedDirectoryCache(oldSubdir: string, newSubdir: string): void {
+  useStore.setState((s: any) => {
+    const nextTree: Record<string, DeskFile[]> = {};
+    for (const [key, files] of Object.entries(s.deskTreeFilesByPath || {})) {
+      const nextKey = replaceSubdirPrefix(key, oldSubdir, newSubdir);
+      nextTree[nextKey] = files as DeskFile[];
+    }
+    return {
+      deskTreeFilesByPath: nextTree,
+      deskExpandedPaths: (s.deskExpandedPaths || []).map((path: string) => replaceSubdirPrefix(path, oldSubdir, newSubdir)),
+      deskSelectedPath: replaceSubdirPrefix(s.deskSelectedPath || '', oldSubdir, newSubdir),
+      deskCurrentPath: replaceSubdirPrefix(s.deskCurrentPath || '', oldSubdir, newSubdir),
+    };
+  });
+}
+
+function pruneRemovedDirectoryCache(removedSubdirs: string[]): void {
+  if (removedSubdirs.length === 0) return;
+  useStore.setState((s: any) => {
+    const nextTree: Record<string, DeskFile[]> = {};
+    for (const [key, files] of Object.entries(s.deskTreeFilesByPath || {})) {
+      if (removedSubdirs.some(prefix => removeSubdirPrefix(key, prefix))) continue;
+      nextTree[key] = files as DeskFile[];
+    }
+    return {
+      deskTreeFilesByPath: nextTree,
+      deskExpandedPaths: (s.deskExpandedPaths || []).filter((path: string) => !removedSubdirs.some(prefix => removeSubdirPrefix(path, prefix))),
+      deskSelectedPath: removedSubdirs.some(prefix => removeSubdirPrefix(s.deskSelectedPath || '', prefix)) ? '' : s.deskSelectedPath,
+    };
+  });
+}
+
 export async function deskMoveTreeFiles(items: DeskTreeMoveItem[], destSubdir: string): Promise<void> {
   const s = useStore.getState();
   if (items.length === 0) return;
@@ -379,6 +442,79 @@ export async function deskMoveTreeFiles(items: DeskTreeMoveItem[], destSubdir: s
   } catch (err) {
     console.error('[jian-desk] tree move failed:', err);
   }
+}
+
+export async function deskRenameTreeItem(sourceSubdir: string, oldName: string, newName: string, isDirectory = false): Promise<boolean> {
+  const s = useStore.getState();
+  const normalizedSource = normalizeSubdir(sourceSubdir);
+  const trimmed = newName.trim();
+  if (!isPlainFileName(oldName) || !isPlainFileName(trimmed)) return false;
+  if (oldName === trimmed) return true;
+  try {
+    const res = await hanaFetch('/api/desk/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'rename',
+        dir: s.deskBasePath || undefined,
+        subdir: normalizedSource,
+        oldName,
+        newName: trimmed,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) { console.error('[desk] tree rename error:', data.error); return false; }
+    if (isDirectory) {
+      applyRenamedDirectoryCache(childSubdir(normalizedSource, oldName), childSubdir(normalizedSource, trimmed));
+    }
+    if (data.files) {
+      const st = useStore.getState();
+      st.setDeskTreeFiles(normalizedSource, data.files);
+      if ((st.deskCurrentPath || '') === normalizedSource) st.setDeskFiles(data.files);
+    }
+    return true;
+  } catch (err) {
+    console.error('[desk] tree rename failed:', err);
+    return false;
+  }
+}
+
+export async function deskTrashTreeItems(items: DeskTreeMoveItem[]): Promise<boolean> {
+  const s = useStore.getState();
+  const trashItem = window.platform?.trashItem;
+  if (!trashItem) {
+    console.error('[desk] system trash is not available');
+    return false;
+  }
+  if (!s.deskBasePath || items.length === 0) return false;
+
+  const affectedParents = new Set<string>();
+  const removedDirs: string[] = [];
+  const paths = items.map(item => ({
+    ...item,
+    sourceSubdir: normalizeSubdir(item.sourceSubdir),
+    path: joinDeskPath(s.deskBasePath, item.sourceSubdir, item.name),
+  }));
+
+  let trashedCount = 0;
+  try {
+    for (const item of paths) {
+      if (!isPlainFileName(item.name)) break;
+      const ok = await trashItem(item.path);
+      if (!ok) break;
+      trashedCount += 1;
+      affectedParents.add(item.sourceSubdir);
+      if (item.isDirectory) removedDirs.push(childSubdir(item.sourceSubdir, item.name));
+    }
+  } catch (err) {
+    console.error('[desk] tree trash failed:', err);
+  } finally {
+    pruneRemovedDirectoryCache(removedDirs);
+    for (const parent of affectedParents) {
+      await loadDeskTreeFiles(parent, { force: true });
+    }
+  }
+  return trashedCount === paths.length;
 }
 
 export async function deskRemoveFile(name: string): Promise<void> {

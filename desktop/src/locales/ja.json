@@ -1303,10 +1303,16 @@
       "rename": "名前を変更",
       "copyPath": "パスをコピー",
       "delete": "削除",
+      "deleteSelected": "{count} 件を削除",
       "deleteN": "{n} 件を削除",
       "newMdFile": "新しい Markdown ドキュメント",
       "newFolder": "新しいフォルダ"
     },
+    "deleteConfirm": "「{name}」をシステムのゴミ箱に移動しますか？",
+    "deleteSelectedConfirm": "選択した {count} 件をシステムのゴミ箱に移動しますか？",
+    "trashFailed": "システムのゴミ箱への移動に失敗しました",
+    "renameInvalid": "ファイル名にパス区切り文字は使えません",
+    "renameFailed": "名前の変更に失敗しました",
     "sort": {
       "label": "並べ替え",
       "mtime": "更新日",

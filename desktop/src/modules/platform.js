@@ -65,6 +65,7 @@
     openFile: () => {},
     openExternal: (url) => { try { window.open(url, "_blank"); } catch {} },
     showInFinder: () => {},
+    trashItem: async () => false,
     startDrag: () => {},
 
     // 窗口管理 → 单页降级

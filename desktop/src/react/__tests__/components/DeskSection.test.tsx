@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   loadDeskFiles: vi.fn(async () => {}),
   loadDeskTreeFiles: vi.fn(async () => {}),
   deskMoveTreeFiles: vi.fn(async () => {}),
+  deskRenameTreeItem: vi.fn(async () => true),
+  deskTrashTreeItems: vi.fn(async () => true),
 }));
 
 vi.mock('../../stores/desk-actions', async (importOriginal) => {
@@ -20,6 +22,8 @@ vi.mock('../../stores/desk-actions', async (importOriginal) => {
     loadDeskFiles: mocks.loadDeskFiles,
     loadDeskTreeFiles: mocks.loadDeskTreeFiles,
     deskMoveTreeFiles: mocks.deskMoveTreeFiles,
+    deskRenameTreeItem: mocks.deskRenameTreeItem,
+    deskTrashTreeItems: mocks.deskTrashTreeItems,
   };
 });
 
@@ -56,7 +60,9 @@ describe('DeskSection directory watching', () => {
         emitFileChanged = callback;
       }),
       startDrag: vi.fn(),
+      trashItem: vi.fn(async () => true),
     } as unknown as typeof window.platform;
+    window.confirm = vi.fn(() => true);
     useStore.setState({
       serverPort: 62950,
       deskBasePath: '/tmp/hana-desk',
@@ -221,6 +227,74 @@ describe('DeskSection directory watching', () => {
       '/tmp/hana-desk/d.md',
     ]);
     clearAppFileDragPayload();
+  });
+
+  it('renames a tree item from the context menu', async () => {
+    useStore.setState({
+      deskCurrentPath: '',
+      deskTreeFilesByPath: {
+        '': [{ name: 'notes', isDir: true }],
+        notes: [{ name: 'chapter.md', isDir: false }],
+      },
+      deskExpandedPaths: ['notes'],
+      deskSelectedPath: '',
+    } as never);
+    const { DeskSection } = await import('../../components/DeskSection');
+
+    render(<DeskSection />);
+
+    const chapter = screen.getByRole('treeitem', { name: /chapter.md/ });
+    fireEvent.contextMenu(chapter, { clientX: 10, clientY: 20 });
+    fireEvent.click(screen.getByText('desk.ctx.rename'));
+    const input = screen.getByDisplayValue('chapter.md');
+    fireEvent.change(input, { target: { value: 'renamed.md' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(mocks.deskRenameTreeItem).toHaveBeenCalledWith('notes', 'chapter.md', 'renamed.md', false);
+  });
+
+  it('starts inline rename for the selected tree item when Enter is pressed', async () => {
+    useStore.setState({
+      deskCurrentPath: '',
+      deskTreeFilesByPath: {
+        '': [{ name: 'chapter.md', isDir: false }],
+      },
+      deskExpandedPaths: [],
+      deskSelectedPath: '',
+    } as never);
+    const { DeskSection } = await import('../../components/DeskSection');
+
+    render(<DeskSection />);
+
+    const chapter = screen.getByRole('treeitem', { name: /chapter.md/ });
+    fireEvent.click(chapter);
+    fireEvent.keyDown(chapter, { key: 'Enter' });
+
+    expect(screen.getByDisplayValue('chapter.md')).toBeTruthy();
+  });
+
+  it('sends context-menu deletes through the system trash action', async () => {
+    useStore.setState({
+      deskCurrentPath: '',
+      deskTreeFilesByPath: {
+        '': [{ name: 'notes', isDir: true }],
+        notes: [{ name: 'chapter.md', isDir: false }],
+      },
+      deskExpandedPaths: ['notes'],
+      deskSelectedPath: '',
+    } as never);
+    const { DeskSection } = await import('../../components/DeskSection');
+
+    render(<DeskSection />);
+
+    const chapter = screen.getByRole('treeitem', { name: /chapter.md/ });
+    fireEvent.contextMenu(chapter, { clientX: 10, clientY: 20 });
+    fireEvent.click(screen.getByText('desk.ctx.delete'));
+
+    expect(window.confirm).toHaveBeenCalled();
+    expect(mocks.deskTrashTreeItems).toHaveBeenCalledWith([
+      { sourceSubdir: 'notes', name: 'chapter.md', isDirectory: false },
+    ]);
   });
 
   it('marks the right workspace card with the Jian drawer state for overlay layout', async () => {

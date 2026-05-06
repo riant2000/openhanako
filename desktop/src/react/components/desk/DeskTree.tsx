@@ -5,11 +5,13 @@
  * never derives ownership from the current focused file or session.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useStore } from '../../stores';
 import {
   deskMoveTreeFiles,
+  deskRenameTreeItem,
+  deskTrashTreeItems,
   deskUploadFilesToSubdir,
   loadDeskTreeFiles,
 } from '../../stores/desk-actions';
@@ -136,6 +138,66 @@ function TreeDisclosureIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
+function dispatchDeskNotice(text: string): void {
+  window.dispatchEvent(new CustomEvent('hana-inline-notice', {
+    detail: { text, type: 'error' },
+  }));
+}
+
+function RenameInput({
+  initialValue,
+  onCommit,
+  onCancel,
+}: {
+  initialValue: string;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const finishedRef = useRef(false);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+  }, []);
+
+  return (
+    <input
+      ref={inputRef}
+      className={s.renameInput}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onBlur={() => {
+        if (finishedRef.current) return;
+        finishedRef.current = true;
+        onCommit(value);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.stopPropagation();
+          if (finishedRef.current) return;
+          finishedRef.current = true;
+          onCommit(value);
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          finishedRef.current = true;
+          onCancel();
+        }
+      }}
+    />
+  );
+}
+
 function TreeNode({
   file,
   parent,
@@ -145,6 +207,10 @@ function TreeNode({
   selectedPaths,
   onSelect,
   getDragEntries,
+  renamingPath,
+  onBeginRename,
+  onCommitRename,
+  onCancelRename,
 }: {
   file: DeskFile;
   parent: string;
@@ -154,6 +220,10 @@ function TreeNode({
   selectedPaths: Set<string>;
   onSelect: (subdir: string, meta: TreeSelectMeta) => void;
   getDragEntries: (subdir: string) => VisibleTreeEntry[];
+  renamingPath: string | null;
+  onBeginRename: (subdir: string) => void;
+  onCommitRename: (entry: VisibleTreeEntry, newName: string) => Promise<void>;
+  onCancelRename: () => void;
 }) {
   const deskBasePath = useStore(st => st.deskBasePath);
   const treeFilesByPath = useStore(st => st.deskTreeFilesByPath);
@@ -165,6 +235,7 @@ function TreeNode({
   const children = treeFilesByPath[subdir] || [];
   const t = window.t ?? ((p: string) => p);
   const [dropTarget, setDropTarget] = useState(false);
+  const isRenaming = renamingPath === subdir;
 
   useEffect(() => {
     if (!dropTarget) return undefined;
@@ -207,6 +278,10 @@ function TreeNode({
     e.stopPropagation();
     if (!selectedPaths.has(subdir)) onSelect(subdir, { multi: false, shift: false });
     const path = fullPath(deskBasePath, subdir);
+    const actionEntries = getDragEntries(subdir);
+    const deleteLabel = actionEntries.length > 1
+      ? t('desk.ctx.deleteSelected', { count: actionEntries.length })
+      : t('desk.ctx.delete');
     onShowMenu({
       position: { x: e.clientX, y: e.clientY },
       items: [
@@ -223,9 +298,42 @@ function TreeNode({
         },
         { label: t('desk.ctx.openInFinder'), action: () => window.platform?.showInFinder?.(path) },
         { label: t('desk.ctx.copyPath'), action: () => navigator.clipboard.writeText(path).catch(() => {}) },
+        { divider: true },
+        {
+          label: t('desk.ctx.rename'),
+          disabled: actionEntries.length !== 1,
+          action: () => onBeginRename(subdir),
+        },
+        {
+          label: deleteLabel,
+          danger: true,
+          disabled: actionEntries.length === 0 || !window.platform?.trashItem,
+          action: async () => {
+            const confirmed = window.confirm?.(
+              actionEntries.length > 1
+                ? t('desk.deleteSelectedConfirm', { count: actionEntries.length })
+                : t('desk.deleteConfirm', { name: file.name }),
+            ) ?? false;
+            if (!confirmed) return;
+            const ok = await deskTrashTreeItems(actionEntries.map(entry => ({
+              sourceSubdir: entry.parent,
+              name: entry.file.name,
+              isDirectory: entry.file.isDir,
+            })));
+            if (!ok) dispatchDeskNotice(t('desk.trashFailed'));
+          },
+        },
       ],
     });
-  }, [deskBasePath, expandedPaths, file.isDir, onSelect, onShowMenu, selectedPaths, setDeskExpandedPaths, subdir, t]);
+  }, [deskBasePath, expandedPaths, file.isDir, file.name, getDragEntries, onBeginRename, onSelect, onShowMenu, selectedPaths, setDeskExpandedPaths, subdir, t]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (event.key !== 'Enter' || isRenaming) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect(subdir, { multi: false, shift: false });
+    onBeginRename(subdir);
+  }, [isRenaming, onBeginRename, onSelect, subdir]);
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     e.stopPropagation();
@@ -305,6 +413,8 @@ function TreeNode({
         onClick={handleClick}
         onDoubleClick={openFile}
         onContextMenu={handleContextMenu}
+        onKeyDown={handleKeyDown}
+        tabIndex={selected ? 0 : -1}
         draggable
         onDragStart={handleDragStart}
         onDragOver={file.isDir ? handleDragOver : undefined}
@@ -319,7 +429,15 @@ function TreeNode({
           className={s.itemIcon}
           dangerouslySetInnerHTML={{ __html: file.isDir ? ICONS.folder : getFileIcon(file.name) }}
         />
-        <span className={s.itemName} title={file.name}>{file.name}</span>
+        {isRenaming ? (
+          <RenameInput
+            initialValue={file.name}
+            onCommit={(newName) => void onCommitRename({ file, parent, subdir, depth }, newName)}
+            onCancel={onCancelRename}
+          />
+        ) : (
+          <span className={s.itemName} title={file.name}>{file.name}</span>
+        )}
       </div>
       {expanded && children.length > 0 && (
         <div role="group" className={s.treeGroup}>
@@ -334,6 +452,10 @@ function TreeNode({
               selectedPaths={selectedPaths}
               onSelect={onSelect}
               getDragEntries={getDragEntries}
+              renamingPath={renamingPath}
+              onBeginRename={onBeginRename}
+              onCommitRename={onCommitRename}
+              onCancelRename={onCancelRename}
             />
           ))}
         </div>
@@ -358,6 +480,7 @@ export function DeskTree({ sortMode, onShowMenu }: {
   );
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (!deskBasePath) return;
@@ -412,6 +535,41 @@ export function DeskTree({ sortMode, onShowMenu }: {
     return compactDragEntries(entries);
   }, [selectedPaths, visibleEntries]);
 
+  const beginRename = useCallback((subdir: string) => {
+    setSelectedPaths(new Set([subdir]));
+    setSelectionAnchor(subdir);
+    setDeskSelectedPath(subdir);
+    setRenamingPath(subdir);
+  }, [setDeskSelectedPath]);
+
+  const cancelRename = useCallback(() => {
+    setRenamingPath(null);
+  }, []);
+
+  const commitRename = useCallback(async (entry: VisibleTreeEntry, nextName: string) => {
+    const trimmed = nextName.trim();
+    if (!trimmed || trimmed === entry.file.name) {
+      setRenamingPath(null);
+      return;
+    }
+    if (trimmed.includes('/') || trimmed.includes('\\')) {
+      dispatchDeskNotice(window.t?.('desk.renameInvalid') || 'desk.renameInvalid');
+      setRenamingPath(null);
+      return;
+    }
+    const ok = await deskRenameTreeItem(entry.parent, entry.file.name, trimmed, entry.file.isDir);
+    if (!ok) {
+      dispatchDeskNotice(window.t?.('desk.renameFailed') || 'desk.renameFailed');
+      setRenamingPath(null);
+      return;
+    }
+    const nextSubdir = childSubdir(entry.parent, trimmed);
+    setSelectedPaths(new Set([nextSubdir]));
+    setSelectionAnchor(nextSubdir);
+    setDeskSelectedPath(nextSubdir);
+    setRenamingPath(null);
+  }, [setDeskSelectedPath]);
+
   return (
     <div className={s.tree} role="tree" data-desk-tree="" data-empty-text={window.t?.('common.noFiles') || ''}>
       {sortedRootFiles.map(file => (
@@ -425,6 +583,10 @@ export function DeskTree({ sortMode, onShowMenu }: {
           selectedPaths={selectedPaths}
           onSelect={selectTreePath}
           getDragEntries={getDragEntries}
+          renamingPath={renamingPath}
+          onBeginRename={beginRename}
+          onCommitRename={commitRename}
+          onCancelRename={cancelRename}
         />
       ))}
     </div>
